@@ -2,6 +2,11 @@
   "name": "@bungres/orm",
   "version": "0.3.0",
   "description": "Type-safe ORM for Postgres using Bun native SQL",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.0.0",
+    "bun": ">=1.3.0"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,7 +19,6 @@
   },
   "files": [
     "dist",
-    "src",
     "README.md",
     "LICENSE"
   ],
@@ -24,6 +28,18 @@
     "url": "https://github.com/bungres/bungres.git",
     "directory": "packages/@bungres/orm"
   },
+  "bugs": {
+    "url": "https://github.com/bungres/bungres/issues"
+  },
+  "homepage": "https://github.com/bungres/bungres#readme",
+  "keywords": [
+    "bun",
+    "postgres",
+    "orm",
+    "sql",
+    "database",
+    "typescript"
+  ],
   "scripts": {
     "build:types": "tsc --emitDeclarationOnly",
     "build": "bun build ./src/index.ts --outdir ./dist --target bun --format esm && npm run build:types",
