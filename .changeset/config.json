@@ -3,7 +3,7 @@
   "changelog": [
     "@changesets/changelog-github",
     {
-      "repo": "bungres-dev/bungres"
+      "repo": "bungres/bungres"
     }
   ],
   "commit": false,
