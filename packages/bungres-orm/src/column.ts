@@ -77,16 +77,16 @@ export type ColBuilder<
 // Typed Column Helpers
 // ---------------------------------------------------------------------------
 
-export const text = <N extends boolean = false, P extends boolean = false, R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<"text", N, P, R> => buildColumn("text", nameOrOpts, opts) as any;
+export const text = <const N extends boolean = false, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<"text", N, P, R> => buildColumn("text", nameOrOpts, opts) as any;
 
-export const varchar = <N extends boolean = false, P extends boolean = false, R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | (ColumnOptions<N, P, R> & { length?: number }), opts?: ColumnOptions<N, P, R> & { length?: number }): ColBuilder<"varchar", N, P, R> => {
+export const varchar = <const N extends boolean = false, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | (ColumnOptions<N, P, R> & { length?: number }), opts?: ColumnOptions<N, P, R> & { length?: number }): ColBuilder<"varchar", N, P, R> => {
   const c = buildColumn("varchar", nameOrOpts as any, opts as any);
   let options = typeof nameOrOpts === "string" ? opts : nameOrOpts;
   if (options?.length !== undefined) (c as any).length = options.length;
   return c as any;
 };
 
-export const char = <N extends boolean = false, P extends boolean = false, R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | (ColumnOptions<N, P, R> & { length?: number }), opts?: ColumnOptions<N, P, R> & { length?: number }): ColBuilder<"char", N, P, R> => {
+export const char = <const N extends boolean = false, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | (ColumnOptions<N, P, R> & { length?: number }), opts?: ColumnOptions<N, P, R> & { length?: number }): ColBuilder<"char", N, P, R> => {
   const c = buildColumn("char", nameOrOpts as any, opts as any);
   let options = typeof nameOrOpts === "string" ? opts : nameOrOpts;
   if (options?.length !== undefined) (c as any).length = options.length;
@@ -94,18 +94,18 @@ export const char = <N extends boolean = false, P extends boolean = false, R ext
 };
 
 const col = <T extends ColumnDataType>(dataType: T) =>
-  <N extends boolean = false, P extends boolean = false, R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<T, N, P, R> => buildColumn(dataType, nameOrOpts, opts) as any;
+  <const N extends boolean = false, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<T, N, P, R> => buildColumn(dataType, nameOrOpts, opts) as any;
 
 export const integer = col("integer");
 export const bigint = col("bigint");
 export const smallint = col("smallint");
 
-export const serial = <N extends boolean = true, P extends boolean = false, R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<"serial", true, P, R> => {
+export const serial = <const N extends boolean = true, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<"serial", true, P, R> => {
   let options = typeof nameOrOpts === "string" ? opts : nameOrOpts;
   return buildColumn("serial", typeof nameOrOpts === "string" ? nameOrOpts : { ...options, notNull: true as any }, { ...options, notNull: true as any }) as any;
 };
 
-export const bigserial = <N extends boolean = true, P extends boolean = false, R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<"bigserial", true, P, R> => {
+export const bigserial = <const N extends boolean = true, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<"bigserial", true, P, R> => {
   let options = typeof nameOrOpts === "string" ? opts : nameOrOpts;
   return buildColumn("bigserial", typeof nameOrOpts === "string" ? nameOrOpts : { ...options, notNull: true as any }, { ...options, notNull: true as any }) as any;
 };

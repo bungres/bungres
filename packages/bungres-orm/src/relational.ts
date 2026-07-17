@@ -66,7 +66,7 @@ export type WithConfig<TSchema extends SchemaConfig, TTableName extends keyof TS
   [K in keyof ExtractTableRelations<TSchema, TTableName>]?:
   | true
   | {
-    columns?: { [Col in keyof TSchema[TargetTable<TSchema, TTableName, K>]]?: boolean };
+    columns?: { [Col in keyof TSchema[TargetTable<TSchema, TTableName, K>]["$inferSelect"]]?: boolean };
     with?: WithConfig<TSchema, TargetTable<TSchema, TTableName, K>>;
     limit?: number;
     offset?: number;
@@ -76,7 +76,7 @@ export type WithConfig<TSchema extends SchemaConfig, TTableName extends keyof TS
 };
 
 export type FindManyArgs<TSchema extends SchemaConfig, TTableName extends keyof TSchema> = {
-  columns?: { [Col in keyof TSchema[TTableName]]?: boolean };
+  columns?: { [Col in keyof TSchema[TTableName]["$inferSelect"]]?: boolean };
   where?: SQLChunk;
   limit?: number;
   offset?: number;

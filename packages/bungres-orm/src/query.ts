@@ -55,6 +55,10 @@ export class SelectBuilder<
     return this._executor.execute<TResult>(this).then(onfulfilled, onrejected);
   }
 
+  async single(): Promise<TResult | null> {
+    return this._executor.executeSingle<TResult>(this);
+  }
+
   select(...columns: ((keyof TColumns & string) | ColumnConfig)[]): this {
     this._select = columns;
     return this;
@@ -192,6 +196,10 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
     return this._executor.execute<InferTable<TColumns>>(this).then(onfulfilled, onrejected);
   }
 
+  async single(): Promise<InferTable<TColumns> | null> {
+    return this._executor.executeSingle<InferTable<TColumns>>(this);
+  }
+
   values(
     data:
       | Partial<InferInsert<TColumns>>
@@ -300,6 +308,10 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
     return this._executor.execute<InferTable<TColumns>>(this).then(onfulfilled, onrejected);
   }
 
+  async single(): Promise<InferTable<TColumns> | null> {
+    return this._executor.executeSingle<InferTable<TColumns>>(this);
+  }
+
   set(data: Partial<InferTable<TColumns>>): this {
     this._set = { ...this._set, ...data };
     return this;
@@ -379,6 +391,10 @@ export class DeleteBuilder<TColumns extends Record<string, ColumnConfig>> implem
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined
   ): Promise<TResult1 | TResult2> {
     return this._executor.execute<InferTable<TColumns>>(this).then(onfulfilled, onrejected);
+  }
+
+  async single(): Promise<InferTable<TColumns> | null> {
+    return this._executor.executeSingle<InferTable<TColumns>>(this);
   }
 
   where(condition: WhereCondition): this {
