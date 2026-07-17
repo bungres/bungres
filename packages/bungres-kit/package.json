@@ -1,6 +1,6 @@
 {
   "name": "@bungres/kit",
-  "version": "0.1.1",
+  "version": "0.3.0",
   "description": "CLI toolkit for @bungres/orm — migrate, push, generate, pull",
   "type": "module",
   "bin": {
