@@ -1,0 +1,445 @@
+{
+  "categories": {
+    "name": "categories",
+    "columns": {
+      "id": {
+        "name": "id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": true,
+        "unique": false,
+        "defaultFn": "gen_random_uuid()"
+      },
+      "name": {
+        "name": "name",
+        "dataType": "varchar",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "length": 100
+      },
+      "description": {
+        "name": "description",
+        "dataType": "text",
+        "notNull": false,
+        "primaryKey": false,
+        "unique": false
+      }
+    },
+    "indexes": [],
+    "checks": [],
+    "primaryKeys": [],
+    "qualifiedName": "\"categories\""
+  },
+  "order_items": {
+    "name": "order_items",
+    "columns": {
+      "id": {
+        "name": "id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": true,
+        "unique": false,
+        "defaultFn": "gen_random_uuid()"
+      },
+      "orderId": {
+        "name": "order_id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "references": {
+          "table": "orders",
+          "column": "id",
+          "onDelete": "cascade",
+          "relationName": "order",
+          "backRelationName": "items"
+        }
+      },
+      "productId": {
+        "name": "product_id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "references": {
+          "table": "products",
+          "column": "id",
+          "onDelete": "restrict",
+          "relationName": "product",
+          "backRelationName": "orderItems"
+        }
+      },
+      "quantity": {
+        "name": "quantity",
+        "dataType": "integer",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false
+      },
+      "price": {
+        "name": "price",
+        "dataType": "numeric",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false
+      }
+    },
+    "indexes": [],
+    "checks": [],
+    "primaryKeys": [],
+    "qualifiedName": "\"order_items\""
+  },
+  "orders": {
+    "name": "orders",
+    "columns": {
+      "id": {
+        "name": "id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": true,
+        "unique": false,
+        "defaultFn": "gen_random_uuid()"
+      },
+      "userId": {
+        "name": "user_id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "references": {
+          "table": "users",
+          "column": "id",
+          "onDelete": "cascade",
+          "relationName": "user",
+          "backRelationName": "orders"
+        }
+      },
+      "total": {
+        "name": "total",
+        "dataType": "numeric",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false
+      },
+      "status": {
+        "name": "status",
+        "dataType": "varchar",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "defaultValue": "pending",
+        "length": 50
+      },
+      "createdAt": {
+        "name": "created_at",
+        "dataType": "timestamptz",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "defaultFn": "NOW()"
+      }
+    },
+    "indexes": [],
+    "checks": [],
+    "primaryKeys": [],
+    "qualifiedName": "\"orders\""
+  },
+  "product_tags": {
+    "name": "product_tags",
+    "columns": {
+      "id": {
+        "name": "id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": true,
+        "unique": false,
+        "defaultFn": "gen_random_uuid()"
+      },
+      "productId": {
+        "name": "product_id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "references": {
+          "table": "products",
+          "column": "id",
+          "onDelete": "cascade"
+        }
+      },
+      "tagId": {
+        "name": "tag_id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "references": {
+          "table": "tags",
+          "column": "id",
+          "onDelete": "cascade"
+        }
+      }
+    },
+    "indexes": [],
+    "checks": [],
+    "primaryKeys": [],
+    "qualifiedName": "\"product_tags\""
+  },
+  "products": {
+    "name": "products",
+    "columns": {
+      "id": {
+        "name": "id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": true,
+        "unique": false,
+        "defaultFn": "gen_random_uuid()"
+      },
+      "storeId": {
+        "name": "store_id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "references": {
+          "table": "stores",
+          "column": "id",
+          "onDelete": "cascade",
+          "relationName": "store",
+          "backRelationName": "products"
+        }
+      },
+      "categoryId": {
+        "name": "category_id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "references": {
+          "table": "categories",
+          "column": "id",
+          "onDelete": "cascade",
+          "relationName": "category",
+          "backRelationName": "products"
+        }
+      },
+      "name": {
+        "name": "name",
+        "dataType": "varchar",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "length": 255
+      },
+      "price": {
+        "name": "price",
+        "dataType": "numeric",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false
+      },
+      "stock": {
+        "name": "stock",
+        "dataType": "integer",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "defaultValue": 0
+      },
+      "createdAt": {
+        "name": "created_at",
+        "dataType": "timestamptz",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "defaultFn": "NOW()"
+      }
+    },
+    "indexes": [],
+    "checks": [],
+    "primaryKeys": [],
+    "qualifiedName": "\"products\""
+  },
+  "reviews": {
+    "name": "reviews",
+    "columns": {
+      "id": {
+        "name": "id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": true,
+        "unique": false,
+        "defaultFn": "gen_random_uuid()"
+      },
+      "productId": {
+        "name": "product_id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "references": {
+          "table": "products",
+          "column": "id",
+          "onDelete": "cascade",
+          "relationName": "product",
+          "backRelationName": "reviews"
+        }
+      },
+      "userId": {
+        "name": "user_id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "references": {
+          "table": "users",
+          "column": "id",
+          "onDelete": "cascade",
+          "relationName": "author",
+          "backRelationName": "reviews"
+        }
+      },
+      "rating": {
+        "name": "rating",
+        "dataType": "integer",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false
+      },
+      "comment": {
+        "name": "comment",
+        "dataType": "text",
+        "notNull": false,
+        "primaryKey": false,
+        "unique": false
+      },
+      "createdAt": {
+        "name": "created_at",
+        "dataType": "timestamptz",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "defaultFn": "NOW()"
+      }
+    },
+    "indexes": [],
+    "checks": [],
+    "primaryKeys": [],
+    "qualifiedName": "\"reviews\""
+  },
+  "stores": {
+    "name": "stores",
+    "columns": {
+      "id": {
+        "name": "id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": true,
+        "unique": false,
+        "defaultFn": "gen_random_uuid()"
+      },
+      "ownerId": {
+        "name": "owner_id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "references": {
+          "table": "users",
+          "column": "id",
+          "onDelete": "cascade",
+          "relationName": "owner",
+          "backRelationName": "stores"
+        }
+      },
+      "name": {
+        "name": "name",
+        "dataType": "varchar",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "length": 255
+      },
+      "createdAt": {
+        "name": "created_at",
+        "dataType": "timestamptz",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "defaultFn": "NOW()"
+      }
+    },
+    "indexes": [],
+    "checks": [],
+    "primaryKeys": [],
+    "qualifiedName": "\"stores\""
+  },
+  "tags": {
+    "name": "tags",
+    "columns": {
+      "id": {
+        "name": "id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": true,
+        "unique": false,
+        "defaultFn": "gen_random_uuid()"
+      },
+      "name": {
+        "name": "name",
+        "dataType": "varchar",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": true,
+        "length": 50
+      }
+    },
+    "indexes": [],
+    "checks": [],
+    "primaryKeys": [],
+    "qualifiedName": "\"tags\""
+  },
+  "users": {
+    "name": "users",
+    "columns": {
+      "id": {
+        "name": "id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": true,
+        "unique": false,
+        "defaultFn": "gen_random_uuid()"
+      },
+      "name": {
+        "name": "name",
+        "dataType": "varchar",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "length": 255
+      },
+      "email": {
+        "name": "email",
+        "dataType": "varchar",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": true,
+        "length": 255
+      },
+      "createdAt": {
+        "name": "created_at",
+        "dataType": "timestamptz",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "defaultFn": "NOW()"
+      }
+    },
+    "indexes": [],
+    "checks": [],
+    "primaryKeys": [],
+    "qualifiedName": "\"users\""
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "ecom",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "bun run --watch src/index.ts",
+    "db:generate": "bungres generate",
+    "db:migrate": "bungres migrate",
+    "db:push": "bungres push",
+    "db:fresh": "bungres fresh",
+    "db:refresh": "bungres refresh",
+    "db:seed": "bungres seed",
+    "db:studio": "bungres studio",
+    "db:tinker": "bungres tinker"
+  },
+  "dependencies": {
+    "elysia": "latest",
+    "@bungres/orm": "workspace:*"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "@bungres/kit": "workspace:*"
+  },
+  "module": "src/index.js"
+}
