@@ -1,0 +1,43 @@
+{
+  "name": "@bungres/kit",
+  "version": "0.1.0",
+  "description": "CLI toolkit for @bungres/orm — migrate, push, generate, pull",
+  "type": "module",
+  "bin": {
+    "bungres": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "author": "aniket khote",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bungres/bungres.git",
+    "directory": "packages/@bungres/kit"
+  },
+  "scripts": {
+    "build:types": "tsc --emitDeclarationOnly",
+    "build": "bun build ./src/cli.ts ./src/index.ts --outdir ./dist --target bun --format esm && npm run build:types",
+    "dev": "bun --watch src/cli.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@bungres/orm": "0.1.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "latest"
+  }
+}
