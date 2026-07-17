@@ -1,4 +1,4 @@
-import type { ColumnConfig, ColumnDataType, ForeignKeyRef } from "./types.js";
+import type { ColumnConfig, ColumnDataType, ForeignKeyRef } from "../types/index.js";
 
 // ---------------------------------------------------------------------------
 // Column Factory — modern object-based API, no chained builders

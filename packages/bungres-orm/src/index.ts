@@ -3,93 +3,58 @@
 // ---------------------------------------------------------------------------
 
 // Schema definition
-export { table, TableConfigSymbol, snakeCase, camelCase } from "./table.js";
-export type { Table } from "./table.js";
+export { camelCase, getTableConfig, snakeCase, table, TableConfigSymbol } from "./schema/table.js";
+export type { Table } from "./schema/table.js";
+
+// Constraints & Indexes
+export { check, foreignKey, index, primaryKey, unique } from "./schema/indexes.js";
+export type { CheckConstraintBuilder, ForeignKeyBuilder, IndexBuilder, PrimaryKeyBuilder } from "./schema/indexes.js";
 
 // Column builders
+export * from "./schema/columns.js";
 export {
-  text,
-  varchar,
-  char,
-  integer,
-  bigint,
-  smallint,
-  serial,
-  bigserial,
-  boolean,
-  real,
-  doublePrecision,
-  numeric,
-  decimal,
-  json,
-  jsonb,
-  timestamp,
-  timestamptz,
-  date,
-  time,
-  timetz,
-  uuid,
-  bytea,
-  interval,
-  inet,
-  cidr,
-  macaddr,
-} from "./column.js";
-export * from "./column.js";
+  bigint, bigserial,
+  boolean, bytea, char, cidr, date, decimal, doublePrecision, inet, integer, interval, json,
+  jsonb, macaddr, numeric, real, serial, smallint, text, time, timestamp,
+  timestamptz, timetz,
+  uuid, varchar
+} from "./schema/columns.js";
 
 // SQL helpers
-export { sql, rawSql, sqlJoin, isSQLChunk } from "./sql.js";
-export type { SQLChunk } from "./sql.js";
+export { isSQLChunk, rawSql, sql, sqlJoin } from "./core/sql.js";
+export type { SQLChunk } from "./core/sql.js";
 
 // Query builders
+export { DeleteBuilder } from "./builders/delete.js";
+export { InsertBuilder } from "./builders/insert.js";
+export { SelectBuilder, SelectBuilderIntermediate, type SelectedFields } from "./builders/select.js";
+export { UpdateBuilder } from "./builders/update.js";
+
 export {
-  SelectBuilder,
-  InsertBuilder,
-  UpdateBuilder,
-  DeleteBuilder,
-  // condition helpers
-  eq,
-  ne,
-  gt,
-  gte,
-  lt,
-  lte,
-  like,
-  ilike,
-  isNull,
-  isNotNull,
-  inArray,
-  and,
-  or,
-  not,
-  asc,
-  desc,
-} from "./query.js";
+  and, asc,
+  desc, eq, gt,
+  gte, ilike, inArray, isNotNull, isNull, like, lt,
+  lte, ne, not, or
+} from "./core/conditions.js";
+
+export type { OrderDir, QueryExecutor, WhereCondition } from "./core/query.js";
 
 // DB client
-export { BungresDB, BungresTransaction, createDB } from "./db.js";
-export type { DBConfig, BungresDBClient } from "./db.js";
+export { BungresDB, BungresTransaction, createDB } from "./core/db.js";
+export type { BungresDBClient, DBConfig } from "./core/db.js";
 
 // Relational Query Builder
-export type { RelationalQueryBuilder, FindManyArgs, FindManyResult, WithConfig, SchemaConfig } from "./relational.js";
+export type { RelationalQueryBuilder } from "./builders/relational.js";
+export type { FindManyArgs, FindManyResult, SchemaConfig, WithConfig } from "./types/relations.js";
 
 // DDL helpers (used by @bungres/kit, also exported for advanced users)
 export {
-  generateCreateTable,
-  generateDropTable,
-  generateAddColumn,
-  generateDropColumn,
-  generateAddConstraint,
-  generateDropConstraint,
+  generateAddColumn, generateAddConstraint, generateCreateTable, generateDropColumn, generateDropConstraint, generateDropTable
 } from "./ddl.js";
 
 // Types
 export type {
-  ColumnDataType,
-  ColumnConfig,
-  ForeignKeyRef,
-  IndexConfig,
-  TableConfig,
-  InferTable,
-  InferInsert,
-} from "./types.js";
+  ColumnConfig, ColumnDataType, ForeignKeyRef,
+  IndexConfig, InferInsert, InferTable, TableConfig
+} from "./types/index.js";
+

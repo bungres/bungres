@@ -1,4 +1,4 @@
-import type { ColumnConfig, IndexConfig, TableConfig } from "./types.js";
+import type { ColumnConfig, IndexConfig, TableConfig } from "./types/index.js";
 
 // ---------------------------------------------------------------------------
 // DDL generator — converts TableConfig into CREATE TABLE SQL

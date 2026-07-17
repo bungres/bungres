@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { createDB } from "../../db.js";
-import { table } from "../../table.js";
-import { uuid, varchar, text, boolean, integer, timestamptz } from "../../column.js";
-import { eq, and, gt, ilike, isNull, isNotNull, inArray } from "../../query.js";
-import { sql } from "../../sql.js";
+import { createDB } from "../../index.js";
+import { table } from "../../index.js";
+import { uuid, varchar, text, boolean, integer, timestamptz } from "../../index.js";
+import { eq, and, gt, ilike, isNull, isNotNull, inArray } from "../../index.js";
+import { sql } from "../../index.js";
 
 const DB_URL = process.env["DATABASE_URL"];
 

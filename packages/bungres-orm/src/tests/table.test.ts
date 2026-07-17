@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { table, getTableConfig } from "../table.js";
-import { uuid, text, varchar, boolean, timestamptz } from "../column.js";
+import { table, getTableConfig } from "../index.js";
+import { uuid, text, varchar, boolean, timestamptz } from "../index.js";
 
 const users = table("users", {
   id:        uuid("id", { primaryKey: true }),
@@ -48,7 +48,7 @@ describe("table", () => {
   });
 });
 
-import { snakeCase, camelCase } from "../table.js";
+import { snakeCase, camelCase } from "../index.js";
 
 describe("snakeCase.table", () => {
   it("automatically converts camelCase JS keys to snake_case DB columns", () => {

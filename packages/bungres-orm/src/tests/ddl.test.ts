@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { generateCreateTable, generateDropTable, generateAddColumn, generateDropColumn } from "../ddl.js";
-import type { TableConfig } from "../types.js";
+import type { TableConfig } from "../index.js";
 
 const usersConfig: TableConfig = {
   name: "users",

@@ -1,12 +1,12 @@
 import { describe, it, expect } from "bun:test";
-import { table } from "../table.js";
-import { uuid, text, varchar, boolean, integer, timestamptz } from "../column.js";
+import { table } from "../index.js";
+import { uuid, text, varchar, boolean, integer, timestamptz } from "../index.js";
 import {
   SelectBuilder, InsertBuilder, UpdateBuilder, DeleteBuilder,
   eq, ne, gt, gte, lt, lte, like, ilike,
   isNull, isNotNull, inArray, and, or, not,
   type QueryExecutor
-} from "../query.js";
+} from "../index.js";
 
 const dummyExecutor: QueryExecutor = {
   execute: async () => [],

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { createDB } from "../../db.js";
-import { table } from "../../table.js";
-import { uuid, text } from "../../column.js";
+import { createDB } from "../../index.js";
+import { table } from "../../index.js";
+import { uuid, text } from "../../index.js";
 
 const DB_URL = process.env["DATABASE_URL"];
 

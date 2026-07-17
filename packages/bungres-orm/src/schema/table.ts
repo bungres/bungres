@@ -1,4 +1,5 @@
-import type { ColumnConfig, IndexConfig, InferInsert, InferTable } from "./types.js";
+import type { ColumnConfig, IndexConfig, InferInsert, InferTable, ForeignKeyConfig } from "../types/index.js";
+import type { ConstraintBuilder } from "./indexes.js";
 
 // ---------------------------------------------------------------------------
 // TableBuilder — defines a table schema, returns a typed Table object
@@ -12,6 +13,7 @@ export interface TableConfigImpl<TName extends string, TColumns> {
   columns: TColumns;
   primaryKeys: string[];
   indexes: IndexConfig[];
+  foreignKeys: ForeignKeyConfig[];
   checks: string[];
   qualifiedName: string;
 }
@@ -34,6 +36,15 @@ export function camelToSnakeCase(str: string): string {
   return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 }
 
+type ExtraConfig<TColumns> = 
+  | {
+      schema?: string;
+      indexes?: IndexConfig[];
+      checks?: string[];
+      primaryKeys?: string[];
+    }
+  | ((cols: TColumns) => ConstraintBuilder[]);
+
 function createTableFactory(casing: "none" | "snake" | "camel") {
   return function <
     TName extends string,
@@ -41,12 +52,7 @@ function createTableFactory(casing: "none" | "snake" | "camel") {
   >(
     name: TName,
     columns: TColumns,
-    extra?: {
-      schema?: string;
-      indexes?: IndexConfig[];
-      checks?: string[];
-      primaryKeys?: string[];
-    }
+    extra?: ExtraConfig<TColumns>
   ): Table<TName, TColumns> {
     const columnConfigs = Object.fromEntries(
       Object.entries(columns).map(([key, config]) => {
@@ -63,7 +69,30 @@ function createTableFactory(casing: "none" | "snake" | "camel") {
       })
     ) as TColumns;
 
-    const schema = extra?.schema;
+    let schema: string | undefined;
+    const indexes: IndexConfig[] = [];
+    const checks: string[] = [];
+    const primaryKeys: string[] = [];
+    const foreignKeys: ForeignKeyConfig[] = [];
+
+    if (extra) {
+      if (typeof extra === "function") {
+        const builders = extra(columnConfigs);
+        for (const builder of builders) {
+          const config = builder.build();
+          if (config.type === "index") indexes.push(config);
+          else if (config.type === "check") checks.push(config.condition);
+          else if (config.type === "primaryKey") primaryKeys.push(...config.columns);
+          else if (config.type === "foreignKey") foreignKeys.push(config);
+        }
+      } else {
+        schema = extra.schema;
+        if (extra.indexes) indexes.push(...extra.indexes);
+        if (extra.checks) checks.push(...extra.checks);
+        if (extra.primaryKeys) primaryKeys.push(...extra.primaryKeys);
+      }
+    }
+
     const qualifiedName = schema ? `"${schema}"."${name}"` : `"${name}"`;
 
     const tableObj = {
@@ -71,9 +100,10 @@ function createTableFactory(casing: "none" | "snake" | "camel") {
         name,
         schema,
         columns: columnConfigs,
-        indexes: extra?.indexes ?? [],
-        checks: extra?.checks ?? [],
-        primaryKeys: extra?.primaryKeys ?? [],
+        indexes,
+        checks,
+        primaryKeys,
+        foreignKeys,
         qualifiedName,
       }
     };

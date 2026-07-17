@@ -1,17 +1,13 @@
-import type { ColumnConfig } from "./types.js";
-import { type Table, TableConfigSymbol } from "./table.js";
+import type { ColumnConfig } from "../types/index.js";
+import { type Table, TableConfigSymbol } from "../schema/table.js";
 import type { SQLChunk } from "./sql.js";
-import {
-  SelectBuilder,
-  SelectBuilderIntermediate,
-  InsertBuilder,
-  UpdateBuilder,
-  DeleteBuilder,
-  type QueryExecutor,
-  type SelectedFields
-} from "./query.js";
-import type { SchemaConfig } from "./relational.js";
-import { RelationalQueryBuilder } from "./relational.js";
+import { SelectBuilder, SelectBuilderIntermediate, type SelectedFields } from "../builders/select.js";
+import { InsertBuilder } from "../builders/insert.js";
+import { UpdateBuilder } from "../builders/update.js";
+import { DeleteBuilder } from "../builders/delete.js";
+import type { QueryExecutor } from "./query.js";
+import type { SchemaConfig } from "../types/relations.js";
+import { RelationalQueryBuilder } from "../builders/relational.js";
 
 // ---------------------------------------------------------------------------
 // BungresDB — the main database client wrapping Bun.SQL (Bun 1.x native)

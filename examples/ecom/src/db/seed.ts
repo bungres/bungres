@@ -1,18 +1,18 @@
 import { db } from "./client";
-import { categories, orderItems, orders, products, reviews, stores, users } from "./schema";
+import { categories, orderItems, orders, products, reviews, stores, users, tags, productTags } from "./schema";
 
 async function main() {
   console.log("Starting E-commerce database seeder...");
 
   // Clean data
   console.log("Cleaning old data...");
-  await db.raw("TRUNCATE order_items, orders, reviews, products, categories, stores, users CASCADE;");
+  await db.raw("TRUNCATE product_tags, tags, order_items, orders, reviews, products, categories, stores, users CASCADE;");
 
   console.log("Inserting users...");
   const userIds: string[] = [];
   const userBatch = [];
   for (let i = 0; i < 500; i++) {
-    const id = crypto.randomUUID();
+    const id = Bun.randomUUIDv7();
     userIds.push(id);
     userBatch.push({
       id,
@@ -26,7 +26,7 @@ async function main() {
   const categoryIds: string[] = [];
   const catBatch = [];
   for (let i = 0; i < 20; i++) {
-    const id = crypto.randomUUID();
+    const id = Bun.randomUUIDv7();
     categoryIds.push(id);
     catBatch.push({
       id,
@@ -39,7 +39,7 @@ async function main() {
   const storeIds: string[] = [];
   const storeBatch = [];
   for (let i = 0; i < 100; i++) {
-    const id = crypto.randomUUID();
+    const id = Bun.randomUUIDv7();
     storeIds.push(id);
     storeBatch.push({
       id,
@@ -53,7 +53,7 @@ async function main() {
   const productIds: string[] = [];
   const productBatch = [];
   for (let i = 0; i < 5000; i++) {
-    const id = crypto.randomUUID();
+    const id = Bun.randomUUIDv7();
     productIds.push(id);
     productBatch.push({
       id,
@@ -73,7 +73,7 @@ async function main() {
   const reviewBatch = [];
   for (let i = 0; i < 10000; i++) {
     reviewBatch.push({
-      id: crypto.randomUUID(),
+      id: Bun.randomUUIDv7(),
       productId: productIds[i % productIds.length]!,
       userId: userIds[(i + 1) % userIds.length]!,
       rating: Math.floor(Math.random() * 5) + 1,
@@ -88,7 +88,7 @@ async function main() {
   const orderBatch = [];
   const orderItemBatch = [];
   for (let i = 0; i < 2000; i++) {
-    const orderId = crypto.randomUUID();
+    const orderId = Bun.randomUUIDv7();
     orderBatch.push({
       id: orderId,
       userId: userIds[i % userIds.length]!,
@@ -99,7 +99,7 @@ async function main() {
     const numItems = Math.floor(Math.random() * 5) + 1;
     for (let j = 0; j < numItems; j++) {
       orderItemBatch.push({
-        id: crypto.randomUUID(),
+        id: Bun.randomUUIDv7(),
         orderId: orderId,
         productId: productIds[(i + j) % productIds.length]!,
         quantity: Math.floor(Math.random() * 3) + 1,
@@ -113,6 +113,36 @@ async function main() {
   }
   for (let i = 0; i < orderItemBatch.length; i += 1000) {
     await db.insert(orderItems).values(orderItemBatch.slice(i, i + 1000));
+  }
+
+  console.log("Inserting tags...");
+  const tagIds: string[] = [];
+  const tagBatch = [];
+  for (let i = 0; i < 50; i++) {
+    const id = Bun.randomUUIDv7();
+    tagIds.push(id);
+    tagBatch.push({
+      id,
+      name: `Tag ${i}`,
+    });
+  }
+  await db.insert(tags).values(tagBatch);
+
+  console.log("Inserting product tags...");
+  const productTagBatch = [];
+  for (let i = 0; i < productIds.length; i++) {
+    // Each product gets 0 to 3 tags
+    const numTags = Math.floor(Math.random() * 4);
+    for (let j = 0; j < numTags; j++) {
+      productTagBatch.push({
+        id: Bun.randomUUIDv7(),
+        productId: productIds[i]!,
+        tagId: tagIds[(i + j) % tagIds.length]!,
+      });
+    }
+  }
+  for (let i = 0; i < productTagBatch.length; i += 1000) {
+    await db.insert(productTags).values(productTagBatch.slice(i, i + 1000));
   }
 
   console.log("✅ Seeding completed! Database is primed for benchmarking.");

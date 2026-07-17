@@ -3,8 +3,10 @@ import { productsModule } from "./modules/products";
 import { usersModule } from "./modules/users";
 import { storesModule } from "./modules/stores";
 import { ordersModule } from "./modules/orders";
+import { errorPlugin } from "./plugins/error";
 
 const app = new Elysia()
+  .use(errorPlugin)
   .get("/", () => "Bungres ORM API Example (Modular MVC)")
   .use(productsModule)
   .use(usersModule)

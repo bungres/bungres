@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test";
 import {
   text, varchar, integer, uuid, serial, boolean,
   timestamptz, jsonb,
-} from "../column.js";
+} from "../index.js";
 
 describe("Column Builder Functions", () => {
   it("creates a basic text column", () => {

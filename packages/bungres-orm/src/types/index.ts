@@ -80,6 +80,16 @@ export interface IndexConfig {
   using?: "btree" | "hash" | "gin" | "gist" | "brin";
 }
 
+/** Table foreign key definition (table-level) */
+export interface ForeignKeyConfig {
+  name?: string;
+  columns: string[];
+  foreignTable: string;
+  foreignColumns: string[];
+  onDelete?: "cascade" | "set null" | "set default" | "restrict" | "no action";
+  onUpdate?: "cascade" | "set null" | "set default" | "restrict" | "no action";
+}
+
 /** Table-level config */
 export interface TableConfig {
   name: string;
@@ -87,6 +97,7 @@ export interface TableConfig {
   columns: Record<string, ColumnConfig>;
   primaryKeys?: string[];
   indexes?: IndexConfig[];
+  foreignKeys?: ForeignKeyConfig[];
   checks?: string[];
 }
 

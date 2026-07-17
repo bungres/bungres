@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { sql, rawSql, sqlJoin } from "../sql.js";
+import { sql, rawSql, sqlJoin } from "../index.js";
 
 describe("sql tagged template", () => {
   it("builds a simple parameterized query", () => {
