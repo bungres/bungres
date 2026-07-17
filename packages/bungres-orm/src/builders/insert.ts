@@ -91,7 +91,7 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
         if (val && typeof val === "object" && !(val instanceof Date)) {
           const colType = tConfig.columns[k]?.dataType;
           if (colType === "json" || colType === "jsonb") {
-            params.push(JSON.stringify(val));
+            params.push(val);
           } else if (Array.isArray(val)) {
             const pgArray = '{' + val.map(item => {
               if (item === null || item === undefined) return 'NULL';

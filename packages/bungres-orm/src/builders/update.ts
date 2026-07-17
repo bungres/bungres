@@ -71,7 +71,7 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
       if (value && typeof value === "object" && !(value instanceof Date)) {
         const colType = getTableConfig(this._table).columns[key]?.dataType;
         if (colType === "json" || colType === "jsonb") {
-          params.push(JSON.stringify(value));
+          params.push(value);
         } else if (Array.isArray(value)) {
           const pgArray = '{' + value.map(item => {
             if (item === null || item === undefined) return 'NULL';
