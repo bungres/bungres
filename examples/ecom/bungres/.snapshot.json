@@ -26,10 +26,74 @@
         "unique": false
       }
     },
+    "indexes": [
+      {
+        "type": "index",
+        "columns": [
+          "name"
+        ],
+        "unique": false
+      }
+    ],
+    "checks": [],
+    "primaryKeys": [],
+    "foreignKeys": [],
+    "qualifiedName": "\"categories\""
+  },
+  "logs": {
+    "name": "logs",
+    "columns": {
+      "id": {
+        "name": "id",
+        "dataType": "uuid",
+        "notNull": true,
+        "primaryKey": true,
+        "unique": false,
+        "defaultFn": "gen_random_uuid()"
+      },
+      "level": {
+        "name": "level",
+        "dataType": "varchar",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "length": 50
+      },
+      "message": {
+        "name": "message",
+        "dataType": "text",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false
+      },
+      "meta": {
+        "name": "meta",
+        "dataType": "jsonb",
+        "notNull": false,
+        "primaryKey": false,
+        "unique": false
+      },
+      "tags": {
+        "name": "tags",
+        "dataType": "text[]",
+        "notNull": false,
+        "primaryKey": false,
+        "unique": false
+      },
+      "createdAt": {
+        "name": "created_at",
+        "dataType": "timestamptz",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "defaultFn": "NOW()"
+      }
+    },
     "indexes": [],
     "checks": [],
     "primaryKeys": [],
-    "qualifiedName": "\"categories\""
+    "foreignKeys": [],
+    "qualifiedName": "\"logs\""
   },
   "order_items": {
     "name": "order_items",
@@ -85,9 +149,18 @@
         "unique": false
       }
     },
-    "indexes": [],
+    "indexes": [
+      {
+        "type": "index",
+        "columns": [
+          "order_id"
+        ],
+        "unique": false
+      }
+    ],
     "checks": [],
     "primaryKeys": [],
+    "foreignKeys": [],
     "qualifiedName": "\"order_items\""
   },
   "orders": {
@@ -140,9 +213,25 @@
         "defaultFn": "NOW()"
       }
     },
-    "indexes": [],
+    "indexes": [
+      {
+        "type": "index",
+        "columns": [
+          "user_id"
+        ],
+        "unique": false
+      },
+      {
+        "type": "index",
+        "columns": [
+          "status"
+        ],
+        "unique": false
+      }
+    ],
     "checks": [],
     "primaryKeys": [],
+    "foreignKeys": [],
     "qualifiedName": "\"orders\""
   },
   "product_tags": {
@@ -184,6 +273,7 @@
     "indexes": [],
     "checks": [],
     "primaryKeys": [],
+    "foreignKeys": [],
     "qualifiedName": "\"product_tags\""
   },
   "products": {
@@ -257,9 +347,25 @@
         "defaultFn": "NOW()"
       }
     },
-    "indexes": [],
+    "indexes": [
+      {
+        "type": "index",
+        "columns": [
+          "store_id"
+        ],
+        "unique": false
+      },
+      {
+        "type": "index",
+        "columns": [
+          "name"
+        ],
+        "unique": false
+      }
+    ],
     "checks": [],
     "primaryKeys": [],
+    "foreignKeys": [],
     "qualifiedName": "\"products\""
   },
   "reviews": {
@@ -324,9 +430,32 @@
         "defaultFn": "NOW()"
       }
     },
-    "indexes": [],
+    "indexes": [
+      {
+        "type": "index",
+        "columns": [
+          "product_id"
+        ],
+        "unique": false
+      },
+      {
+        "type": "index",
+        "columns": [
+          "user_id"
+        ],
+        "unique": false
+      },
+      {
+        "type": "index",
+        "columns": [
+          "rating"
+        ],
+        "unique": false
+      }
+    ],
     "checks": [],
     "primaryKeys": [],
+    "foreignKeys": [],
     "qualifiedName": "\"reviews\""
   },
   "stores": {
@@ -371,9 +500,25 @@
         "defaultFn": "NOW()"
       }
     },
-    "indexes": [],
+    "indexes": [
+      {
+        "type": "index",
+        "columns": [
+          "owner_id"
+        ],
+        "unique": false
+      },
+      {
+        "type": "index",
+        "columns": [
+          "name"
+        ],
+        "unique": false
+      }
+    ],
     "checks": [],
     "primaryKeys": [],
+    "foreignKeys": [],
     "qualifiedName": "\"stores\""
   },
   "tags": {
@@ -392,13 +537,22 @@
         "dataType": "varchar",
         "notNull": true,
         "primaryKey": false,
-        "unique": true,
+        "unique": false,
         "length": 50
       }
     },
-    "indexes": [],
+    "indexes": [
+      {
+        "type": "index",
+        "columns": [
+          "name"
+        ],
+        "unique": true
+      }
+    ],
     "checks": [],
     "primaryKeys": [],
+    "foreignKeys": [],
     "qualifiedName": "\"tags\""
   },
   "users": {
@@ -425,7 +579,7 @@
         "dataType": "varchar",
         "notNull": true,
         "primaryKey": false,
-        "unique": true,
+        "unique": false,
         "length": 255
       },
       "createdAt": {
@@ -437,9 +591,32 @@
         "defaultFn": "NOW()"
       }
     },
-    "indexes": [],
+    "indexes": [
+      {
+        "type": "index",
+        "columns": [
+          "email"
+        ],
+        "unique": true
+      },
+      {
+        "type": "index",
+        "columns": [
+          "email"
+        ],
+        "unique": false
+      },
+      {
+        "type": "index",
+        "columns": [
+          "name"
+        ],
+        "unique": false
+      }
+    ],
     "checks": [],
     "primaryKeys": [],
+    "foreignKeys": [],
     "qualifiedName": "\"users\""
   }
 }

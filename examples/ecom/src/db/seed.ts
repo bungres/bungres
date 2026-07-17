@@ -1,12 +1,12 @@
 import { db } from "./client";
-import { categories, orderItems, orders, products, reviews, stores, users, tags, productTags } from "./schema";
+import { categories, orderItems, orders, products, reviews, stores, users, tags, productTags, logs } from "./schema";
 
 async function main() {
   console.log("Starting E-commerce database seeder...");
 
   // Clean data
   console.log("Cleaning old data...");
-  await db.raw("TRUNCATE product_tags, tags, order_items, orders, reviews, products, categories, stores, users CASCADE;");
+  await db.raw("TRUNCATE product_tags, tags, order_items, orders, reviews, products, categories, stores, users, logs CASCADE;");
 
   console.log("Inserting users...");
   const userIds: string[] = [];
@@ -144,6 +144,19 @@ async function main() {
   for (let i = 0; i < productTagBatch.length; i += 1000) {
     await db.insert(productTags).values(productTagBatch.slice(i, i + 1000));
   }
+
+  console.log("Inserting logs...");
+  const logBatch = [];
+  for (let i = 0; i < 50; i++) {
+    logBatch.push({
+      id: Bun.randomUUIDv7(),
+      level: i % 10 === 0 ? "error" : "info",
+      message: `System event ${i}`,
+      meta: { service: "auth", eventId: i, details: { latency: Math.random() * 100 } },
+      tags: ["system", i % 10 === 0 ? "critical" : "routine"],
+    });
+  }
+  await db.insert(logs).values(logBatch);
 
   console.log("✅ Seeding completed! Database is primed for benchmarking.");
 }

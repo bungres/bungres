@@ -1,13 +1,14 @@
 import type { QueryExecutor, WhereCondition } from "../core/query.js";
 import type { SQLChunk } from "../core/sql.js";
 import { sqlJoin } from "../core/sql.js";
+import { parseWhereObject } from "../core/conditions.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferTable } from "../types/index.js";
 
 export class DeleteBuilder<TColumns extends Record<string, ColumnConfig>> implements PromiseLike<InferTable<TColumns>[]> {
   private _table: Table<string, TColumns>;
   private _executor: QueryExecutor;
-  private _where: WhereCondition[] = [];
+  private _where: SQLChunk[] = [];
   private _returning?: string[];
   private _comment?: string;
 
@@ -27,8 +28,12 @@ export class DeleteBuilder<TColumns extends Record<string, ColumnConfig>> implem
     return this._executor.executeSingle<InferTable<TColumns>>(this);
   }
 
-  where(condition: WhereCondition): this {
-    this._where.push(condition);
+  where(condition: WhereCondition<TColumns>): this {
+    if (condition && typeof condition === "object" && !("sql" in condition)) {
+      this._where.push(parseWhereObject(getTableConfig(this._table) as any, condition as any));
+    } else {
+      this._where.push(condition as SQLChunk);
+    }
     return this;
   }
 

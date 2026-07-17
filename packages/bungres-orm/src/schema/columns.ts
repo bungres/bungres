@@ -128,3 +128,7 @@ export const interval = col("interval");
 export const inet = col("inet");
 export const cidr = col("cidr");
 export const macaddr = col("macaddr");
+export const textArray = col("text[]");
+export const integerArray = col("integer[]");
+export const varcharArray = col("varchar[]");
+export const uuidArray = col("uuid[]");

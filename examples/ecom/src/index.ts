@@ -3,6 +3,7 @@ import { productsModule } from "./modules/products";
 import { usersModule } from "./modules/users";
 import { storesModule } from "./modules/stores";
 import { ordersModule } from "./modules/orders";
+import { logsModule } from "./modules/logs";
 import { errorPlugin } from "./plugins/error";
 
 const app = new Elysia()
@@ -12,6 +13,7 @@ const app = new Elysia()
   .use(usersModule)
   .use(storesModule)
   .use(ordersModule)
+  .use(logsModule)
   .listen(3000);
 
 console.log(

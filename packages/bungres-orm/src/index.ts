@@ -17,7 +17,8 @@ export {
   boolean, bytea, char, cidr, date, decimal, doublePrecision, inet, integer, interval, json,
   jsonb, macaddr, numeric, real, serial, smallint, text, time, timestamp,
   timestamptz, timetz,
-  uuid, varchar
+  uuid, varchar,
+  textArray, integerArray, varcharArray, uuidArray
 } from "./schema/columns.js";
 
 // SQL helpers

@@ -68,7 +68,7 @@ export abstract class OrderService {
 
   static async findMany() {
     return await db.orders.findMany({
-      columns: { id: true, total: true, createdAt: true },
+      columns: { userId: false },
       limit: 10,
       orderBy: desc(orders.total),
       with: {

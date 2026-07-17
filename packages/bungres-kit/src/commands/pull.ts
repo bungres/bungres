@@ -194,23 +194,24 @@ function generateSchemaTS(
     `// Generated at: ${new Date().toISOString()}`,
     ``,
     `import {`,
-    `  table,`,
+    `  snakeCase,`,
     `  text, varchar, char, integer, bigint, smallint,`,
     `  serial, bigserial, boolean, real, doublePrecision,`,
     `  numeric, decimal, json, jsonb,`,
     `  timestamp, timestamptz, date, time, uuid,`,
     `  bytea, inet,`,
+    `  textArray, integerArray, varcharArray, uuidArray,`,
     `} from "@bungres/orm";`,
     ``,
   ];
 
   for (const [, table] of tableMap) {
     const varName = toCamelCase(table.tableName);
-    lines.push(`export const ${varName} = table("${table.tableName}", {`);
+    lines.push(`export const ${varName} = snakeCase.table("${table.tableName}", {`);
 
     for (const col of table.columns) {
       const colExpr = buildColumnExpression(col);
-      lines.push(`  ${col.name}: ${colExpr},`);
+      lines.push(`  ${toCamelCase(col.name)}: ${colExpr},`);
     }
 
     // Third argument: Table options (schema, indexes)
@@ -260,78 +261,77 @@ function generateSchemaTS(
 }
 
 function buildColumnExpression(col: TableInfo["columns"][number]): string {
-  let expr = pgTypeToBungresBuilder(col);
+  const opts: string[] = [];
 
-  if (col.isPrimary) expr += `.primaryKey()`;
-  else if (!col.isNullable) expr += `.notNull()`;
+  if (col.dataType === "character varying" || col.dataType === "character") {
+    if (col.maxLength) opts.push(`length: ${col.maxLength}`);
+  }
 
-  if (col.isUnique && !col.isPrimary) expr += `.unique()`;
+  if (col.isPrimary) opts.push(`primaryKey: true`);
+  else if (!col.isNullable) opts.push(`notNull: true`);
+
+  if (col.isUnique && !col.isPrimary) opts.push(`unique: true`);
 
   if (col.columnDefault !== null && !col.isPrimary) {
     if (col.columnDefault.includes("(")) {
-      // Function call — raw
-      expr += `.defaultRaw("${col.columnDefault}")`;
-    } else if (col.dataType === "boolean") {
-      expr += `.default(${col.columnDefault})`;
-    } else if (
-      col.dataType.includes("int") ||
-      col.dataType.includes("numeric") ||
-      col.dataType.includes("real") ||
-      col.dataType.includes("double")
-    ) {
-      expr += `.default(${col.columnDefault})`;
+      opts.push(`defaultRaw: "${col.columnDefault}"`);
+    } else if (col.dataType === "boolean" || col.dataType.includes("int") || col.dataType.includes("numeric") || col.dataType.includes("real") || col.dataType.includes("double")) {
+      opts.push(`default: ${col.columnDefault}`);
     } else {
-      // Strip surrounding quotes for string defaults
       const cleaned = col.columnDefault.replace(/^'(.*)'::.*$/, "$1");
-      expr += `.default("${cleaned}")`;
+      opts.push(`default: "${cleaned}"`);
     }
   }
 
   if (col.foreignTable && col.foreignColumn) {
     const deleteRule = col.deleteRule?.toLowerCase().replace(" ", " ");
     const updateRule = col.updateRule?.toLowerCase().replace(" ", " ");
-    let refOpts = "";
-    if (deleteRule && deleteRule !== "no action") {
-      refOpts += `onDelete: "${deleteRule}", `;
-    }
-    if (updateRule && updateRule !== "no action") {
-      refOpts += `onUpdate: "${updateRule}"`;
-    }
-    const opts = refOpts ? `, { ${refOpts.trim().replace(/,$/, "")} }` : "";
-    expr += `.references("${col.foreignTable}", "${col.foreignColumn}"${opts})`;
+    let refOpts = `table: "${col.foreignTable}", column: "${col.foreignColumn}"`;
+    if (deleteRule && deleteRule !== "no action") refOpts += `, onDelete: "${deleteRule}"`;
+    if (updateRule && updateRule !== "no action") refOpts += `, onUpdate: "${updateRule}"`;
+    opts.push(`references: { ${refOpts} }`);
   }
 
-  return expr;
+  let builderName = pgTypeToBungresBuilderName(col);
+  
+  if (opts.length > 0) {
+    return `${builderName}({ ${opts.join(", ")} })`;
+  }
+  return `${builderName}()`;
 }
 
-function pgTypeToBungresBuilder(col: TableInfo["columns"][number]): string {
+function pgTypeToBungresBuilderName(col: TableInfo["columns"][number]): string {
   const dt = col.dataType;
-  const name = col.name;
 
-  if (dt === "uuid") return `uuid("${name}")`;
-  if (dt === "text") return `text("${name}")`;
-  if (dt === "character varying")
-    return col.maxLength ? `varchar("${name}", ${col.maxLength})` : `varchar("${name}")`;
-  if (dt === "character")
-    return col.maxLength ? `char("${name}", ${col.maxLength})` : `char("${name}")`;
-  if (dt === "integer") return `integer("${name}")`;
-  if (dt === "bigint") return `bigint("${name}")`;
-  if (dt === "smallint") return `smallint("${name}")`;
-  if (dt === "boolean") return `boolean("${name}")`;
-  if (dt === "real") return `real("${name}")`;
-  if (dt === "double precision") return `doublePrecision("${name}")`;
-  if (dt === "numeric" || dt === "decimal") return `numeric("${name}")`;
-  if (dt === "json") return `json("${name}")`;
-  if (dt === "jsonb") return `jsonb("${name}")`;
-  if (dt === "timestamp without time zone") return `timestamp("${name}")`;
-  if (dt === "timestamp with time zone") return `timestamptz("${name}")`;
-  if (dt === "date") return `date("${name}")`;
-  if (dt === "time without time zone") return `time("${name}")`;
-  if (dt === "bytea") return `bytea("${name}")`;
-  if (dt === "inet") return `inet("${name}")`;
-  if (dt === "USER-DEFINED" && col.udtName === "citext") return `text("${name}")`;
+  if (dt === "uuid") return "uuid";
+  if (dt === "text") return "text";
+  if (dt === "character varying") return "varchar";
+  if (dt === "character") return "char";
+  if (dt === "integer") return "integer";
+  if (dt === "bigint") return "bigint";
+  if (dt === "smallint") return "smallint";
+  if (dt === "boolean") return "boolean";
+  if (dt === "real") return "real";
+  if (dt === "double precision") return "doublePrecision";
+  if (dt === "numeric" || dt === "decimal") return "numeric";
+  if (dt === "json") return "json";
+  if (dt === "jsonb") return "jsonb";
+  if (dt === "timestamp without time zone") return "timestamp";
+  if (dt === "timestamp with time zone") return "timestamptz";
+  if (dt === "date") return "date";
+  if (dt === "time without time zone") return "time";
+  if (dt === "bytea") return "bytea";
+  if (dt === "inet") return "inet";
+  if (dt === "USER-DEFINED" && col.udtName === "citext") return "text";
+  if (dt === "ARRAY") {
+    if (col.udtName === "_text") return "textArray";
+    if (col.udtName === "_int4" || col.udtName === "_int8") return "integerArray";
+    if (col.udtName === "_varchar") return "varcharArray";
+    if (col.udtName === "_uuid") return "uuidArray";
+    return "textArray";
+  }
   // Fallback
-  return `text("${name}") /* original type: ${dt} */`;
+  return "text";
 }
 
 function toCamelCase(str: string): string {

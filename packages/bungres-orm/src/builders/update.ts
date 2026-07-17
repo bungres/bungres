@@ -1,6 +1,7 @@
 import type { QueryExecutor, WhereCondition } from "../core/query.js";
 import type { SQLChunk } from "../core/sql.js";
 import { sqlJoin } from "../core/sql.js";
+import { parseWhereObject } from "../core/conditions.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferTable } from "../types/index.js";
 
@@ -8,7 +9,7 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
   private _table: Table<string, TColumns>;
   private _executor: QueryExecutor;
   private _set: Partial<InferTable<TColumns>> = {};
-  private _where: WhereCondition[] = [];
+  private _where: SQLChunk[] = [];
   private _returning?: string[];
   private _comment?: string;
 
@@ -33,8 +34,12 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
     return this;
   }
 
-  where(condition: WhereCondition): this {
-    this._where.push(condition);
+  where(condition: WhereCondition<TColumns>): this {
+    if (condition && typeof condition === "object" && !("sql" in condition)) {
+      this._where.push(parseWhereObject(getTableConfig(this._table) as any, condition as any));
+    } else {
+      this._where.push(condition as SQLChunk);
+    }
     return this;
   }
 
@@ -62,6 +67,22 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
         const offset = params.length;
         params.push(...chunk.params);
         return `"${dbCol}" = ${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)}`;
+      }
+      if (value && typeof value === "object" && !(value instanceof Date)) {
+        const colType = getTableConfig(this._table).columns[key]?.dataType;
+        if (colType === "json" || colType === "jsonb") {
+          params.push(JSON.stringify(value));
+        } else if (Array.isArray(value)) {
+          const pgArray = '{' + value.map(item => {
+            if (item === null || item === undefined) return 'NULL';
+            if (typeof item === 'string') return '"' + item.replace(/"/g, '\\"') + '"';
+            return typeof item === 'object' ? '"' + JSON.stringify(item).replace(/"/g, '\\"') + '"' : String(item);
+          }).join(',') + '}';
+          params.push(pgArray);
+        } else {
+          params.push(JSON.stringify(value));
+        }
+        return `"${dbCol}" = $${params.length}`;
       }
       params.push(value);
       return `"${dbCol}" = $${params.length}`;

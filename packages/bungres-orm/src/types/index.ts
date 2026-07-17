@@ -36,7 +36,11 @@ export type ColumnDataType =
   | "box"
   | "path"
   | "polygon"
-  | "circle";
+  | "circle"
+  | "text[]"
+  | "integer[]"
+  | "varchar[]"
+  | "uuid[]";
 
 /** Column config stored internally */
 export interface ColumnConfig<
@@ -135,6 +139,10 @@ type InferBaseType<C extends ColumnConfig<any, any, any, any>> = C["dataType"] e
   ? Date
   : C["dataType"] extends "bytea"
   ? Uint8Array
+  : C["dataType"] extends "text[]" | "varchar[]" | "uuid[]"
+  ? string[]
+  : C["dataType"] extends "integer[]"
+  ? number[]
   : unknown;
 
 export type InferColumnType<C extends ColumnConfig<any, any, any, any>> = IsNullable<C> extends true

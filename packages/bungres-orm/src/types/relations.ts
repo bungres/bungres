@@ -1,6 +1,7 @@
 import type { Table } from "../schema/table.js";
 import type { InferTable } from "./index.js";
 import type { SQLChunk } from "../core/sql.js";
+import type { OrderByObject, WhereCondition } from "../core/query.js";
 
 // ---------------------------------------------------------------------------
 // Type-level schema extraction (Zero-Boilerplate Relations)
@@ -70,31 +71,35 @@ export type WithConfig<TSchema extends SchemaConfig, TTableName extends keyof TS
     with?: WithConfig<TSchema, TargetTable<TSchema, TTableName, K>>;
     limit?: number;
     offset?: number;
-    orderBy?: any;
-    where?: SQLChunk;
+    orderBy?: OrderByObject<GetColumns<TSchema[TargetTable<TSchema, TTableName, K>]>> | SQLChunk;
+    where?: WhereCondition<GetColumns<TSchema[TargetTable<TSchema, TTableName, K>]>>;
   };
 };
 
 export type FindManyArgs<TSchema extends SchemaConfig, TTableName extends keyof TSchema> = {
   columns?: Partial<Record<keyof GetColumns<TSchema[TTableName]>, boolean>>;
-  where?: SQLChunk;
+  where?: WhereCondition<GetColumns<TSchema[TTableName]>>;
   limit?: number;
   offset?: number;
-  orderBy?: any;
+  orderBy?: OrderByObject<GetColumns<TSchema[TTableName]>> | SQLChunk;
   with?: WithConfig<TSchema, TTableName>;
 };
 
 // Flatten intersection types to make TS hover tooltips cleaner
 type Prettify<T> = { [K in keyof T]: T[K] } & {};
 
+type HasTrue<C> = true extends C[keyof C] ? true : false;
+
 type ApplyColumns<TTableProps, TArgs> = TArgs extends { columns: infer C }
-  ? { [K in keyof TTableProps as (K extends keyof C ? (C[K] extends true ? K : never) : never)]: TTableProps[K] }
+  ? (HasTrue<C> extends true
+      ? { [K in keyof TTableProps as (K extends keyof C ? (C[K] extends true ? K : never) : never)]: TTableProps[K] }
+      : { [K in keyof TTableProps as (K extends keyof C ? (C[K] extends false ? never : K) : K)]: TTableProps[K] })
   : TTableProps;
 
 export type FindManyResult<
   TSchema extends SchemaConfig,
   TTableName extends keyof TSchema,
-  TArgs extends FindManyArgs<TSchema, TTableName> | undefined
+  TArgs extends any = undefined
 > = Prettify<
   ApplyColumns<InferTable<GetColumns<TSchema[TTableName]>>, TArgs> &
   (TArgs extends { with: infer W }

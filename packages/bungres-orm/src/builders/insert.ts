@@ -88,6 +88,22 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
           params.push(...chunk.params);
           return chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
         }
+        if (val && typeof val === "object" && !(val instanceof Date)) {
+          const colType = tConfig.columns[k]?.dataType;
+          if (colType === "json" || colType === "jsonb") {
+            params.push(JSON.stringify(val));
+          } else if (Array.isArray(val)) {
+            const pgArray = '{' + val.map(item => {
+              if (item === null || item === undefined) return 'NULL';
+              if (typeof item === 'string') return '"' + item.replace(/"/g, '\\"') + '"';
+              return typeof item === 'object' ? '"' + JSON.stringify(item).replace(/"/g, '\\"') + '"' : String(item);
+            }).join(',') + '}';
+            params.push(pgArray);
+          } else {
+            params.push(JSON.stringify(val));
+          }
+          return `$${params.length}`;
+        }
         if (val === undefined) return "DEFAULT";
         params.push(val);
         return `$${params.length}`;

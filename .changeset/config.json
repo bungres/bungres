@@ -7,7 +7,9 @@
     }
   ],
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    ["@bungres/orm", "@bungres/kit"]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",

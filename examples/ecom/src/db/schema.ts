@@ -8,6 +8,8 @@ import {
   uuid,
   varchar,
   unique,
+  jsonb,
+  textArray
 } from "@bungres/orm";
 
 export const users = snakeCase.table("users", {
@@ -98,4 +100,13 @@ export const productTags = snakeCase.table("product_tags", {
   id: uuid({ primaryKey: true }),
   productId: uuid({ notNull: true, references: { table: "products", column: "id", onDelete: "cascade" } }),
   tagId: uuid({ notNull: true, references: { table: "tags", column: "id", onDelete: "cascade" } }),
+});
+
+export const logs = snakeCase.table("logs", {
+  id: uuid({ primaryKey: true }),
+  level: varchar({ length: 50, notNull: true }),
+  message: text({ notNull: true }),
+  meta: jsonb(),
+  tags: textArray(),
+  createdAt: timestamptz({ notNull: true, defaultRaw: "NOW()" }),
 });

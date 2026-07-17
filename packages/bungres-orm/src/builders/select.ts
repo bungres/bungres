@@ -1,6 +1,7 @@
 import type { OrderDir, QueryExecutor, WhereCondition } from "../core/query.js";
 import type { SQLChunk } from "../core/sql.js";
 import { sqlJoin } from "../core/sql.js";
+import { parseWhereObject } from "../core/conditions.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferColumnType, InferTable } from "../types/index.js";
 
@@ -16,7 +17,7 @@ export class SelectBuilder<
 > implements PromiseLike<TResult[]> {
   private _table: Table<string, TColumns>;
   private _executor: QueryExecutor;
-  private _where: WhereCondition[] = [];
+  private _where: SQLChunk[] = [];
   private _orderBy: Array<{ column: string; dir: OrderDir }> = [];
   private _limit?: number;
   private _offset?: number;
@@ -52,8 +53,12 @@ export class SelectBuilder<
     return this;
   }
 
-  where(condition: WhereCondition): this {
-    this._where.push(condition);
+  where(condition: WhereCondition<TColumns>): this {
+    if (condition && typeof condition === "object" && !("sql" in condition)) {
+      this._where.push(parseWhereObject(getTableConfig(this._table) as any, condition as any));
+    } else {
+      this._where.push(condition as SQLChunk);
+    }
     return this;
   }
 

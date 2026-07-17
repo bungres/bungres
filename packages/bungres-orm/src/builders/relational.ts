@@ -1,7 +1,8 @@
-import type { QueryExecutor } from "../core/query.js";
+import type { QueryExecutor, WhereCondition, OrderByObject } from "../core/query.js";
 import type { SQLChunk } from "../core/sql.js";
+import { parseWhereObject, parseOrderByObject } from "../core/conditions.js";
 import { TableConfigSymbol } from "../schema/table.js";
-import type { ExtractTableRelations, FindManyArgs, FindManyResult, MergeWith, SchemaConfig, TargetTable } from "../types/relations.js";
+import type { ExtractTableRelations, FindManyArgs, FindManyResult, MergeWith, SchemaConfig, TargetTable, GetColumns } from "../types/relations.js";
 // ---------------------------------------------------------------------------
 
 const _relationsCache = new WeakMap<any, Map<string, {
@@ -27,7 +28,7 @@ export class RelationalQueryBuilder<
     this._args = args ?? ({} as TArgs);
   }
 
-  where(condition: SQLChunk): RelationalQueryBuilder<TSchema, TTableName, TArgs & { where: SQLChunk }> {
+  where(condition: WhereCondition<GetColumns<TSchema[TTableName]>>): RelationalQueryBuilder<TSchema, TTableName, TArgs & { where: typeof condition }> {
     return new RelationalQueryBuilder(this._executor, this._schema, this._tableName, {
       ...this._args,
       where: condition
@@ -48,7 +49,7 @@ export class RelationalQueryBuilder<
     });
   }
 
-  orderBy(order: any): RelationalQueryBuilder<TSchema, TTableName, TArgs & { orderBy: any }> {
+  orderBy(order: OrderByObject<GetColumns<TSchema[TTableName]>> | SQLChunk): RelationalQueryBuilder<TSchema, TTableName, TArgs & { orderBy: typeof order }> {
     return new RelationalQueryBuilder(this._executor, this._schema, this._tableName, {
       ...this._args,
       orderBy: order
@@ -193,10 +194,14 @@ export class RelationalQueryBuilder<
 
     // Base table columns
     const columnsConfig = args.columns;
+    const hasTrue = columnsConfig ? Object.values(columnsConfig).some(v => v === true) : false;
+
     for (const [colKey, colConfig] of Object.entries(tableConfig.columns as Record<string, any>)) {
       if (columnsConfig) {
-        if (columnsConfig[colKey] !== true) {
-          continue; // Skip if not explicitly requested in columns
+        if (hasTrue) {
+          if (columnsConfig[colKey] !== true) continue;
+        } else {
+          if (columnsConfig[colKey] === false) continue;
         }
       }
       jsonFields.push(`'${colKey}', "${alias}"."${colConfig.name}"`);
@@ -282,10 +287,17 @@ export class RelationalQueryBuilder<
       fromSql += ` WHERE ${joinCondition}`;
     }
 
-    if (args.where && args.where.sql) {
+    if (args.where) {
       const offset = params.length;
-      fromSql += (joinCondition ? " AND " : " WHERE ") + args.where.sql.replace(/\$(\d+)/g, (_: string, n: string) => `$${parseInt(n) + offset}`);
-      params.push(...args.where.params);
+      let whereChunk: any = args.where;
+      if (args.where && !args.where.sql) {
+        whereChunk = parseWhereObject(tableConfig, args.where);
+      }
+      
+      if (whereChunk && whereChunk.sql) {
+        fromSql += (joinCondition ? " AND " : " WHERE ") + whereChunk.sql.replace(/\$(\d+)/g, (_: string, n: string) => `$${parseInt(n) + offset}`);
+        params.push(...whereChunk.params);
+      }
     }
 
     if (args.orderBy) {
@@ -295,6 +307,15 @@ export class RelationalQueryBuilder<
         const offset = params.length;
         fromSql += ` ORDER BY ` + args.orderBy.sql.replace(/\$(\d+)/g, (_: string, n: string) => `$${parseInt(n) + offset}`);
         params.push(...args.orderBy.params);
+      } else {
+        const chunks = parseOrderByObject(tableConfig, args.orderBy);
+        if (chunks.length > 0) {
+            fromSql += ` ORDER BY ` + chunks.map(c => {
+                const offset = params.length;
+                params.push(...c.params);
+                return c.sql.replace(/\$(\d+)/g, (_: string, n: string) => `$${parseInt(n) + offset}`);
+            }).join(", ");
+        }
       }
     }
 
