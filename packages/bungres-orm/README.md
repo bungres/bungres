@@ -6,8 +6,8 @@ Part of the **Bungres** ecosystem. For migrations and CLI tools, see [`@bungres/
 
 ## Requirements
 
-- **Bun ≥ 1.1** (uses `Bun.sql` which is built-in)
-- **Postgres ≥ 14**
+- **Bun ≥ 1.3** (uses `Bun.sql` which is built-in)
+- **Postgres ≥ 16**
 
 ## Installation
 

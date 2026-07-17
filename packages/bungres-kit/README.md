@@ -4,8 +4,8 @@ CLI toolkit for [`@bungres/orm`](https://www.npmjs.com/package/@bungres/orm) —
 
 ## Requirements
 
-- **Bun ≥ 1.1** (uses `Bun.sql` which is built-in)
-- **Postgres ≥ 14**
+- **Bun ≥ 1.3** (uses `Bun.sql` which is built-in)
+- **Postgres ≥ 16**
 - Built to work alongside `@bungres/orm`.
 
 ## Installation
