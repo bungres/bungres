@@ -11,7 +11,7 @@ Type-safe Postgres ORM + CLI toolkit for [Bun](https://bun.sh), using Bun's nati
 
 ## Requirements
 
-- **Bun ≥ 1.3** (uses `Bun.sql` which is built-in)
+- **Bun ≥ 1.3** (uses `Bun.sql` natively under the hood)
 - **Postgres ≥ 16**
 
 ---
