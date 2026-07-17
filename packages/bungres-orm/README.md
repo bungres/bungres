@@ -20,16 +20,20 @@ bun add @bungres/orm
 ### 1. Define your schema
 
 ```ts
-import { table, uuid, varchar, text, boolean, timestamptz } from "@bungres/orm";
+import { snakeCase, uuid, varchar, text, boolean, timestamptz, unique, index } from "@bungres/orm";
 
-export const users = table("users", {
-  id:        uuid("id").primaryKey(),
-  email:     varchar("email", 255).notNull().unique(),
-  username:  varchar("username", 80).notNull().unique(),
-  fullName:  text("full_name"),
-  verified:  boolean("verified").notNull().default(false),
-  createdAt: timestamptz("created_at").notNull().defaultRaw("NOW()"),
-});
+export const users = snakeCase.table("users", {
+  id: uuid({ primaryKey: true }),
+  email: varchar({ length: 255, notNull: true }),
+  username: varchar({ length: 80, notNull: true }),
+  fullName: text(),
+  verified: boolean({ notNull: true, default: false }),
+  createdAt: timestamptz({ notNull: true, defaultRaw: "NOW()" }),
+}, (t) => [
+  unique().on(t.email),
+  unique().on(t.username),
+  index().on(t.createdAt)
+]);
 ```
 
 ### 2. Create a DB client
@@ -46,28 +50,28 @@ export const db = createDB(process.env.DATABASE_URL!);
 import { eq, and, ilike } from "@bungres/orm";
 
 // SELECT
-const user = await db.executeSingle(
-  db.select(users).where(eq("id", userId))
-);
+const user = await db.select().from(users).where(eq(users.id, userId)).single();
+
+// FIND FIRST / FIND MANY (Alternative Syntax)
+const userByEmail = await db.users.findFirst({
+  where: eq(users.email, "alice@example.com")
+});
 
 // INSERT
-const newUser = await db.execute(
-  db.insert(users)
-    .values({ email: "alice@example.com", username: "alice" })
-    .returning()
-);
+const newUser = await db.insert(users)
+  .values({ email: "alice@example.com", username: "alice" })
+  .returning()
+  .single();
 
 // UPDATE
-await db.execute(
-  db.update(users)
-    .set({ verified: true })
-    .where(eq("id", userId))
-);
+const updated = await db.update(users)
+  .set({ verified: true })
+  .where(eq(users.id, userId))
+  .returning()
+  .single();
 
 // DELETE
-await db.execute(
-  db.delete(users).where(eq("id", userId))
-);
+await db.execute(db.delete(users).where(eq(users.id, userId)));
 ```
 
 ### 1. Casing API
@@ -109,20 +113,20 @@ db.select(users).comment("Get user list for dashboard");
 Bungres automatically detects junction tables based on foreign keys! Just query your deep relations directly.
 
 ```ts
-export const users = table("users", {
-  id: uuid("id", { primaryKey: true }),
-  name: text("name"),
+export const users = snakeCase.table("users", {
+  id: uuid({ primaryKey: true }),
+  name: text(),
 });
 
-export const groups = table("groups", {
-  id: uuid("id", { primaryKey: true }),
-  name: text("name"),
+export const groups = snakeCase.table("groups", {
+  id: uuid({ primaryKey: true }),
+  name: text(),
 });
 
-export const userGroups = table("user_groups", {
-  id: uuid("id", { primaryKey: true }),
-  userId: uuid("user_id", { references: { table: "users", column: "id" } }),
-  groupId: uuid("group_id", { references: { table: "groups", column: "id" } }),
+export const userGroups = snakeCase.table("user_groups", {
+  id: uuid({ primaryKey: true }),
+  userId: uuid({ references: { table: "users", column: "id" } }),
+  groupId: uuid({ references: { table: "groups", column: "id" } }),
 });
 
 const db = createDB({ url: DB_URL, schema: { users, groups, userGroups } });
@@ -141,9 +145,9 @@ const result = await db.users.findMany({
 
 ```ts
 const result = await db.transaction(async (tx) => {
-  const post = await tx.execute(tx.insert(posts).values(data).returning());
-  await tx.execute(tx.update(users).set({ postCount: n + 1 }).where(eq("id", authorId)));
-  return post[0];
+  const post = await tx.insert(posts).values(data).returning().single();
+  await tx.update(users).set({ postCount: n + 1 }).where(eq(users.id, authorId));
+  return post;
 });
 ```
 
@@ -171,24 +175,6 @@ db.select(posts).where(
     or(ilike("title", "%bun%"), ilike("body", "%bun%"))
   )
 )
-```
-
-### Type inference
-
-```ts
-import type { InferTable, InferInsert } from "@bungres/orm";
-
-type User    = InferTable<typeof users>;   // full row
-type NewUser = InferInsert<typeof users>;  // insert shape (PKs/defaults optional)
-```
-
-## Column Types Supported
-
-```
-text  varchar  char  integer  bigint  smallint  serial  bigserial
-boolean  real  doublePrecision  numeric  decimal
-json  jsonb  timestamp  timestamptz  date  time  timetz
-uuid  bytea  interval  inet  cidr  macaddr
 ```
 
 ## License

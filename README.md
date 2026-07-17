@@ -41,16 +41,20 @@ bun run bungres migrate
 ### Defining a schema
 
 ```ts
-import { table, uuid, varchar, text, boolean, timestamptz } from "@bungres/orm";
+import { snakeCase, uuid, varchar, text, boolean, timestamptz, unique, index } from "@bungres/orm";
 
-export const users = table("users", {
-  id:        uuid("id").primaryKey(),
-  email:     varchar("email", 255).notNull().unique(),
-  username:  varchar("username", 80).notNull().unique(),
-  fullName:  text("full_name"),
-  verified:  boolean("verified").notNull().default(false),
-  createdAt: timestamptz("created_at").notNull().defaultRaw("NOW()"),
-});
+export const users = snakeCase.table("users", {
+  id: uuid({ primaryKey: true }),
+  email: varchar({ length: 255, notNull: true }),
+  username: varchar({ length: 80, notNull: true }),
+  fullName: text(),
+  verified: boolean({ notNull: true, default: false }),
+  createdAt: timestamptz({ notNull: true, defaultRaw: "NOW()" }),
+}, (t) => [
+  unique().on(t.email),
+  unique().on(t.username),
+  index().on(t.createdAt)
+]);
 ```
 
 ### Creating a DB client
@@ -67,28 +71,28 @@ export const db = createDB(process.env.DATABASE_URL!);
 import { eq, and, ilike } from "@bungres/orm";
 
 // SELECT
-const user = await db.executeSingle(
-  db.select(users).where(eq("id", userId))
-);
+const user = await db.select().from(users).where(eq(users.id, userId)).single();
+
+// FIND FIRST / FIND MANY (Alternative Syntax)
+const userByEmail = await db.users.findFirst({
+  where: eq(users.email, "alice@example.com")
+});
 
 // INSERT
-const newUser = await db.execute(
-  db.insert(users)
-    .values({ email: "alice@example.com", username: "alice" })
-    .returning()
-);
+const newUser = await db.insert(users)
+  .values({ email: "alice@example.com", username: "alice" })
+  .returning()
+  .single();
 
 // UPDATE
-await db.execute(
-  db.update(users)
-    .set({ verified: true })
-    .where(eq("id", userId))
-);
+const updated = await db.update(users)
+  .set({ verified: true })
+  .where(eq(users.id, userId))
+  .returning()
+  .single();
 
 // DELETE
-await db.execute(
-  db.delete(users).where(eq("id", userId))
-);
+await db.execute(db.delete(users).where(eq(users.id, userId)));
 ```
 
 ### Transactions
@@ -188,18 +192,15 @@ const result = await db.users.findMany({
 ### Config file — `bungres.config.ts`
 
 ```ts
-import type { BungresKitConfig } from "@bungres/kit";
+import { defineConfig } from "@bungres/kit";
 
-const config: BungresKitConfig = {
-  // dbUrl: "postgres://...",   // or set DATABASE_URL env var
-  schema: "src/db/schema/**/*.ts",
-  migrationsDir: "./migrations",
-  outDir: "./src/db/generated",
-  dbSchema: "public",
-  verbose: false,
-};
-
-export default config;
+export default defineConfig({
+  schema: "./src/db/schema.ts",
+  out: "./bungres", // Directory for migrations & generated files
+  dbCredentials: {
+    url: Bun.env.DATABASE_URL!,
+  },
+});
 ```
 
 ### Commands
@@ -211,6 +212,11 @@ export default config;
 | `bungres push` | Apply schema directly to DB — no files (dev/prototyping) |
 | `bungres pull` | Introspect the DB and generate TypeScript schema |
 | `bungres status` | Show applied vs pending migrations |
+| `bungres fresh` | Drop all tables and re-run all migrations from scratch |
+| `bungres refresh` | Truncate all tables to quickly reset data without dropping schema |
+| `bungres seed` | Execute the seed script to populate the database |
+| `bungres studio` | Start a local web interface to browse database data |
+| `bungres tusky` | Boot up a Node REPL connected to the database with schema loaded |
 | `bungres drop` | Drop all tables defined in the schema (prompts for confirmation) |
 
 ```bash
@@ -219,19 +225,13 @@ bungres migrate
 bungres push
 bungres pull
 bungres status
+bungres fresh
+bungres refresh
+bungres seed
+bungres studio
+bungres tusky
 bungres drop --force   # skip confirmation
 bungres --help
-```
-
----
-
-## Column types
-
-```
-text  varchar  char  integer  bigint  smallint  serial  bigserial
-boolean  real  doublePrecision  numeric  decimal
-json  jsonb  timestamp  timestamptz  date  time  timetz
-uuid  bytea  interval  inet  cidr  macaddr
 ```
 
 ---
@@ -243,12 +243,10 @@ bungres/
 ├── packages/
 │   ├── @bungres/orm/          # Core ORM
 │   │   └── src/
-│   │       ├── types.ts    # Column/table/inference types
-│   │       ├── column.ts   # ColumnBuilder + column factories
-│   │       ├── table.ts    # table()
-│   │       ├── sql.ts      # sql`` tagged template
-│   │       ├── query.ts    # Select/Insert/Update/Delete builders + conditions
-│   │       ├── db.ts       # BungresDB client (Bun.sql)
+│   │       ├── core/       # Database client, query execution
+│   │       ├── builders/   # Select/Insert/Update/Delete builders
+│   │       ├── schema/     # Column/Table definitions & factory functions
+│   │       ├── types/      # Inference types
 │   │       ├── ddl.ts      # CREATE/DROP/ALTER DDL generation
 │   │       └── index.ts    # Public API
 │   └── @bungres/kit/          # CLI

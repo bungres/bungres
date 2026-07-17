@@ -4,6 +4,6 @@ export default defineConfig({
   schema: "./src/db/schema.ts",
   out: "./bungres",
   dbCredentials: {
-    url: process.env["DATABASE_URL"]!,
+    url: Bun.env.DATABASE_URL!,
   },
 });
