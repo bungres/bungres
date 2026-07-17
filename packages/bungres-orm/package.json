@@ -1,6 +1,6 @@
 {
   "name": "@bungres/orm",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Type-safe ORM for Postgres using Bun native SQL",
   "type": "module",
   "main": "./dist/index.js",

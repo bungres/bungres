@@ -1,6 +1,6 @@
 {
   "name": "@bungres/kit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI toolkit for @bungres/orm — migrate, push, generate, pull",
   "type": "module",
   "bin": {
@@ -34,7 +34,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@bungres/orm": "0.1.0"
+    "@bungres/orm": "0.2.0"
   },
   "devDependencies": {
     "bun-types": "latest",
