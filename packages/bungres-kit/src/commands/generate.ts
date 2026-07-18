@@ -30,7 +30,7 @@ export async function runGenerate(
     return;
   }
 
-  const migrationsDir = resolve(config.migrationsDir);
+  const migrationsDir = resolve(config.out);
   await Bun.$`mkdir -p ${migrationsDir}`.quiet();
 
   // ── Build current snapshot from loaded schemas ────────────────────────────

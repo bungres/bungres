@@ -1,4 +1,4 @@
-import { createDB } from "@bungres/orm";
+import { bungres } from "@bungres/orm";
 import type { ResolvedConfig } from "../config.js";
 import { loadSchemas } from "../schema-loader.js";
 import { colorize } from "../utils/colors.js";
@@ -20,9 +20,9 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
     schemaObj[s.exportName] = s.table;
   }
 
-  const db = createDB({ url: config.dbUrl, schema: schemaObj });
+  const db = bungres({ url: config.dbUrl, schema: schemaObj });
 
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 5555;
+  const port = Bun.env.PORT ? parseInt(Bun.env.PORT, 10) : 5555;
 
   const server = Bun.serve({
     port,
@@ -65,13 +65,13 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
 
           // Fetch paginated data
           const data = await db.select().from(schema.table).limit(limit).offset(offset);
-          
-          return new Response(JSON.stringify({ 
-            data, 
-            total, 
-            page, 
-            limit, 
-            totalPages: Math.ceil(total / limit) 
+
+          return new Response(JSON.stringify({
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
           }), {
             headers: { "Content-Type": "application/json" }
           });

@@ -1,6 +1,6 @@
 # @bungres/kit
 
-CLI toolkit for [`@bungres/orm`](https://www.npmjs.com/package/@bungres/orm) — generate, migrate, push, pull, status, and drop your database schema with ease. 🐘✨
+CLI toolkit for [`@bungres/orm`](https://www.npmjs.com/package/@bungres/orm) — initialize, generate, migrate, push, pull, status, and drop your database schema with ease. 🐘✨
 
 ## Requirements
 
@@ -25,7 +25,7 @@ export default defineConfig({
   schema: "./src/db/schema.ts",
   out: "./bungres", // Directory for migrations & generated files
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    url: Bun.env.DATABASE_URL!,
   },
 });
 ```
@@ -40,6 +40,7 @@ bun run bungres --help
 
 | Command | Description |
 |---|---|
+| `bungres init` | Initialize bungres project with config file and db folder structure |
 | `bungres generate` | Write a timestamped `.sql` migration file from your schema |
 | `bungres migrate` | Run pending `.sql` files, track applied in `__bungres_migrations` |
 | `bungres push` | Apply schema directly to DB — no files (great for dev/prototyping) |
@@ -55,6 +56,7 @@ bun run bungres --help
 ### Usage Examples
 
 ```bash
+bun run bungres init
 bun run bungres generate
 bun run bungres migrate
 bun run bungres push

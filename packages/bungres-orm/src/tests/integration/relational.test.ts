@@ -1,9 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { createDB } from "../../index.js";
-import { table } from "../../index.js";
-import { uuid, text } from "../../index.js";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { bungres, table, text, uuid } from "../../index.js";
 
-const DB_URL = process.env["DATABASE_URL"];
+const DB_URL = Bun.env.DATABASE_URL;
 
 if (!DB_URL) {
   console.log("  ⚠  Skipping relational tests — no DATABASE_URL set.");
@@ -27,7 +25,7 @@ const userGroups = table("_bungres_rel_user_groups", {
 });
 
 const schema = { users, groups, userGroups };
-const db = createDB({ url: DB_URL, schema });
+const db = bungres({ url: DB_URL, schema });
 
 beforeAll(async () => {
   await db.raw(`

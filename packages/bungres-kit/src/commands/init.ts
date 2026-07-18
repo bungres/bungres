@@ -32,7 +32,7 @@ export default defineConfig({
   schema: "./src/db/schema.ts",
   out: "./bungres",
   dbCredentials: {
-    url: Bun.env.DATABASE_URL!,
+    url: process.env.DATABASE_URL!,
   },
 });
 `;
@@ -50,12 +50,12 @@ export default defineConfig({
   uuid,
   varchar,
   timestamptz,
-  snakeCase,
+  table,
   unique,
   index
 } from "@bungres/orm";
 
-export const users = snakeCase.table("users", {
+export const users = table("users", {
   id: uuid({ primaryKey: true }),
   name: varchar({ length: 255, notNull: true }),
   email: varchar({ length: 255, notNull: true }),
@@ -74,12 +74,12 @@ export const users = snakeCase.table("users", {
   }
 
   // Create client.ts file
-  const clientContent = `import { createDB } from "@bungres/orm";
+  const clientContent = `import { bungres } from "@bungres/orm";
 import * as schema from "./schema";
 
 const url = Bun.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/postgres";
 
-export const db = createDB({ url, schema });
+export const db = bungres({ url, schema });
 `;
 
   try {

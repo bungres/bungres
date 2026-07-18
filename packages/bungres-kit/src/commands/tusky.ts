@@ -1,5 +1,5 @@
 import * as readline from "node:readline";
-import { createDB } from "@bungres/orm";
+import { bungres } from "@bungres/orm";
 import type { ResolvedConfig } from "../config.js";
 import { loadSchemas } from "../schema-loader.js";
 
@@ -15,7 +15,7 @@ export async function runTusky(config: ResolvedConfig): Promise<void> {
     schemaObj[s.exportName] = s.table;
   }
 
-  const db = createDB({ url: config.dbUrl, schema: schemaObj });
+  const db = bungres({ url: config.dbUrl, schema: schemaObj });
 
   console.log("=========================================");
   console.log("🐘 Welcome to Bungres REPL (Tusky)");

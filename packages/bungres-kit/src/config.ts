@@ -1,4 +1,4 @@
-import { resolve, join } from "node:path";
+import { join, resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
 // Config — mirrors drizzle-kit's config shape, adapted for bungres
@@ -19,7 +19,7 @@ export interface BungresKitConfig {
 
   /**
    * Output directory for generated migration .sql files.
-   * Equivalent to drizzle's `out`. Default: "./migrations"
+   * Default: "./migrations"
    */
   out?: string;
 
@@ -37,6 +37,36 @@ export interface BungresKitConfig {
    */
   dbSchema?: string;
 
+  /**
+   * Migrations tracking options.
+   */
+  migrations?: {
+    /**
+     * Name of the table used to track applied migrations.
+     * Default: "__bungres_migrations"
+     */
+    table?: string;
+    /**
+     * Postgres schema where the migrations tracking table lives.
+     * Default: "bungres"
+     */
+    schema?: string;
+  };
+
+  /**
+   * When true, split generated SQL at `-->statement-breakpoint` comments
+   * and execute each statement individually inside a transaction.
+   * Default: true
+   */
+  breakpoints?: boolean;
+
+  /**
+   * When true, commands like `push` and `drop` will prompt for confirmation
+   * before making destructive changes.
+   * Default: false
+   */
+  strict?: boolean;
+
   /** Print every SQL statement executed. Default: false */
   verbose?: boolean;
 }
@@ -47,8 +77,10 @@ export interface ResolvedConfig {
   out: string;
   dbUrl: string;
   dbSchema: string;
-  /** @deprecated use out — kept internally for compat */
-  migrationsDir: string;
+  migrationsTable: string;
+  migrationsSchema: string;
+  breakpoints: boolean;
+  strict: boolean;
   outDir: string;
   verbose: boolean;
 }
@@ -74,8 +106,8 @@ export async function loadConfig(cwd = process.cwd()): Promise<ResolvedConfig> {
 
   const dbUrl =
     userConfig.dbCredentials?.url ??
-    process.env["DATABASE_URL"] ??
-    process.env["POSTGRES_URL"] ??
+    Bun.env.DATABASE_URL ??
+    Bun.env.POSTGRES_URL ??
     "";
 
   if (!dbUrl) {
@@ -94,8 +126,11 @@ export async function loadConfig(cwd = process.cwd()): Promise<ResolvedConfig> {
     out,
     dbUrl,
     dbSchema: userConfig.dbSchema ?? "public",
-    // internal aliases kept so commands don't need changing
-    migrationsDir: out,
+    migrationsTable: userConfig.migrations?.table ?? "__bungres_migrations",
+    migrationsSchema: userConfig.migrations?.schema ?? "bungres",
+    breakpoints: userConfig.breakpoints ?? true,
+    strict: userConfig.strict ?? false,
+    // internal alias for pull's output
     outDir: "./src/db/generated",
     verbose: userConfig.verbose ?? false,
   };

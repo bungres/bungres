@@ -114,6 +114,17 @@ function createTableFactory(casing: "none" | "snake" | "camel") {
   };
 }
 
-export const table = createTableFactory("none");
+/**
+ * Define a table with automatic camelCase → snake_case column mapping (Postgres convention).
+ *
+ * @example
+ * import { table, uuid, varchar } from "@bungres/orm";
+ *
+ * export const users = table("users", {
+ *   id: uuid({ primaryKey: true }),
+ *   fullName: varchar({ length: 255 }), // maps to `full_name` automatically
+ * });
+ */
+export const table = createTableFactory("snake");
 export const snakeCase = { table: createTableFactory("snake") };
 export const camelCase = { table: createTableFactory("camel") };

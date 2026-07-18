@@ -194,7 +194,7 @@ function generateSchemaTS(
     `// Generated at: ${new Date().toISOString()}`,
     ``,
     `import {`,
-    `  snakeCase,`,
+    `  table,`,
     `  text, varchar, char, integer, bigint, smallint,`,
     `  serial, bigserial, boolean, real, doublePrecision,`,
     `  numeric, decimal, json, jsonb,`,
@@ -207,7 +207,7 @@ function generateSchemaTS(
 
   for (const [, table] of tableMap) {
     const varName = toCamelCase(table.tableName);
-    lines.push(`export const ${varName} = snakeCase.table("${table.tableName}", {`);
+    lines.push(`export const ${varName} = table("${table.tableName}", {`);
 
     for (const col of table.columns) {
       const colExpr = buildColumnExpression(col);

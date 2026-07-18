@@ -13,7 +13,7 @@ export async function runSeed(config: ResolvedConfig): Promise<void> {
   }
 
   const seedPath = resolve(process.cwd(), config.seed);
-  
+
   const file = Bun.file(seedPath);
   if (!(await file.exists())) {
     console.error(colorize(`Seed file not found at ${seedPath}`, "red"));
@@ -27,7 +27,7 @@ export async function runSeed(config: ResolvedConfig): Promise<void> {
     cwd: process.cwd(),
     stdout: "inherit",
     stderr: "inherit",
-    env: { ...process.env, DATABASE_URL: config.dbUrl } // Pass dbUrl implicitly just in case
+    env: { ...Bun.env, DATABASE_URL: config.dbUrl } // Pass dbUrl implicitly just in case
   });
 
   const exitCode = await proc.exited;

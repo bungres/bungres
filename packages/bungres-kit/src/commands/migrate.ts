@@ -3,26 +3,30 @@ import type { ResolvedConfig } from "../config.js";
 import { colorize } from "../utils/colors.js";
 
 // ---------------------------------------------------------------------------
-// migrate — run pending .sql files, track applied in __bungres_migrations
+// migrate — run pending .sql files, track applied in the migrations table
 // ---------------------------------------------------------------------------
 
-const MIGRATIONS_TABLE = "__bungres_migrations";
+export async function runMigrate(config: ResolvedConfig): Promise<void> {
+  const migrationsDir = resolve(config.out);
+  const sql = new Bun.SQL(config.dbUrl);
 
-const CREATE_MIGRATIONS_TABLE = `
-CREATE TABLE IF NOT EXISTS "${MIGRATIONS_TABLE}" (
+  const table = config.migrationsTable;
+  const schema = config.migrationsSchema;
+  const qualifiedTable = `"${schema}"."${table}"`;
+
+  const createSchema = `CREATE SCHEMA IF NOT EXISTS "${schema}";`;
+
+  const createMigrationsTable = `
+CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
   id          SERIAL PRIMARY KEY,
   name        TEXT NOT NULL UNIQUE,
   applied_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-`.trim();
-
-export async function runMigrate(config: ResolvedConfig): Promise<void> {
-  const migrationsDir = resolve(config.migrationsDir);
-  const sql = new Bun.SQL(config.dbUrl);
+);`.trim();
 
   try {
-    // Ensure tracking table exists
-    await sql.unsafe(CREATE_MIGRATIONS_TABLE);
+    // Ensure schema and tracking table exist
+    await sql.unsafe(createSchema);
+    await sql.unsafe(createMigrationsTable);
 
     // Discover migration files in order
     const glob = new Bun.Glob("*.sql");
@@ -39,7 +43,7 @@ export async function runMigrate(config: ResolvedConfig): Promise<void> {
     }
 
     // Fetch already applied
-    const applied = await sql.unsafe(`SELECT name FROM "${MIGRATIONS_TABLE}"`);
+    const applied = await sql.unsafe(`SELECT name FROM ${qualifiedTable}`);
     const appliedSet = new Set((applied as { name: string }[]).map((r) => r.name));
 
     const pending = files.filter((f) => !appliedSet.has(f));
@@ -59,17 +63,22 @@ export async function runMigrate(config: ResolvedConfig): Promise<void> {
       }
 
       await sql.transaction(async (txSql: InstanceType<typeof Bun.SQL>) => {
-        const statements = content
-          .split(";")
-          .map((s) => s.trim())
-          .filter(Boolean);
+        // Split on breakpoint markers if enabled (default: true)
+        const statements = config.breakpoints
+          ? content
+              .split(/-->statement-breakpoint/g)
+              .flatMap((chunk) => chunk.split(";").map((s) => s.trim()).filter(Boolean))
+          : content
+              .split(";")
+              .map((s) => s.trim())
+              .filter(Boolean);
 
         for (const stmt of statements) {
           await txSql.unsafe(stmt + ";");
         }
 
         await txSql.unsafe(
-          `INSERT INTO "${MIGRATIONS_TABLE}" (name) VALUES ($1)`,
+          `INSERT INTO ${qualifiedTable} (name) VALUES ($1)`,
           [file]
         );
       });

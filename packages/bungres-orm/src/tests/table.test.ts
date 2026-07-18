@@ -2,12 +2,13 @@ import { describe, it, expect } from "bun:test";
 import { table, getTableConfig } from "../index.js";
 import { uuid, text, varchar, boolean, timestamptz } from "../index.js";
 
+// `table` now defaults to snake_case — camelCase keys map to snake_case columns automatically
 const users = table("users", {
-  id:        uuid("id", { primaryKey: true }),
-  email:     varchar("email", { length: 255, notNull: true, unique: true }),
-  username:  text("username", { notNull: true }),
-  verified:  boolean("verified", { notNull: true, default: false }),
-  createdAt: timestamptz("created_at", { notNull: true, defaultRaw: "NOW()" }),
+  id:        uuid({ primaryKey: true }),
+  email:     varchar({ length: 255, notNull: true, unique: true }),
+  username:  text({ notNull: true }),
+  verified:  boolean({ notNull: true, default: false }),
+  createdAt: timestamptz({ notNull: true, defaultRaw: "NOW()" }),
 });
 
 describe("table", () => {
@@ -20,7 +21,7 @@ describe("table", () => {
   });
 
   it("qualified name with schema includes schema prefix", () => {
-    const t = table("orders", { id: uuid("id", { primaryKey: true }) }, { schema: "billing" });
+    const t = table("orders", { id: uuid({ primaryKey: true }) }, { schema: "billing" });
     expect(getTableConfig(t).qualifiedName).toBe('"billing"."orders"');
   });
 
@@ -40,28 +41,39 @@ describe("table", () => {
   it("stores indexes from options", () => {
     const posts = table(
       "posts",
-      { id: uuid("id", { primaryKey: true }), slug: text("slug", { notNull: true }) },
+      { id: uuid({ primaryKey: true }), slug: text({ notNull: true }) },
       { indexes: [{ columns: ["slug"], unique: true }] }
     );
     expect(getTableConfig(posts).indexes).toHaveLength(1);
     expect(getTableConfig(posts).indexes[0]?.unique).toBe(true);
   });
-});
 
-import { snakeCase, camelCase } from "../index.js";
-
-describe("snakeCase.table", () => {
   it("automatically converts camelCase JS keys to snake_case DB columns", () => {
-    const users = snakeCase.table("users", {
+    const orders = table("orders", {
       id: uuid(),
       userEmailAddress: varchar({ length: 255 }),
       createdAt: timestamptz(),
     });
 
-    const config = getTableConfig(users);
+    const config = getTableConfig(orders);
     expect(config.columns.id.name).toBe("id");
     expect(config.columns.userEmailAddress.name).toBe("user_email_address");
     expect(config.columns.createdAt.name).toBe("created_at");
+  });
+});
+
+import { camelCase } from "../index.js";
+
+describe("camelCase.table", () => {
+  it("keeps camelCase JS keys as-is for DB columns", () => {
+    const items = camelCase.table("items", {
+      id: uuid(),
+      itemName: varchar({ length: 255 }),
+    });
+
+    const config = getTableConfig(items);
+    expect(config.columns.id.name).toBe("id");
+    expect(config.columns.itemName.name).toBe("itemName");
   });
 });
 

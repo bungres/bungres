@@ -21,21 +21,37 @@ export async function runDrop(
   const sql = new Bun.SQL(config.dbUrl);
 
   try {
-    // Check which tables actually exist in the database
-    const existingTablesResult = await sql`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' OR table_schema = current_schema()
-    `;
+    // Check which user tables exist in the database (in dbSchema, default: public)
+    const userSchema = config.dbSchema;
+    const existingUserTablesResult = await sql.unsafe(
+      `SELECT table_name FROM information_schema.tables WHERE table_schema = $1`,
+      [userSchema]
+    );
     const existingTableNames = new Set(
-      existingTablesResult.map((row: any) => row.table_name)
+      (existingUserTablesResult as { table_name: string }[]).map((r) => r.table_name)
     );
 
-    // Also track the migration and push tables since they are dropped too
-    const migrationTableExists = existingTableNames.has("__bungres_migrations");
-    const pushTableExists = existingTableNames.has("__bungres_push");
+    // Check if the migrations table exists in its own schema (default: bungres)
+    const migTableCheck = await sql.unsafe(
+      `SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = $1 AND table_name = $2
+      ) AS exists`,
+      [config.migrationsSchema, config.migrationsTable]
+    ) as Array<{ exists: boolean }>;
+    const migrationTableExists = migTableCheck[0]?.exists ?? false;
 
-    // Filter our schema list to only those that exist in the DB
+    // Check push tracking table (also lives in migrationsSchema)
+    const pushTableCheck = await sql.unsafe(
+      `SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = $1 AND table_name = $2
+      ) AS exists`,
+      [config.migrationsSchema, "__bungres_push"]
+    ) as Array<{ exists: boolean }>;
+    const pushTableExists = pushTableCheck[0]?.exists ?? false;
+
+    // Filter user schema list to only those that exist in the DB
     const tablesToDrop = schemas.filter((s) => existingTableNames.has(s.config.name));
 
     if (tablesToDrop.length === 0 && !migrationTableExists && !pushTableExists) {
@@ -47,10 +63,10 @@ export async function runDrop(
       (s) => (s.config.schema ? s.config.schema + "." : "") + s.config.name
     );
     if (migrationTableExists) {
-      tableNamesToPrint.push("__bungres_migrations");
+      tableNamesToPrint.push(`${config.migrationsSchema}.${config.migrationsTable}`);
     }
     if (pushTableExists) {
-      tableNamesToPrint.push("__bungres_push");
+      tableNamesToPrint.push(`${config.migrationsSchema}.__bungres_push`);
     }
 
     if (!opts.force) {
@@ -58,13 +74,12 @@ export async function runDrop(
       for (const name of tableNamesToPrint) console.log(colorize(`  - ${name}`, "yellow"));
       process.stdout.write(colorize("\nAre you sure? Type YES to continue: ", "cyan"));
 
-      // Read confirmation from stdin using Bun's native console iterator
       for await (const line of console) {
         if (line.trim().toLowerCase() !== "yes") {
           console.log("Aborted.");
           return;
         }
-        break; // break loop after reading the first line
+        break;
       }
     }
 
@@ -75,13 +90,14 @@ export async function runDrop(
     }
 
     if (migrationTableExists) {
-      await sql.unsafe("DROP TABLE IF EXISTS public.__bungres_migrations CASCADE");
-      console.log(colorize(`  ✓ dropped __bungres_migrations`, "green"));
+      const qualifiedMigTable = `"${config.migrationsSchema}"."${config.migrationsTable}"`;
+      await sql.unsafe(`DROP TABLE IF EXISTS ${qualifiedMigTable} CASCADE`);
+      console.log(colorize(`  ✓ dropped ${config.migrationsSchema}.${config.migrationsTable}`, "green"));
     }
 
     if (pushTableExists) {
-      await sql.unsafe("DROP TABLE IF EXISTS public.__bungres_push CASCADE");
-      console.log(colorize(`  ✓ dropped __bungres_push`, "green"));
+      await sql.unsafe(`DROP TABLE IF EXISTS "${config.migrationsSchema}"."__bungres_push" CASCADE`);
+      console.log(colorize(`  ✓ dropped ${config.migrationsSchema}.__bungres_push`, "green"));
     }
 
     console.log(colorize("\nDrop complete.", "green"));

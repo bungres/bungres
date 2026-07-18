@@ -20,9 +20,9 @@ bun add @bungres/orm
 ### 1. Define your schema
 
 ```ts
-import { snakeCase, uuid, varchar, text, boolean, timestamptz, unique, index } from "@bungres/orm";
+import { table, uuid, varchar, text, boolean, timestamptz, unique, index } from "@bungres/orm";
 
-export const users = snakeCase.table("users", {
+export const users = table("users", {
   id: uuid({ primaryKey: true }),
   email: varchar({ length: 255, notNull: true }),
   username: varchar({ length: 80, notNull: true }),
@@ -39,9 +39,9 @@ export const users = snakeCase.table("users", {
 ### 2. Create a DB client
 
 ```ts
-import { createDB } from "@bungres/orm";
+import { bungres } from "@bungres/orm";
 
-export const db = createDB(process.env.DATABASE_URL!);
+export const db = bungres(Bun.env.DATABASE_URL!);
 ```
 
 ### 3. Querying
@@ -79,11 +79,11 @@ await db.execute(db.delete(users).where(eq(users.id, userId)));
 Automatically convert camelCase JS keys to snake_case DB columns without manually typing names!
 
 ```ts
-import { snakeCase } from "@bungres/orm";
+import { table } from "@bungres/orm";
 import { uuid, varchar, text } from "@bungres/orm";
 
 // Creates "users" table, maps `fullName` to `full_name` automatically!
-export const users = snakeCase.table("users", {
+export const users = table("users", {
   id: uuid({ primaryKey: true }),
   email: varchar({ length: 255, notNull: true, unique: true }),
   fullName: text(),
@@ -113,23 +113,23 @@ db.select(users).comment("Get user list for dashboard");
 Bungres automatically detects junction tables based on foreign keys! Just query your deep relations directly.
 
 ```ts
-export const users = snakeCase.table("users", {
+export const users = table("users", {
   id: uuid({ primaryKey: true }),
   name: text(),
 });
 
-export const groups = snakeCase.table("groups", {
+export const groups = table("groups", {
   id: uuid({ primaryKey: true }),
   name: text(),
 });
 
-export const userGroups = snakeCase.table("user_groups", {
+export const userGroups = table("user_groups", {
   id: uuid({ primaryKey: true }),
   userId: uuid({ references: { table: "users", column: "id" } }),
   groupId: uuid({ references: { table: "groups", column: "id" } }),
 });
 
-const db = createDB({ url: DB_URL, schema: { users, groups, userGroups } });
+const db = bungres({ url: DB_URL, schema: { users, groups, userGroups } });
 
 // Easily pull many-to-many relationships!
 const result = await db.users.findMany({

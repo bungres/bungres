@@ -1,13 +1,13 @@
-import type { ColumnConfig } from "../types/index.js";
-import { type Table, TableConfigSymbol } from "../schema/table.js";
-import type { SQLChunk } from "./sql.js";
-import { SelectBuilder, SelectBuilderIntermediate, type SelectedFields } from "../builders/select.js";
-import { InsertBuilder } from "../builders/insert.js";
-import { UpdateBuilder } from "../builders/update.js";
 import { DeleteBuilder } from "../builders/delete.js";
-import type { QueryExecutor } from "./query.js";
-import type { SchemaConfig } from "../types/relations.js";
+import { InsertBuilder } from "../builders/insert.js";
 import { RelationalQueryBuilder } from "../builders/relational.js";
+import { SelectBuilder, SelectBuilderIntermediate, type SelectedFields } from "../builders/select.js";
+import { UpdateBuilder } from "../builders/update.js";
+import { type Table, TableConfigSymbol } from "../schema/table.js";
+import type { ColumnConfig } from "../types/index.js";
+import type { SchemaConfig } from "../types/relations.js";
+import type { QueryExecutor } from "./query.js";
+import type { SQLChunk } from "./sql.js";
 
 // ---------------------------------------------------------------------------
 // BungresDB — the main database client wrapping Bun.SQL (Bun 1.x native)
@@ -288,8 +288,16 @@ export type BungresDBClient<TSchema extends SchemaConfig> = BungresDB & {
   [K in keyof TSchema]: RelationalQueryBuilder<TSchema, K>;
 };
 
-/** Create a BungresDB instance — main entrypoint */
-export function createDB<TSchema extends SchemaConfig = any>(config: DBConfig<TSchema> | string): BungresDBClient<TSchema> {
+/**
+ * Idiomatic bungres entrypoint — mirrors the `drizzle(config)` pattern.
+ *
+ * @example
+ * import { bungres } from "@bungres/orm";
+ * import * as schema from "./schema";
+ *
+ * export const db = bungres({ url: Bun.env.DATABASE_URL!, schema });
+ */
+export function bungres<TSchema extends SchemaConfig = any>(config: DBConfig<TSchema> | string): BungresDBClient<TSchema> {
   const db = new BungresDB(config);
 
   if (typeof config === "object" && config.schema) {
@@ -314,3 +322,6 @@ export function createDB<TSchema extends SchemaConfig = any>(config: DBConfig<TS
 
   return db as any;
 }
+
+/** @internal kept for internal package use only */
+export const createDB = bungres;

@@ -6,20 +6,22 @@ import { colorize } from "../utils/colors.js";
 // status — show which migrations have been applied vs. pending
 // ---------------------------------------------------------------------------
 
-const MIGRATIONS_TABLE = "__bungres_migrations";
-
 export async function runStatus(config: ResolvedConfig): Promise<void> {
-  const migrationsDir = resolve(config.migrationsDir);
+  const migrationsDir = resolve(config.out);
   const sql = new Bun.SQL(config.dbUrl);
+
+  const table = config.migrationsTable;
+  const schema = config.migrationsSchema;
+  const qualifiedTable = `"${schema}"."${table}"`;
 
   try {
     // Check if migrations table exists
     const tableCheck = await sql.unsafe(
       `SELECT EXISTS (
         SELECT 1 FROM information_schema.tables
-        WHERE table_name = $1
+        WHERE table_schema = $1 AND table_name = $2
       ) AS exists`,
-      [MIGRATIONS_TABLE]
+      [schema, table]
     ) as Array<{ exists: boolean }>;
 
     const trackingExists = tableCheck[0]?.exists ?? false;
@@ -40,7 +42,7 @@ export async function runStatus(config: ResolvedConfig): Promise<void> {
     let appliedSet = new Set<string>();
     if (trackingExists) {
       const applied = await sql.unsafe(
-        `SELECT name FROM "${MIGRATIONS_TABLE}" ORDER BY applied_at`
+        `SELECT name FROM ${qualifiedTable} ORDER BY applied_at`
       ) as Array<{ name: string }>;
       appliedSet = new Set(applied.map((r) => r.name));
     }

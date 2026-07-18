@@ -43,7 +43,7 @@ export { count, sum, avg, min, max } from "./core/aggregations.js";
 export type { OrderDir, QueryExecutor, WhereCondition } from "./core/query.js";
 
 // DB client
-export { BungresDB, BungresTransaction, createDB } from "./core/db.js";
+export { BungresDB, BungresTransaction, bungres } from "./core/db.js";
 export type { BungresDBClient, DBConfig } from "./core/db.js";
 
 // Relational Query Builder

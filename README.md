@@ -41,9 +41,9 @@ bun run bungres migrate
 ### Defining a schema
 
 ```ts
-import { snakeCase, uuid, varchar, text, boolean, timestamptz, unique, index } from "@bungres/orm";
+import { table, uuid, varchar, text, boolean, timestamptz, unique, index } from "@bungres/orm";
 
-export const users = snakeCase.table("users", {
+export const users = table("users", {
   id: uuid({ primaryKey: true }),
   email: varchar({ length: 255, notNull: true }),
   username: varchar({ length: 80, notNull: true }),
@@ -60,9 +60,9 @@ export const users = snakeCase.table("users", {
 ### Creating a DB client
 
 ```ts
-import { createDB } from "@bungres/orm";
+import { bungres } from "@bungres/orm";
 
-export const db = createDB(process.env.DATABASE_URL!);
+export const db = bungres(Bun.env.DATABASE_URL!);
 ```
 
 ### Querying
@@ -147,10 +147,10 @@ type NewUser = InferInsert<typeof users>;  // insert shape (PKs/defaults optiona
 Automatically convert camelCase JS keys to snake_case DB columns without manually typing names!
 
 ```ts
-import { snakeCase } from "@bungres/orm";
+import { table } from "@bungres/orm";
 import { uuid, varchar, text } from "@bungres/orm";
 
-export const users = snakeCase.table("users", {
+export const users = table("users", {
   id: uuid({ primaryKey: true }),
   fullName: text(), // Automatically becomes `full_name`!
 });
@@ -207,6 +207,7 @@ export default defineConfig({
 
 | Command | Description |
 |---|---|
+| `bungres init` | Initialize bungres project with config file and db folder structure |
 | `bungres generate` | Write a timestamped `.sql` migration file from your schema |
 | `bungres migrate` | Run pending `.sql` files, track applied in `__bungres_migrations` |
 | `bungres push` | Apply schema directly to DB — no files (dev/prototyping) |
@@ -220,6 +221,7 @@ export default defineConfig({
 | `bungres drop` | Drop all tables defined in the schema (prompts for confirmation) |
 
 ```bash
+bungres init
 bungres generate
 bungres migrate
 bungres push

@@ -8,7 +8,8 @@
         "notNull": true,
         "primaryKey": true,
         "unique": false,
-        "defaultFn": "gen_random_uuid()"
+        "defaultFn": "gen_random_uuid()",
+        "tableName": "\"categories\""
       },
       "name": {
         "name": "name",
@@ -16,14 +17,16 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "length": 100
+        "length": 100,
+        "tableName": "\"categories\""
       },
       "description": {
         "name": "description",
         "dataType": "text",
         "notNull": false,
         "primaryKey": false,
-        "unique": false
+        "unique": false,
+        "tableName": "\"categories\""
       }
     },
     "indexes": [
@@ -49,7 +52,8 @@
         "notNull": true,
         "primaryKey": true,
         "unique": false,
-        "defaultFn": "gen_random_uuid()"
+        "defaultFn": "gen_random_uuid()",
+        "tableName": "\"logs\""
       },
       "level": {
         "name": "level",
@@ -57,28 +61,32 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "length": 50
+        "length": 50,
+        "tableName": "\"logs\""
       },
       "message": {
         "name": "message",
         "dataType": "text",
         "notNull": true,
         "primaryKey": false,
-        "unique": false
+        "unique": false,
+        "tableName": "\"logs\""
       },
       "meta": {
         "name": "meta",
         "dataType": "jsonb",
         "notNull": false,
         "primaryKey": false,
-        "unique": false
+        "unique": false,
+        "tableName": "\"logs\""
       },
       "tags": {
         "name": "tags",
         "dataType": "text[]",
         "notNull": false,
         "primaryKey": false,
-        "unique": false
+        "unique": false,
+        "tableName": "\"logs\""
       },
       "createdAt": {
         "name": "created_at",
@@ -86,7 +94,8 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "defaultFn": "NOW()"
+        "defaultFn": "NOW()",
+        "tableName": "\"logs\""
       }
     },
     "indexes": [],
@@ -104,7 +113,8 @@
         "notNull": true,
         "primaryKey": true,
         "unique": false,
-        "defaultFn": "gen_random_uuid()"
+        "defaultFn": "gen_random_uuid()",
+        "tableName": "\"order_items\""
       },
       "orderId": {
         "name": "order_id",
@@ -118,7 +128,8 @@
           "onDelete": "cascade",
           "relationName": "order",
           "backRelationName": "items"
-        }
+        },
+        "tableName": "\"order_items\""
       },
       "productId": {
         "name": "product_id",
@@ -132,21 +143,24 @@
           "onDelete": "restrict",
           "relationName": "product",
           "backRelationName": "orderItems"
-        }
+        },
+        "tableName": "\"order_items\""
       },
       "quantity": {
         "name": "quantity",
         "dataType": "integer",
         "notNull": true,
         "primaryKey": false,
-        "unique": false
+        "unique": false,
+        "tableName": "\"order_items\""
       },
       "price": {
         "name": "price",
         "dataType": "numeric",
         "notNull": true,
         "primaryKey": false,
-        "unique": false
+        "unique": false,
+        "tableName": "\"order_items\""
       }
     },
     "indexes": [
@@ -172,7 +186,8 @@
         "notNull": true,
         "primaryKey": true,
         "unique": false,
-        "defaultFn": "gen_random_uuid()"
+        "defaultFn": "gen_random_uuid()",
+        "tableName": "\"orders\""
       },
       "userId": {
         "name": "user_id",
@@ -186,14 +201,16 @@
           "onDelete": "cascade",
           "relationName": "user",
           "backRelationName": "orders"
-        }
+        },
+        "tableName": "\"orders\""
       },
       "total": {
         "name": "total",
         "dataType": "numeric",
         "notNull": true,
         "primaryKey": false,
-        "unique": false
+        "unique": false,
+        "tableName": "\"orders\""
       },
       "status": {
         "name": "status",
@@ -202,7 +219,8 @@
         "primaryKey": false,
         "unique": false,
         "defaultValue": "pending",
-        "length": 50
+        "length": 50,
+        "tableName": "\"orders\""
       },
       "createdAt": {
         "name": "created_at",
@@ -210,7 +228,8 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "defaultFn": "NOW()"
+        "defaultFn": "NOW()",
+        "tableName": "\"orders\""
       }
     },
     "indexes": [
@@ -243,7 +262,8 @@
         "notNull": true,
         "primaryKey": true,
         "unique": false,
-        "defaultFn": "gen_random_uuid()"
+        "defaultFn": "gen_random_uuid()",
+        "tableName": "\"product_tags\""
       },
       "productId": {
         "name": "product_id",
@@ -255,7 +275,8 @@
           "table": "products",
           "column": "id",
           "onDelete": "cascade"
-        }
+        },
+        "tableName": "\"product_tags\""
       },
       "tagId": {
         "name": "tag_id",
@@ -267,7 +288,8 @@
           "table": "tags",
           "column": "id",
           "onDelete": "cascade"
-        }
+        },
+        "tableName": "\"product_tags\""
       }
     },
     "indexes": [],
@@ -285,7 +307,8 @@
         "notNull": true,
         "primaryKey": true,
         "unique": false,
-        "defaultFn": "gen_random_uuid()"
+        "defaultFn": "gen_random_uuid()",
+        "tableName": "\"products\""
       },
       "storeId": {
         "name": "store_id",
@@ -299,7 +322,8 @@
           "onDelete": "cascade",
           "relationName": "store",
           "backRelationName": "products"
-        }
+        },
+        "tableName": "\"products\""
       },
       "categoryId": {
         "name": "category_id",
@@ -313,7 +337,8 @@
           "onDelete": "cascade",
           "relationName": "category",
           "backRelationName": "products"
-        }
+        },
+        "tableName": "\"products\""
       },
       "name": {
         "name": "name",
@@ -321,14 +346,16 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "length": 255
+        "length": 255,
+        "tableName": "\"products\""
       },
       "price": {
         "name": "price",
         "dataType": "numeric",
         "notNull": true,
         "primaryKey": false,
-        "unique": false
+        "unique": false,
+        "tableName": "\"products\""
       },
       "stock": {
         "name": "stock",
@@ -336,7 +363,8 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "defaultValue": 0
+        "defaultValue": 0,
+        "tableName": "\"products\""
       },
       "createdAt": {
         "name": "created_at",
@@ -344,7 +372,8 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "defaultFn": "NOW()"
+        "defaultFn": "NOW()",
+        "tableName": "\"products\""
       }
     },
     "indexes": [
@@ -377,7 +406,8 @@
         "notNull": true,
         "primaryKey": true,
         "unique": false,
-        "defaultFn": "gen_random_uuid()"
+        "defaultFn": "gen_random_uuid()",
+        "tableName": "\"reviews\""
       },
       "productId": {
         "name": "product_id",
@@ -391,7 +421,8 @@
           "onDelete": "cascade",
           "relationName": "product",
           "backRelationName": "reviews"
-        }
+        },
+        "tableName": "\"reviews\""
       },
       "userId": {
         "name": "user_id",
@@ -405,21 +436,24 @@
           "onDelete": "cascade",
           "relationName": "author",
           "backRelationName": "reviews"
-        }
+        },
+        "tableName": "\"reviews\""
       },
       "rating": {
         "name": "rating",
         "dataType": "integer",
         "notNull": true,
         "primaryKey": false,
-        "unique": false
+        "unique": false,
+        "tableName": "\"reviews\""
       },
       "comment": {
         "name": "comment",
         "dataType": "text",
         "notNull": false,
         "primaryKey": false,
-        "unique": false
+        "unique": false,
+        "tableName": "\"reviews\""
       },
       "createdAt": {
         "name": "created_at",
@@ -427,7 +461,8 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "defaultFn": "NOW()"
+        "defaultFn": "NOW()",
+        "tableName": "\"reviews\""
       }
     },
     "indexes": [
@@ -467,7 +502,8 @@
         "notNull": true,
         "primaryKey": true,
         "unique": false,
-        "defaultFn": "gen_random_uuid()"
+        "defaultFn": "gen_random_uuid()",
+        "tableName": "\"stores\""
       },
       "ownerId": {
         "name": "owner_id",
@@ -481,7 +517,8 @@
           "onDelete": "cascade",
           "relationName": "owner",
           "backRelationName": "stores"
-        }
+        },
+        "tableName": "\"stores\""
       },
       "name": {
         "name": "name",
@@ -489,7 +526,8 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "length": 255
+        "length": 255,
+        "tableName": "\"stores\""
       },
       "createdAt": {
         "name": "created_at",
@@ -497,7 +535,8 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "defaultFn": "NOW()"
+        "defaultFn": "NOW()",
+        "tableName": "\"stores\""
       }
     },
     "indexes": [
@@ -530,7 +569,8 @@
         "notNull": true,
         "primaryKey": true,
         "unique": false,
-        "defaultFn": "gen_random_uuid()"
+        "defaultFn": "gen_random_uuid()",
+        "tableName": "\"tags\""
       },
       "name": {
         "name": "name",
@@ -538,7 +578,17 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "length": 50
+        "length": 50,
+        "tableName": "\"tags\""
+      },
+      "createdAt": {
+        "name": "created_at",
+        "dataType": "timestamptz",
+        "notNull": true,
+        "primaryKey": false,
+        "unique": false,
+        "defaultFn": "NOW()",
+        "tableName": "\"tags\""
       }
     },
     "indexes": [
@@ -564,7 +614,8 @@
         "notNull": true,
         "primaryKey": true,
         "unique": false,
-        "defaultFn": "gen_random_uuid()"
+        "defaultFn": "gen_random_uuid()",
+        "tableName": "\"users\""
       },
       "name": {
         "name": "name",
@@ -572,7 +623,8 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "length": 255
+        "length": 255,
+        "tableName": "\"users\""
       },
       "email": {
         "name": "email",
@@ -580,7 +632,8 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "length": 255
+        "length": 255,
+        "tableName": "\"users\""
       },
       "createdAt": {
         "name": "created_at",
@@ -588,7 +641,8 @@
         "notNull": true,
         "primaryKey": false,
         "unique": false,
-        "defaultFn": "NOW()"
+        "defaultFn": "NOW()",
+        "tableName": "\"users\""
       }
     },
     "indexes": [

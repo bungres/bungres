@@ -1,11 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { createDB } from "../../index.js";
-import { table } from "../../index.js";
-import { uuid, varchar, text, boolean, integer, timestamptz } from "../../index.js";
-import { eq, and, gt, ilike, isNull, isNotNull, inArray } from "../../index.js";
-import { sql } from "../../index.js";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { and, boolean, bungres, eq, gt, ilike, inArray, integer, isNotNull, isNull, sql, table, text, timestamptz, uuid, varchar } from "../../index.js";
 
-const DB_URL = process.env["DATABASE_URL"];
+const DB_URL = Bun.env.DATABASE_URL;
 
 if (!DB_URL) {
   console.log("  ⚠  Skipping integration tests — no DATABASE_URL set.");
@@ -18,25 +14,25 @@ if (!DB_URL) {
 // ---------------------------------------------------------------------------
 
 const users = table("_bungres_test_users", {
-  id:        uuid("id", { primaryKey: true }),
-  email:     varchar("email", { length: 255, notNull: true, unique: true }),
-  name:      text("name"),
-  age:       integer("age"),
-  verified:  boolean("verified", { notNull: true, default: false }),
+  id: uuid("id", { primaryKey: true }),
+  email: varchar("email", { length: 255, notNull: true, unique: true }),
+  name: text("name"),
+  age: integer("age"),
+  verified: boolean("verified", { notNull: true, default: false }),
   createdAt: timestamptz("created_at", { notNull: true, defaultRaw: "NOW()" }),
 });
 
 const posts = table("_bungres_test_posts", {
-  id:       uuid("id", { primaryKey: true }),
+  id: uuid("id", { primaryKey: true }),
   authorId: uuid("author_id", { notNull: true, references: { table: "_bungres_test_users", column: "id", onDelete: "cascade" } }),
-  title:    varchar("title", { length: 500, notNull: true }),
-  views:    integer("views", { notNull: true, default: 0 }),
+  title: varchar("title", { length: 500, notNull: true }),
+  views: integer("views", { notNull: true, default: 0 }),
 });
 
 type User = { id: string; email: string; name: string | null; age: number | null; verified: boolean; createdAt: Date };
 type Post = { id: string; authorId: string; title: string; views: number };
 
-const db = createDB(DB_URL);
+const db = bungres(DB_URL);
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
