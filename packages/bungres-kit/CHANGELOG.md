@@ -1,5 +1,11 @@
 # @bungres/kit
 
+## 0.6.2
+
+### Patch Changes
+
+- 8ca5846: - Fix workspace dependency resolution in published packages
+
 ## 0.6.1
 
 ### Patch Changes
