@@ -196,6 +196,15 @@ function diffColumn(prev: ColumnConfig, next: ColumnConfig): string[] {
     changes.push(
       `ALTER COLUMN ${col} TYPE ${next.dataType.toUpperCase()} USING ${col}::${next.dataType}`
     );
+  } else {
+    // Check for length changes on varchar/char (length lives as an extra property)
+    const prevLen = (prev as any).length;
+    const nextLen = (next as any).length;
+    if (prevLen !== nextLen && (next.dataType === "varchar" || next.dataType === "char")) {
+      const typeName = next.dataType === "varchar" ? "VARCHAR" : "CHAR";
+      const typeStr = nextLen ? `${typeName}(${nextLen})` : typeName;
+      changes.push(`ALTER COLUMN ${col} TYPE ${typeStr}`);
+    }
   }
 
   if (!prev.notNull && next.notNull) {

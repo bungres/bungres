@@ -2,15 +2,9 @@ import type { ColumnConfig, TableConfig } from "../types/index.js";
 import type { SQLChunk } from "./sql.js";
 import type { WhereObject, OrderByObject } from "./query.js";
 
-import { sql, sqlJoin, rawSql } from "./sql.js";
+import { sql, sqlJoin, rawSql, colName } from "./sql.js";
 
 import { isSQLChunk } from "./sql.js";
-
-const colName = (c: string | ColumnConfig | SQLChunk): string => {
-  if (typeof c === "string") return `"${c}"`;
-  if (isSQLChunk(c)) return c.sql;
-  return c.tableName ? `${c.tableName}."${c.name}"` : `"${c.name}"`;
-};
 
 function isColumnConfig(val: unknown): val is ColumnConfig {
   return val !== null && typeof val === "object" && "name" in val && "dataType" in val;
@@ -71,6 +65,16 @@ export const inArray = (column: string | ColumnConfig, values: unknown[]): SQLCh
   return { sql: `${colName(column)} = ANY(ARRAY[${placeholders}])`, params };
 };
 
+export const notInArray = (column: string | ColumnConfig, values: unknown[]): SQLChunk => {
+  if (values.length === 0) return rawSql("TRUE");
+  const params = values;
+  const placeholders = params.map((_, i) => `$${i + 1}`).join(", ");
+  return { sql: `${colName(column)} != ALL(ARRAY[${placeholders}])`, params };
+};
+
+export const between = (column: string | ColumnConfig | SQLChunk, min: unknown, max: unknown): SQLChunk =>
+  sql`${rawSql(colName(column))} BETWEEN ${min} AND ${max}`;
+
 export const and = (...conditions: SQLChunk[]): SQLChunk =>
   sqlJoin(conditions, " AND ");
 
@@ -123,6 +127,8 @@ export function parseWhereObject(tableConfig: TableConfig, whereObj: WhereObject
       if (opVal.lt !== undefined) conditions.push(lt(columnArg, opVal.lt));
       if (opVal.lte !== undefined) conditions.push(lte(columnArg, opVal.lte));
       if (opVal.in !== undefined) conditions.push(inArray(columnArg, opVal.in));
+      if (opVal.notIn !== undefined) conditions.push(notInArray(columnArg, opVal.notIn));
+      if (opVal.between !== undefined) conditions.push(between(columnArg, opVal.between[0], opVal.between[1]));
       if (opVal.like !== undefined) conditions.push(like(columnArg, opVal.like));
       if (opVal.ilike !== undefined) conditions.push(ilike(columnArg, opVal.ilike));
       if (opVal.isNull) conditions.push(isNull(columnArg));

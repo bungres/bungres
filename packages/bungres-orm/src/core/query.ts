@@ -15,6 +15,8 @@ export type WhereObject<TColumns extends Record<string, ColumnConfig<any, any, a
     lt?: InferColumnType<TColumns[K]>;
     lte?: InferColumnType<TColumns[K]>;
     in?: InferColumnType<TColumns[K]>[];
+    notIn?: InferColumnType<TColumns[K]>[];
+    between?: [InferColumnType<TColumns[K]>, InferColumnType<TColumns[K]>];
     like?: string;
     ilike?: string;
     isNull?: boolean;

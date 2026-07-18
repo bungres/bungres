@@ -1,11 +1,6 @@
 import type { SQLChunk } from "./sql.js";
-import { sql, rawSql } from "./sql.js";
+import { sql, rawSql, colName } from "./sql.js";
 import type { ColumnConfig } from "../types/index.js";
-
-const colName = (c: string | ColumnConfig) => {
-  if (typeof c === "string") return `"${c}"`;
-  return c.tableName ? `${c.tableName}."${c.name}"` : `"${c.name}"`;
-};
 
 export const count = (column?: string | ColumnConfig): SQLChunk<number> => {
   if (!column) return rawSql<number>(`COUNT(*)`);

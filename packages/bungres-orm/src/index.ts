@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 // Schema definition
-export { camelCase, getTableConfig, snakeCase, table, TableConfigSymbol } from "./schema/table.js";
+export { camelCase, getTableConfig, noCasing, snakeCase, table, TableConfigSymbol } from "./schema/table.js";
 export type { Table } from "./schema/table.js";
 
 // Constraints & Indexes
@@ -12,17 +12,9 @@ export type { CheckConstraintBuilder, ForeignKeyBuilder, IndexBuilder, PrimaryKe
 
 // Column builders
 export * from "./schema/columns.js";
-export {
-  bigint, bigserial,
-  boolean, bytea, char, cidr, date, decimal, doublePrecision, inet, integer, interval, json,
-  jsonb, macaddr, numeric, real, serial, smallint, text, time, timestamp,
-  timestamptz, timetz,
-  uuid, varchar,
-  textArray, integerArray, varcharArray, uuidArray
-} from "./schema/columns.js";
 
 // SQL helpers
-export { isSQLChunk, rawSql, sql, sqlJoin } from "./core/sql.js";
+export { colName, isSQLChunk, rawSql, sql, sqlJoin } from "./core/sql.js";
 export type { SQLChunk } from "./core/sql.js";
 
 // Query builders
@@ -32,10 +24,10 @@ export { SelectBuilder, SelectBuilderIntermediate, type SelectedFields, type Inf
 export { UpdateBuilder } from "./builders/update.js";
 
 export {
-  and, asc,
+  and, asc, between,
   desc, eq, gt,
   gte, ilike, inArray, isNotNull, isNull, like, lt,
-  lte, ne, not, or
+  lte, ne, not, notInArray, or
 } from "./core/conditions.js";
 
 export { count, sum, avg, min, max } from "./core/aggregations.js";

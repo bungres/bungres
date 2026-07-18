@@ -136,7 +136,7 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
     }
 
     if (this._comment) {
-      query += ` /* ${this._comment} */`;
+      query += ` /* ${this._comment.replace(/\*\//g, "")} */`;
     }
 
     return { sql: query, params };

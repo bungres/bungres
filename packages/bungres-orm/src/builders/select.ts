@@ -258,7 +258,7 @@ export class SelectBuilder<
     }
 
     if (this._comment) {
-      query += ` /* ${this._comment} */`;
+      query += ` /* ${this._comment.replace(/\*\//g, "")} */`;
     }
 
     return { sql: query, params };

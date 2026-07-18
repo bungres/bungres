@@ -67,9 +67,8 @@ export async function runGenerate(
   if (isFirstMigration) {
     // First migration — full schema sorted by FK dependency order
     const sorted = topoSort(schemas);
+
     statements = [
-      `CREATE EXTENSION IF NOT EXISTS "pgcrypto";`,
-      ``,
       ...sorted.flatMap((entry) => [
         `-- ${entry.exportName}`,
         generateCreateTable(entry.config, true),

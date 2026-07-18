@@ -68,3 +68,10 @@ export function sqlJoin(chunks: SQLChunk<any>[], separator = ", "): SQLChunk<any
 export function rawSql<T = unknown>(query: string): SQLChunk<T> {
   return { sql: query, params: [] };
 }
+
+/** Resolve a column reference to its qualified SQL name */
+export function colName(c: string | { name: string; tableName?: string } | SQLChunk): string {
+  if (typeof c === "string") return `"${c}"`;
+  if (isSQLChunk(c)) return c.sql;
+  return c.tableName ? `${c.tableName}."${c.name}"` : `"${c.name}"`;
+}

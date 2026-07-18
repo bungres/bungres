@@ -25,16 +25,20 @@ export async function runPush(
   const sql = new Bun.SQL(config.dbUrl);
 
   try {
+    // Ensure schema exists
+    await sql.unsafe(`CREATE SCHEMA IF NOT EXISTS "${config.migrationsSchema}";`);
+
     // Ensure our tracking table exists
+    const qualifiedPush = `"${config.migrationsSchema}"."__bungres_push"`;
     await sql.unsafe(`
-      CREATE TABLE IF NOT EXISTS public.__bungres_push (
+      CREATE TABLE IF NOT EXISTS ${qualifiedPush} (
         id SERIAL PRIMARY KEY,
         snapshot JSONB NOT NULL
       );
     `);
 
     // Load previous snapshot from DB
-    const rows = await sql.unsafe(`SELECT snapshot FROM public.__bungres_push ORDER BY id DESC LIMIT 1;`) as any[];
+    const rows = await sql.unsafe(`SELECT snapshot FROM ${qualifiedPush} ORDER BY id DESC LIMIT 1;`) as any[];
     let prevSnapshot: SchemaSnapshot = {};
     if (rows.length > 0) {
       prevSnapshot = typeof rows[0].snapshot === "string"
@@ -75,9 +79,6 @@ export async function runPush(
 
     console.log(`\nPushing changes...`);
 
-    // We must run extension first if needed
-    await sql.unsafe(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
-
     // Execute diff statements
     for (const stmt of diff.statements) {
       if (config.verbose) {
@@ -88,7 +89,7 @@ export async function runPush(
 
     // Save new snapshot
     await sql.unsafe(
-      `INSERT INTO public.__bungres_push (snapshot) VALUES ($1);`,
+      `INSERT INTO ${qualifiedPush} (snapshot) VALUES ($1);`,
       [JSON.stringify(currentSnapshot)]
     );
 

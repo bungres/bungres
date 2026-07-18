@@ -5,6 +5,18 @@ import { TableConfigSymbol } from "../schema/table.js";
 import type { ExtractTableRelations, FindManyArgs, FindManyResult, MergeWith, SchemaConfig, TargetTable, GetColumns } from "../types/relations.js";
 // ---------------------------------------------------------------------------
 
+/** Find the primary key column's DB name from a table config */
+function getPkColumn(tableConfig: any): string {
+  // Check explicit primaryKeys first
+  if (tableConfig.primaryKeys?.length > 0) return tableConfig.primaryKeys[0];
+  // Then check column-level primaryKey flag
+  for (const [, col] of Object.entries(tableConfig.columns as Record<string, any>)) {
+    if (col.primaryKey) return col.name;
+  }
+  // Fallback to 'id'
+  return "id";
+}
+
 const _relationsCache = new WeakMap<any, Map<string, {
   ones: Record<string, any>;
   manys: Record<string, any>;
@@ -216,8 +228,9 @@ export class RelationalQueryBuilder<
         const rel = relations.ones[relKey];
         const subAlias = `${alias}_${relKey}`;
         // One-to-one or Many-to-one
-        const joinCond = `"${subAlias}"."${(this._schema[rel.targetTable] as any)[TableConfigSymbol].columns.id?.name ?? "id"
-          }" = "${alias}"."${rel.sourceColumn}"`;
+        const targetConfig = (this._schema[rel.targetTable] as any)[TableConfigSymbol];
+        const targetPk = getPkColumn(targetConfig);
+        const joinCond = `"${subAlias}"."${targetPk}" = "${alias}"."${rel.sourceColumn}"`;
 
         const subQuery = this._buildSelectJson(rel.targetTable, rArgs, subAlias, params, alias, joinCond);
         const subSql = `SELECT ${subQuery.sql} ${subQuery.from}`;
@@ -226,8 +239,8 @@ export class RelationalQueryBuilder<
         const rel = relations.manys[relKey];
         const subAlias = `${alias}_${relKey}`;
         // One-to-many
-        const joinCond = `"${subAlias}"."${rel.targetColumn}" = "${alias}"."${tableConfig.columns.id?.name ?? "id"
-          }"`;
+        const thisPk = getPkColumn(tableConfig);
+        const joinCond = `"${subAlias}"."${rel.targetColumn}" = "${alias}"."${thisPk}"`;
 
         const subQuery = this._buildSelectJson(rel.targetTable, rArgs, subAlias, params, alias, joinCond);
 
@@ -252,9 +265,9 @@ export class RelationalQueryBuilder<
 
         const fromExtra = `
           INNER JOIN ${junctionTableConfig.qualifiedName} AS "${junctionAlias}"
-          ON "${junctionAlias}"."${rel.joinTargetColumn}" = "${subAlias}"."${targetTableConfig.columns.id?.name ?? "id"}"
+          ON "${junctionAlias}"."${rel.joinTargetColumn}" = "${subAlias}"."${getPkColumn(targetTableConfig)}"
         `;
-        const whereExtra = `"${junctionAlias}"."${rel.joinSourceColumn}" = "${alias}"."${tableConfig.columns.id?.name ?? "id"}"`;
+        const whereExtra = `"${junctionAlias}"."${rel.joinSourceColumn}" = "${alias}"."${getPkColumn(tableConfig)}"`;
 
         const subQuery = this._buildSelectJson(rel.targetTable, rArgs, subAlias, params, alias, whereExtra, fromExtra);
 

@@ -10,6 +10,12 @@ export async function ensureDatabase(dbUrl: string): Promise<void> {
       try {
         const parsed = new URL(dbUrl);
         const dbName = parsed.pathname.slice(1);
+
+        // Validate database name to prevent SQL injection
+        if (!/^[a-zA-Z_][a-zA-Z0-9_$]*$/.test(dbName)) {
+          throw new Error(`Invalid database name: "${dbName}"`);
+        }
+
         parsed.pathname = '/postgres';
         const fallbackUrl = parsed.toString();
 

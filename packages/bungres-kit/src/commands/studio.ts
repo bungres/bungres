@@ -31,15 +31,36 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
 
       // API: List tables
       if (req.method === "GET" && url.pathname === "/api/tables") {
-        const tables = schemas.map(s => ({
-          name: s.config.name,
-          exportName: s.exportName,
-          columns: Object.entries(s.config.columns).map(([key, col]) => ({
-            name: col.name,
-            type: col.dataType,
-            primaryKey: col.primaryKey
-          }))
-        }));
+        const tables = schemas.map(s => {
+          // Build a set of FK columns from table-level foreignKeys
+          const fkColumns = new Set();
+          if (s.config.foreignKeys) {
+            s.config.foreignKeys.forEach(fk => {
+              fk.columns.forEach(col => fkColumns.add(col));
+            });
+          }
+          
+          const columns = Object.entries(s.config.columns).map(([key, col]) => {
+            const fk = col.references ? {
+              table: col.references.table,
+              column: col.references.column
+            } : (fkColumns.has(col.name) ? { isForeignKey: true } : null);
+            
+            return {
+              name: col.name,
+              type: col.dataType,
+              primaryKey: col.primaryKey,
+              foreignKey: fk
+            };
+          });
+          
+          return {
+            name: s.config.name,
+            exportName: s.exportName,
+            columns,
+            foreignKeys: s.config.foreignKeys || []
+          };
+        });
         return new Response(JSON.stringify(tables), {
           headers: { "Content-Type": "application/json" }
         });
@@ -136,15 +157,16 @@ const htmlTemplate = `
   <style>
     :root {
       --bg-color: #09090b;
-      --panel-bg: rgba(24, 24, 27, 0.7);
+      --panel-bg: #18181b;
       --border-color: #27272a;
-      --text-main: #f4f4f5;
+      --text-main: #fafafa;
       --text-muted: #a1a1aa;
       --accent-color: #8b5cf6;
       --accent-hover: #7c3aed;
-      --header-bg: rgba(9, 9, 11, 0.85);
-      --row-hover: rgba(39, 39, 42, 0.8);
-      --glass-border: rgba(255, 255, 255, 0.08);
+      --header-bg: #09090b;
+      --row-hover: #27272a;
+      --input-bg: #18181b;
+      --muted-bg: #27272a;
       
       --type-number: #f472b6;
       --type-string: #60a5fa;
@@ -169,45 +191,39 @@ const htmlTemplate = `
 
     /* Sidebar */
     .sidebar {
-      width: 280px;
+      width: 240px;
       background-color: var(--panel-bg);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
       border-right: 1px solid var(--border-color);
       display: flex;
       flex-direction: column;
-      box-shadow: 4px 0 24px rgba(0,0,0,0.2);
       z-index: 20;
     }
 
     .sidebar-header {
-      padding: 24px;
-      border-bottom: 1px solid var(--glass-border);
+      padding: 16px;
+      border-bottom: 1px solid var(--border-color);
       display: flex;
       align-items: center;
-      gap: 12px;
-      background: linear-gradient(to bottom, rgba(255,255,255,0.03), transparent);
+      gap: 8px;
+      background-color: var(--panel-bg);
     }
 
     .sidebar-header h1 {
       margin: 0;
-      font-size: 18px;
+      font-size: 14px;
       font-weight: 600;
-      background: linear-gradient(to right, #fff, #a1a1aa);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      letter-spacing: -0.5px;
+      color: var(--text-main);
+      letter-spacing: -0.25px;
     }
 
     .sidebar-header svg {
       color: var(--accent-color);
-      filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.5));
     }
 
     .table-list {
       flex: 1;
       overflow-y: auto;
-      padding: 16px 12px;
+      padding: 8px;
       list-style: none;
       margin: 0;
     }
@@ -221,39 +237,36 @@ const htmlTemplate = `
     }
 
     .table-item {
-      padding: 12px 16px;
+      padding: 8px 12px;
       cursor: pointer;
-      font-size: 15px;
+      font-size: 13px;
       font-weight: 500;
       color: var(--text-muted);
-      border-radius: 8px;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: 6px;
+      transition: all 0.15s ease;
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 4px;
+      gap: 8px;
+      margin-bottom: 2px;
       border: 1px solid transparent;
     }
 
     .table-item:hover {
-      background-color: rgba(255, 255, 255, 0.05);
+      background-color: var(--muted-bg);
       color: var(--text-main);
-      transform: translateX(4px);
     }
 
     .table-item.active {
-      background-color: rgba(139, 92, 246, 0.15);
+      background-color: var(--accent-color);
       color: #fff;
-      border: 1px solid rgba(139, 92, 246, 0.3);
-      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.1);
+      border-color: var(--accent-color);
     }
 
     .table-item svg {
-      transition: transform 0.3s ease;
+      flex-shrink: 0;
     }
     .table-item.active svg {
-      color: var(--accent-color);
-      transform: scale(1.1);
+      color: #fff;
     }
 
     /* Main Content */
@@ -265,31 +278,29 @@ const htmlTemplate = `
     }
 
     .main-header {
-      height: 70px;
-      padding: 0 24px;
+      height: 56px;
+      padding: 0 16px;
       border-bottom: 1px solid var(--border-color);
       display: flex;
       align-items: center;
       justify-content: space-between;
       background-color: var(--header-bg);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
       z-index: 10;
     }
 
     .main-header h2 {
       margin: 0;
-      font-size: 20px;
+      font-size: 14px;
       font-weight: 600;
-      color: white;
-      letter-spacing: -0.5px;
+      color: var(--text-main);
+      letter-spacing: -0.25px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
 
     .btn {
-      background-color: rgba(255, 255, 255, 0.05);
+      background-color: var(--input-bg);
       border: 1px solid var(--border-color);
       color: var(--text-main);
       padding: 6px 12px;
@@ -298,14 +309,14 @@ const htmlTemplate = `
       font-weight: 500;
       font-family: 'Outfit', sans-serif;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.15s ease;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
 
     .btn:hover:not(:disabled) {
-      background-color: rgba(255, 255, 255, 0.1);
+      background-color: var(--muted-bg);
     }
     
     .btn:active:not(:disabled) {
@@ -313,7 +324,7 @@ const htmlTemplate = `
     }
 
     .btn:disabled {
-      opacity: 0.4;
+      opacity: 0.5;
       cursor: not-allowed;
     }
 
@@ -328,14 +339,20 @@ const htmlTemplate = `
 
     /* Data Table */
     .data-grid-container {
-      background-color: rgba(24, 24, 27, 0.5);
+      background-color: var(--bg-color);
       border: 1px solid var(--border-color);
       border-radius: 0;
-      overflow: auto;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-      backdrop-filter: blur(8px);
-      max-height: 100%;
+      overflow: hidden;
+      height: 100%;
       width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .data-grid-container > .table-wrapper {
+      flex: 1;
+      overflow: auto;
+      min-height: 0;
     }
     
     .data-grid-container::-webkit-scrollbar {
@@ -350,6 +367,7 @@ const htmlTemplate = `
       border-radius: 4px;
     }
 
+
     table {
       width: auto;
       border-collapse: separate;
@@ -360,11 +378,11 @@ const htmlTemplate = `
     }
 
     th {
-      background-color: rgba(24, 24, 27, 0.95);
-      backdrop-filter: blur(4px);
+      background-color: var(--panel-bg);
       color: var(--text-main);
       font-weight: 500;
-      padding: 12px 20px;
+      font-size: 12px;
+      padding: 10px 16px;
       border-bottom: 1px solid var(--border-color);
       border-right: 1px solid var(--border-color);
       white-space: nowrap;
@@ -372,24 +390,16 @@ const htmlTemplate = `
       top: 0;
       z-index: 10;
     }
-    
-    
-    th::after {
-      content: '';
-      position: absolute;
-      bottom: -1px; left: 0; right: 0;
-      height: 1px;
-      background: var(--border-color);
-    }
 
     .col-header {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
     }
     
     .col-name {
       font-weight: 600;
+      font-size: 13px;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -397,22 +407,35 @@ const htmlTemplate = `
 
     .pk-badge {
       font-size: 10px;
-      background: rgba(251, 191, 36, 0.2);
+      background: rgba(251, 191, 36, 0.15);
       color: #fbbf24;
-      padding: 2px 6px;
+      padding: 2px 5px;
       border-radius: 4px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
+      font-weight: 500;
+      letter-spacing: 0.25px;
+      border: 1px solid rgba(251, 191, 36, 0.3);
+    }
+
+    .fk-badge {
+      font-size: 10px;
+      background: rgba(96, 165, 250, 0.15);
+      color: #60a5fa;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-weight: 500;
+      letter-spacing: 0.25px;
+      border: 1px solid rgba(96, 165, 250, 0.3);
     }
     
     .col-type {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-muted);
-      font-family: monospace;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      text-transform: uppercase;
     }
 
     td {
-      padding: 12px 20px;
+      padding: 10px 16px;
       border-bottom: 1px solid var(--border-color);
       border-right: 1px solid var(--border-color);
       color: var(--text-main);
@@ -420,13 +443,11 @@ const htmlTemplate = `
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      transition: background-color 0.2s ease;
+      transition: background-color 0.15s ease;
+      font-size: 13px;
     }
     
 
-    tr:last-child td {
-      border-bottom: none;
-    }
 
     tr:hover td {
       background-color: var(--row-hover);
@@ -486,45 +507,45 @@ const htmlTemplate = `
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px 24px;
-      background-color: rgba(24, 24, 27, 0.95);
+      padding: 12px 16px;
+      background-color: var(--panel-bg);
       border-top: 1px solid var(--border-color);
-      font-size: 14px;
+      font-size: 13px;
       color: var(--text-muted);
-      position: sticky;
-      bottom: 0;
-      z-index: 5;
+      width: fit-content;
+      min-width: 100%;
+      flex-shrink: 0;
     }
 
     .pagination-info {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
     }
 
     .pagination-controls {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
 
     .pagination-btn {
-      background-color: rgba(255, 255, 255, 0.05);
+      background-color: var(--input-bg);
       border: 1px solid var(--border-color);
       color: var(--text-main);
       padding: 6px 12px;
       border-radius: 6px;
       cursor: pointer;
       font-size: 13px;
-      transition: all 0.2s ease;
+      transition: all 0.15s ease;
     }
 
     .pagination-btn:hover:not(:disabled) {
-      background-color: rgba(255, 255, 255, 0.1);
+      background-color: var(--muted-bg);
     }
 
     .pagination-btn:disabled {
-      opacity: 0.4;
+      opacity: 0.5;
       cursor: not-allowed;
     }
 
@@ -534,7 +555,7 @@ const htmlTemplate = `
     }
 
     .page-input {
-      background-color: rgba(255, 255, 255, 0.05);
+      background-color: var(--input-bg);
       border: 1px solid var(--border-color);
       color: var(--text-main);
       padding: 6px 8px;
@@ -542,6 +563,20 @@ const htmlTemplate = `
       width: 50px;
       text-align: center;
       font-size: 13px;
+    }
+
+    .page-size-select {
+      background-color: var(--input-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .page-size-select:hover {
+      background-color: var(--muted-bg);
     }
   </style>
 </head>
@@ -599,7 +634,7 @@ const htmlTemplate = `
     let currentPage = 1;
     let totalPages = 1;
     let totalRecords = 0;
-    let pageSize = 50;
+    let pageSize = 25;
 
     // Format values for the data grid
     function formatValue(val) {
@@ -679,21 +714,29 @@ const htmlTemplate = `
       document.getElementById('refresh-btn').disabled = false;
       
       const container = document.getElementById('data-container');
-      container.innerHTML = \`
-        <div class="empty-state">
-          <svg class="spinning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="2" x2="12" y2="6"></line>
-            <line x1="12" y1="18" x2="12" y2="22"></line>
-            <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
-            <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
-            <line x1="2" y1="12" x2="6" y2="12"></line>
-            <line x1="18" y1="12" x2="22" y2="12"></line>
-            <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
-            <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
-          </svg>
-          <p>Loading data...</p>
-        </div>
-      \`;
+      const existingTable = container.querySelector('.data-grid-container');
+      
+      if (existingTable) {
+        // Show loading overlay instead of replacing content
+        existingTable.style.opacity = '0.5';
+        existingTable.style.pointerEvents = 'none';
+      } else {
+        container.innerHTML = \`
+          <div class="empty-state">
+            <svg class="spinning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="2" x2="12" y2="6"></line>
+              <line x1="12" y1="18" x2="12" y2="22"></line>
+              <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+              <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+              <line x1="2" y1="12" x2="6" y2="12"></line>
+              <line x1="18" y1="12" x2="22" y2="12"></line>
+              <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+              <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+            </svg>
+            <p>Loading data...</p>
+          </div>
+        \`;
+      }
       
       try {
         const res = await fetch(\`/api/tables/\${name}/data?page=\${page}&limit=\${pageSize}\`);
@@ -736,13 +779,32 @@ const htmlTemplate = `
           });
         }
         
-        columns = Array.from(allKeys).map(key => ({
-          name: key,
-          type: schemaColMap[key] ? schemaColMap[key].type : typeof rows[0][key],
-          primaryKey: schemaColMap[key] ? schemaColMap[key].primaryKey : false
-        }));
+        columns = Array.from(allKeys).map(key => {
+          const schemaCol = schemaColMap[key];
+          let type = 'text';
+          
+          // First try to get type from schema
+          if (schemaCol && schemaCol.type) {
+            type = schemaCol.type;
+          } else if (rows[0] && rows[0][key] !== undefined) {
+            // Fallback to type detection from actual value
+            const val = rows[0][key];
+            if (typeof val === 'number') type = 'integer';
+            else if (typeof val === 'boolean') type = 'boolean';
+            else if (val instanceof Date) type = 'timestamptz';
+            else if (typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)) type = 'uuid';
+            else type = 'text';
+          }
+          
+          return {
+            name: key,
+            type,
+            primaryKey: schemaCol ? schemaCol.primaryKey : false,
+            foreignKey: schemaCol ? schemaCol.foreignKey : null
+          };
+        });
         
-        let html = '<div class="data-grid-container"><table><thead><tr>';
+        let html = '<div class="data-grid-container"><div class="table-wrapper"><table><thead><tr>';
         columns.forEach(col => {
           html += \`
             <th>
@@ -750,6 +812,7 @@ const htmlTemplate = `
                 <div class="col-name">
                   \${col.name}
                   \${col.primaryKey ? '<span class="pk-badge">PK</span>' : ''}
+                  \${col.foreignKey ? '<span class="fk-badge">FK</span>' : ''}
                 </div>
                 <div class="col-type">\${col.type}</div>
               </div>
@@ -768,11 +831,21 @@ const htmlTemplate = `
         
         html += '</tbody></table>';
         
-        // Add pagination
+        // Add pagination inside the table wrapper to match table width
         html += renderPagination();
         
-        html += '</div>';
+        html += '</div></div>';
         container.innerHTML = html;
+        
+        // Fade in the new content
+        const newTable = container.querySelector('.data-grid-container');
+        if (newTable) {
+          newTable.style.opacity = '0';
+          requestAnimationFrame(() => {
+            newTable.style.transition = 'opacity 0.15s ease';
+            newTable.style.opacity = '1';
+          });
+        }
         
       } catch (e) {
         container.innerHTML = \`
@@ -795,23 +868,38 @@ const htmlTemplate = `
       
       let html = '<div class="pagination">';
       html += '<div class="pagination-info">';
-      html += \`<span>Total: \${totalRecords} records</span>\`;
-      html += \`<span>Page \${currentPage} of \${totalPages}</span>\`;
-      html += \`<span>Showing \${startRecord}-\${endRecord}</span>\`;
+      html += \`<span>\${totalRecords} records</span>\`;
+      html += \`<span>\${startRecord}-\${endRecord}</span>\`;
       html += '</div>';
       
       html += '<div class="pagination-controls">';
       
+      // Page size selector
+      html += '<select class="page-size-select" onchange="changePageSize(this.value)">';
+      [10, 25, 50, 100].forEach(size => {
+        html += \`<option value="\${size}" \${pageSize === size ? 'selected' : ''}>\${size}</option>\`;
+      });
+      html += '</select>';
+      
       // Previous button
-      html += \`<button class="pagination-btn" onclick="changePage(\${currentPage - 1})" \${currentPage === 1 ? 'disabled' : ''}>Previous</button>\`;
+      html += \`<button class="pagination-btn" onclick="changePage(\${currentPage - 1})" \${currentPage === 1 ? 'disabled' : ''}>←</button>\`;
+      
+      // Page indicator
+      html += \`<span style="min-width: 60px; text-align: center;">\${currentPage} / \${totalPages}</span>\`;
       
       // Next button
-      html += \`<button class="pagination-btn" onclick="changePage(\${currentPage + 1})" \${currentPage === totalPages ? 'disabled' : ''}>Next</button>\`;
+      html += \`<button class="pagination-btn" onclick="changePage(\${currentPage + 1})" \${currentPage === totalPages ? 'disabled' : ''}>→</button>\`;
       
       html += '</div>';
       html += '</div>';
       
       return html;
+    }
+
+    function changePageSize(newSize) {
+      pageSize = parseInt(newSize, 10);
+      currentPage = 1;
+      selectTable(currentTable, currentPage);
     }
 
     function changePage(page) {

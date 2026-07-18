@@ -69,6 +69,10 @@ export class DeleteBuilder<TColumns extends Record<string, ColumnConfig>> implem
             .join(", "));
     }
 
+    if (this._comment) {
+      query += ` /* ${this._comment.replace(/\*\//g, "")} */`;
+    }
+
     return { sql: query, params };
   }
 }

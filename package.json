@@ -13,7 +13,7 @@
     "test": "bun test",
     "bungres": "bun run packages/bungres-kit/src/cli.ts",
     "changeset": "changeset",
-    "release": "bun run build && changeset publish"
+    "release": "bun run build && bun changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",

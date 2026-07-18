@@ -20,7 +20,9 @@ import { loadConfig } from "./config.js";
 import { ensureDatabase } from "./ensure-db.js";
 import { colorize } from "./utils/colors.js";
 
-const VERSION = "0.0.1";
+import pkg from "../package.json";
+
+const VERSION = pkg.version;
 
 const HELP = `
 ${colorize("🐘 Bungres ORM CLI", "cyan")} v${VERSION}

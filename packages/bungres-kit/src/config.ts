@@ -67,6 +67,12 @@ export interface BungresKitConfig {
    */
   strict?: boolean;
 
+  /**
+   * Output directory for `bungres pull` generated TypeScript.
+   * Default: "./src/db/generated"
+   */
+  outDir?: string;
+
   /** Print every SQL statement executed. Default: false */
   verbose?: boolean;
 }
@@ -131,7 +137,7 @@ export async function loadConfig(cwd = process.cwd()): Promise<ResolvedConfig> {
     breakpoints: userConfig.breakpoints ?? true,
     strict: userConfig.strict ?? false,
     // internal alias for pull's output
-    outDir: "./src/db/generated",
+    outDir: userConfig.outDir ?? "./src/db/generated",
     verbose: userConfig.verbose ?? false,
   };
 }
