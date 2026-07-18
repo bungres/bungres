@@ -1,5 +1,11 @@
 # @bungres/kit
 
+## 0.6.1
+
+### Patch Changes
+
+- a97599f: Fix workspace dependency resolution in published packages
+
 ## 0.6.0
 
 ### Minor Changes
