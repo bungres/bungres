@@ -50,7 +50,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@bungres/orm": "workspace:*"
+    "@bungres/orm": "latest"
   },
   "devDependencies": {
     "bun-types": "latest",
