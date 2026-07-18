@@ -11,7 +11,7 @@
     },
     "examples/ecom": {
       "name": "ecom",
-      "version": "1.0.0",
+      "version": "1.0.2",
       "dependencies": {
         "@bungres/orm": "workspace:*",
         "elysia": "latest",
@@ -23,7 +23,7 @@
     },
     "packages/bungres-kit": {
       "name": "@bungres/kit",
-      "version": "0.3.0",
+      "version": "0.6.0",
       "bin": {
         "bungres": "./dist/cli.js",
       },
@@ -37,7 +37,7 @@
     },
     "packages/bungres-orm": {
       "name": "@bungres/orm",
-      "version": "0.3.0",
+      "version": "0.6.0",
       "devDependencies": {
         "bun-types": "latest",
         "typescript": "latest",

@@ -1,3 +1,0 @@
-[install.overrides]
-"@bungres/orm" = "workspace:*"
-"@bungres/kit" = "workspace:*"
