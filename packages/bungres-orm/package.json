@@ -1,6 +1,6 @@
 {
   "name": "@bungres/orm",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Type-safe ORM for Postgres using Bun native SQL",
   "license": "MIT",
   "engines": {
