@@ -28,7 +28,7 @@ export type { SQLChunk } from "./core/sql.js";
 // Query builders
 export { DeleteBuilder } from "./builders/delete.js";
 export { InsertBuilder } from "./builders/insert.js";
-export { SelectBuilder, SelectBuilderIntermediate, type SelectedFields } from "./builders/select.js";
+export { SelectBuilder, SelectBuilderIntermediate, type SelectedFields, type InferSelection } from "./builders/select.js";
 export { UpdateBuilder } from "./builders/update.js";
 
 export {
@@ -37,6 +37,8 @@ export {
   gte, ilike, inArray, isNotNull, isNull, like, lt,
   lte, ne, not, or
 } from "./core/conditions.js";
+
+export { count, sum, avg, min, max } from "./core/aggregations.js";
 
 export type { OrderDir, QueryExecutor, WhereCondition } from "./core/query.js";
 

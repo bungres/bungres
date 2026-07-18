@@ -28,7 +28,7 @@
         "bungres": "./dist/cli.js",
       },
       "dependencies": {
-        "@bungres/orm": "0.1.0",
+        "@bungres/orm": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "latest",

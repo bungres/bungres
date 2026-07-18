@@ -1,4 +1,4 @@
-import { desc, eq, inArray, sql } from "@bungres/orm";
+import { eq, gte, inArray, sql } from "@bungres/orm";
 import type { UnwrapSchema } from "elysia";
 import { db } from "../../db/client";
 import { orderItems, orders, products, users } from "../../db/schema";
@@ -67,16 +67,35 @@ export abstract class OrderService {
   }
 
   static async findMany() {
-    return await db.orders.findMany({
-      columns: { userId: false },
-      limit: 10,
-      orderBy: desc(orders.total),
-      with: {
+    return await db.select({
+      id: orderItems.id,
+      quantity: orderItems.quantity,
+      price: orderItems.price,
+      order: {
+        id: orders.id,
+        total: orders.total,
+        status: orders.status,
+        createdAt: orders.createdAt,
         user: {
-          columns: { id: true, name: true, email: true }
+          id: users.id,
+          name: users.name,
+          email: users.email
         }
+      },
+      product: {
+        id: products.id,
+        name: products.name,
+        price: products.price
       }
-    });
+    })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(products, eq(orderItems.productId, products.id))
+      .innerJoin(users, eq(orders.userId, users.id))
+      .where(gte(orderItems.quantity, 1))
+      .orderBy(orderItems.quantity, "desc")
+      .orderBy(orders.createdAt, "desc")
+      .limit(10);
   }
 
   static async findById(id: string) {

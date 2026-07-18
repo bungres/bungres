@@ -50,6 +50,7 @@ export interface ColumnConfig<
   TRef extends ForeignKeyRef | undefined = ForeignKeyRef | undefined
 > {
   name: string;
+  tableName?: string;
   dataType: TDataType;
   notNull: TNotNull;
   primaryKey: TPrimaryKey;

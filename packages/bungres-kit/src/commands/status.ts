@@ -1,4 +1,4 @@
-import { resolve, join } from "node:path";
+import { resolve } from "node:path";
 import type { ResolvedConfig } from "../config.js";
 import { colorize } from "../utils/colors.js";
 

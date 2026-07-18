@@ -2,9 +2,10 @@
 // sql`` tagged template — builds parameterized SQL fragments safely
 // ---------------------------------------------------------------------------
 
-export interface SQLChunk {
+export interface SQLChunk<T = unknown> {
   sql: string;
   params: unknown[];
+  _type?: T; // phantom type
 }
 
 /**
@@ -14,7 +15,7 @@ export interface SQLChunk {
  *   sql`SELECT * FROM users WHERE id = ${userId}`
  *   // => { sql: 'SELECT * FROM users WHERE id = $1', params: [userId] }
  */
-export function sql(strings: TemplateStringsArray, ...values: unknown[]): SQLChunk {
+export function sql<T = unknown>(strings: TemplateStringsArray, ...values: unknown[]): SQLChunk<T> {
   let query = "";
   const params: unknown[] = [];
 
@@ -38,7 +39,7 @@ export function sql(strings: TemplateStringsArray, ...values: unknown[]): SQLChu
   return { sql: query, params };
 }
 
-export function isSQLChunk(value: unknown): value is SQLChunk {
+export function isSQLChunk(value: unknown): value is SQLChunk<any> {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -50,7 +51,7 @@ export function isSQLChunk(value: unknown): value is SQLChunk {
 }
 
 /** Combine multiple SQL chunks with a separator */
-export function sqlJoin(chunks: SQLChunk[], separator = ", "): SQLChunk {
+export function sqlJoin(chunks: SQLChunk<any>[], separator = ", "): SQLChunk<any> {
   const params: unknown[] = [];
   const parts: string[] = [];
 
@@ -64,6 +65,6 @@ export function sqlJoin(chunks: SQLChunk[], separator = ", "): SQLChunk {
 }
 
 /** Raw SQL — no parameterization, use with caution (only for trusted strings) */
-export function rawSql(query: string): SQLChunk {
+export function rawSql<T = unknown>(query: string): SQLChunk<T> {
   return { sql: query, params: [] };
 }

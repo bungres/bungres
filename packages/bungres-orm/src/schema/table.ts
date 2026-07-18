@@ -54,10 +54,17 @@ function createTableFactory(casing: "none" | "snake" | "camel") {
     columns: TColumns,
     extra?: ExtraConfig<TColumns>
   ): Table<TName, TColumns> {
+    let schema: string | undefined;
+    if (extra && typeof extra !== "function") {
+      schema = extra.schema;
+    }
+
+    const qualifiedName = schema ? `"${schema}"."${name}"` : `"${name}"`;
+
     const columnConfigs = Object.fromEntries(
       Object.entries(columns).map(([key, config]) => {
         // Use the key as the column name if not explicitly set
-        const c = { ...config };
+        const c = { ...config, tableName: qualifiedName };
         if (!c.name) {
           if (casing === "snake") {
             c.name = camelToSnakeCase(key);
@@ -69,7 +76,6 @@ function createTableFactory(casing: "none" | "snake" | "camel") {
       })
     ) as TColumns;
 
-    let schema: string | undefined;
     const indexes: IndexConfig[] = [];
     const checks: string[] = [];
     const primaryKeys: string[] = [];
@@ -86,14 +92,10 @@ function createTableFactory(casing: "none" | "snake" | "camel") {
           else if (config.type === "foreignKey") foreignKeys.push(config);
         }
       } else {
-        schema = extra.schema;
         if (extra.indexes) indexes.push(...extra.indexes);
         if (extra.checks) checks.push(...extra.checks);
-        if (extra.primaryKeys) primaryKeys.push(...extra.primaryKeys);
       }
     }
-
-    const qualifiedName = schema ? `"${schema}"."${name}"` : `"${name}"`;
 
     const tableObj = {
       [TableConfigSymbol]: {

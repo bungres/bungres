@@ -4,43 +4,71 @@ import type { WhereObject, OrderByObject } from "./query.js";
 
 import { sql, sqlJoin, rawSql } from "./sql.js";
 
-const colName = (c: string | ColumnConfig) => typeof c === "string" ? c : c.name;
+import { isSQLChunk } from "./sql.js";
 
-export const eq = (column: string | ColumnConfig, value: unknown): SQLChunk =>
-  sql`"${rawSql(colName(column))}" = ${value}`;
+const colName = (c: string | ColumnConfig | SQLChunk): string => {
+  if (typeof c === "string") return `"${c}"`;
+  if (isSQLChunk(c)) return c.sql;
+  return c.tableName ? `${c.tableName}."${c.name}"` : `"${c.name}"`;
+};
 
-export const ne = (column: string | ColumnConfig, value: unknown): SQLChunk =>
-  sql`"${rawSql(colName(column))}" != ${value}`;
+function isColumnConfig(val: unknown): val is ColumnConfig {
+  return val !== null && typeof val === "object" && "name" in val && "dataType" in val;
+}
 
-export const gt = (column: string | ColumnConfig, value: unknown): SQLChunk =>
-  sql`"${rawSql(colName(column))}" > ${value}`;
+export const eq = (column: string | ColumnConfig | SQLChunk, value: unknown): SQLChunk => {
+  if (isColumnConfig(value)) return sql`${rawSql(colName(column))} = ${rawSql(colName(value))}`;
+  if (isSQLChunk(value)) return sql`${rawSql(colName(column))} = ${value}`;
+  return sql`${rawSql(colName(column))} = ${value}`;
+};
 
-export const gte = (column: string | ColumnConfig, value: unknown): SQLChunk =>
-  sql`"${rawSql(colName(column))}" >= ${value}`;
+export const ne = (column: string | ColumnConfig | SQLChunk, value: unknown): SQLChunk => {
+  if (isColumnConfig(value)) return sql`${rawSql(colName(column))} != ${rawSql(colName(value))}`;
+  if (isSQLChunk(value)) return sql`${rawSql(colName(column))} != ${value}`;
+  return sql`${rawSql(colName(column))} != ${value}`;
+};
 
-export const lt = (column: string | ColumnConfig, value: unknown): SQLChunk =>
-  sql`"${rawSql(colName(column))}" < ${value}`;
+export const gt = (column: string | ColumnConfig | SQLChunk, value: unknown): SQLChunk => {
+  if (isColumnConfig(value)) return sql`${rawSql(colName(column))} > ${rawSql(colName(value))}`;
+  if (isSQLChunk(value)) return sql`${rawSql(colName(column))} > ${value}`;
+  return sql`${rawSql(colName(column))} > ${value}`;
+};
 
-export const lte = (column: string | ColumnConfig, value: unknown): SQLChunk =>
-  sql`"${rawSql(colName(column))}" <= ${value}`;
+export const gte = (column: string | ColumnConfig | SQLChunk, value: unknown): SQLChunk => {
+  if (isColumnConfig(value)) return sql`${rawSql(colName(column))} >= ${rawSql(colName(value))}`;
+  if (isSQLChunk(value)) return sql`${rawSql(colName(column))} >= ${value}`;
+  return sql`${rawSql(colName(column))} >= ${value}`;
+};
 
-export const like = (column: string | ColumnConfig, pattern: string): SQLChunk =>
-  sql`"${rawSql(colName(column))}" LIKE ${pattern}`;
+export const lt = (column: string | ColumnConfig | SQLChunk, value: unknown): SQLChunk => {
+  if (isColumnConfig(value)) return sql`${rawSql(colName(column))} < ${rawSql(colName(value))}`;
+  if (isSQLChunk(value)) return sql`${rawSql(colName(column))} < ${value}`;
+  return sql`${rawSql(colName(column))} < ${value}`;
+};
 
-export const ilike = (column: string | ColumnConfig, pattern: string): SQLChunk =>
-  sql`"${rawSql(colName(column))}" ILIKE ${pattern}`;
+export const lte = (column: string | ColumnConfig | SQLChunk, value: unknown): SQLChunk => {
+  if (isColumnConfig(value)) return sql`${rawSql(colName(column))} <= ${rawSql(colName(value))}`;
+  if (isSQLChunk(value)) return sql`${rawSql(colName(column))} <= ${value}`;
+  return sql`${rawSql(colName(column))} <= ${value}`;
+};
 
-export const isNull = (column: string | ColumnConfig): SQLChunk =>
-  rawSql(`"${colName(column)}" IS NULL`);
+export const like = (column: string | ColumnConfig | SQLChunk, pattern: string): SQLChunk =>
+  sql`${rawSql(colName(column))} LIKE ${pattern}`;
 
-export const isNotNull = (column: string | ColumnConfig): SQLChunk =>
-  rawSql(`"${colName(column)}" IS NOT NULL`);
+export const ilike = (column: string | ColumnConfig | SQLChunk, pattern: string): SQLChunk =>
+  sql`${rawSql(colName(column))} ILIKE ${pattern}`;
+
+export const isNull = (column: string | ColumnConfig | SQLChunk): SQLChunk =>
+  rawSql(`${colName(column)} IS NULL`);
+
+export const isNotNull = (column: string | ColumnConfig | SQLChunk): SQLChunk =>
+  rawSql(`${colName(column)} IS NOT NULL`);
 
 export const inArray = (column: string | ColumnConfig, values: unknown[]): SQLChunk => {
   if (values.length === 0) return rawSql("FALSE");
   const params = values;
   const placeholders = params.map((_, i) => `$${i + 1}`).join(", ");
-  return { sql: `"${colName(column)}" = ANY(ARRAY[${placeholders}])`, params };
+  return { sql: `${colName(column)} = ANY(ARRAY[${placeholders}])`, params };
 };
 
 export const and = (...conditions: SQLChunk[]): SQLChunk =>
@@ -57,10 +85,10 @@ export const not = (condition: SQLChunk): SQLChunk => ({
 });
 
 export const asc = (column: string | ColumnConfig): SQLChunk =>
-  sql`"${rawSql(colName(column))}" ASC`;
+  sql`${rawSql(colName(column))} ASC`;
 
 export const desc = (column: string | ColumnConfig): SQLChunk =>
-  sql`"${rawSql(colName(column))}" DESC`;
+  sql`${rawSql(colName(column))} DESC`;
 
 export function parseWhereObject(tableConfig: TableConfig, whereObj: WhereObject<any>): SQLChunk {
   const conditions: SQLChunk[] = [];
@@ -84,26 +112,26 @@ export function parseWhereObject(tableConfig: TableConfig, whereObj: WhereObject
     }
 
     const colConfig = tableConfig.columns[key];
-    const columnName = colConfig ? colConfig.name : key;
+    const columnArg = colConfig ?? key;
 
     if (val !== null && typeof val === "object" && !Array.isArray(val) && !(val instanceof Date) && !(val instanceof Uint8Array)) {
       const opVal = val as any;
-      if (opVal.eq !== undefined) conditions.push(eq(columnName, opVal.eq));
-      if (opVal.ne !== undefined) conditions.push(ne(columnName, opVal.ne));
-      if (opVal.gt !== undefined) conditions.push(gt(columnName, opVal.gt));
-      if (opVal.gte !== undefined) conditions.push(gte(columnName, opVal.gte));
-      if (opVal.lt !== undefined) conditions.push(lt(columnName, opVal.lt));
-      if (opVal.lte !== undefined) conditions.push(lte(columnName, opVal.lte));
-      if (opVal.in !== undefined) conditions.push(inArray(columnName, opVal.in));
-      if (opVal.like !== undefined) conditions.push(like(columnName, opVal.like));
-      if (opVal.ilike !== undefined) conditions.push(ilike(columnName, opVal.ilike));
-      if (opVal.isNull) conditions.push(isNull(columnName));
-      if (opVal.isNotNull) conditions.push(isNotNull(columnName));
+      if (opVal.eq !== undefined) conditions.push(eq(columnArg, opVal.eq));
+      if (opVal.ne !== undefined) conditions.push(ne(columnArg, opVal.ne));
+      if (opVal.gt !== undefined) conditions.push(gt(columnArg, opVal.gt));
+      if (opVal.gte !== undefined) conditions.push(gte(columnArg, opVal.gte));
+      if (opVal.lt !== undefined) conditions.push(lt(columnArg, opVal.lt));
+      if (opVal.lte !== undefined) conditions.push(lte(columnArg, opVal.lte));
+      if (opVal.in !== undefined) conditions.push(inArray(columnArg, opVal.in));
+      if (opVal.like !== undefined) conditions.push(like(columnArg, opVal.like));
+      if (opVal.ilike !== undefined) conditions.push(ilike(columnArg, opVal.ilike));
+      if (opVal.isNull) conditions.push(isNull(columnArg));
+      if (opVal.isNotNull) conditions.push(isNotNull(columnArg));
     } else {
       if (val === null) {
-        conditions.push(isNull(columnName));
+        conditions.push(isNull(columnArg));
       } else {
-        conditions.push(eq(columnName, val));
+        conditions.push(eq(columnArg, val));
       }
     }
   }
@@ -121,9 +149,9 @@ export function parseOrderByObject(tableConfig: TableConfig, orderByObj: OrderBy
   for (const [key, dir] of Object.entries(orderByObj)) {
     if (dir === undefined) continue;
     const colConfig = tableConfig.columns[key];
-    const columnName = colConfig ? colConfig.name : key;
-    if (dir === "asc") parts.push(asc(columnName));
-    else if (dir === "desc") parts.push(desc(columnName));
+    const columnArg = colConfig ?? key;
+    if (dir === "asc") parts.push(asc(columnArg));
+    else if (dir === "desc") parts.push(desc(columnArg));
   }
   
   return parts;

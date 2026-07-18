@@ -1,7 +1,7 @@
-import { eq } from "@bungres/orm";
+import { avg, count, eq, gte, sum } from "@bungres/orm";
 import type { UnwrapSchema } from "elysia";
 import { db } from "../../db/client";
-import { users } from "../../db/schema";
+import { orders, users } from "../../db/schema";
 import type { UserModel } from "./model";
 
 export abstract class UserService {
@@ -16,7 +16,20 @@ export abstract class UserService {
   }
 
   static async findMany() {
-    return await db.users.findMany({ limit: 100 });
+    // This demonstrates the new aggregations, groupBy, and having methods!
+    return await db.select({
+      userId: users.id,
+      userName: users.name,
+      totalOrders: count(),
+      totalSpent: sum(orders.total),
+      avgOrderValue: avg(orders.total)
+    })
+      .from(users)
+      .innerJoin(orders, eq(users.id, orders.userId))
+      .groupBy(users.id, users.name)
+      .having(gte(sum(orders.total), 500)) // Filter for users who have spent 500 or more
+      .orderBy(sum(orders.total), "desc")
+      .limit(10);
   }
 
   static async findById(id: string) {

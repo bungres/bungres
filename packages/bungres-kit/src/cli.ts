@@ -4,18 +4,19 @@
 // Usage: bungres <command> [options]
 // ---------------------------------------------------------------------------
 
-import { loadConfig } from "./config.js";
-import { runPush } from "./commands/push.js";
-import { runGenerate } from "./commands/generate.js";
-import { runMigrate } from "./commands/migrate.js";
-import { runPull } from "./commands/pull.js";
-import { runStatus } from "./commands/status.js";
 import { runDrop } from "./commands/drop.js";
 import { runFresh } from "./commands/fresh.js";
+import { runGenerate } from "./commands/generate.js";
+import { runInit } from "./commands/init.js";
+import { runMigrate } from "./commands/migrate.js";
+import { runPull } from "./commands/pull.js";
+import { runPush } from "./commands/push.js";
 import { runRefresh } from "./commands/refresh.js";
 import { runSeed } from "./commands/seed.js";
+import { runStatus } from "./commands/status.js";
 import { runStudio } from "./commands/studio.js";
 import { runTusky } from "./commands/tusky.js";
+import { loadConfig } from "./config.js";
 import { ensureDatabase } from "./ensure-db.js";
 import { colorize } from "./utils/colors.js";
 
@@ -28,6 +29,7 @@ ${colorize("Usage:", "yellow")}
   bungres <command> [options]
 
 ${colorize("Commands:", "yellow")}
+  init          Initialize bungres project with config file and db folder structure
   generate      Generate SQL migration files from your schema definitions
   migrate       Run pending migration files against the database
   push          Apply schema directly to the DB (no migration files, dev mode)
@@ -48,6 +50,7 @@ ${colorize("Options:", "yellow")}
   --help        Show this help
 
 ${colorize("Examples:", "yellow")}
+  bungres init
   bungres generate
   bungres migrate
   bungres push
@@ -76,6 +79,12 @@ async function main() {
 
   const command = args[0];
   const flags = parseFlags(args.slice(1));
+
+  // Handle init separately since it doesn't need config
+  if (command === "init") {
+    await runInit();
+    process.exit(0);
+  }
 
   const config = await loadConfig(process.cwd());
 

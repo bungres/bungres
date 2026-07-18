@@ -1,4 +1,3 @@
-import { generateDropTable } from "@bungres/orm";
 import type { ResolvedConfig } from "../config.js";
 import { loadSchemas } from "../schema-loader.js";
 import { colorize } from "../utils/colors.js";
