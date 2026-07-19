@@ -1,6 +1,7 @@
 import type { ResolvedConfig } from "../config.js";
 import { loadSchemas } from "../schema-loader.js";
-import { colorize } from "../utils/colors.js";
+import * as p from "@clack/prompts";
+import pc from "picocolors";
 
 // ---------------------------------------------------------------------------
 // drop — drop all tables defined in the schema (dev utility)
@@ -11,12 +12,22 @@ export async function runDrop(
   config: ResolvedConfig,
   opts: { force?: boolean } = {}
 ): Promise<void> {
+  p.intro(pc.bgCyan(pc.black(" @bungres/kit drop ")));
+  const s = p.spinner();
+  s.start("Loading schemas...");
+
   const schemas = await loadSchemas(config.schema);
 
   if (schemas.length === 0) {
-    console.warn("No table definitions found in schema files.");
+    s.stop("No schemas found.");
+    p.log.warn(pc.yellow("No table definitions found in schema files."));
+    p.outro("Failed.");
     return;
   }
+  s.stop(`Loaded ${schemas.length} schemas.`);
+
+  const ms = p.spinner();
+  ms.start("Checking database tables...");
 
   const sql = new Bun.SQL(config.dbUrl);
 
@@ -52,15 +63,18 @@ export async function runDrop(
     const pushTableExists = pushTableCheck[0]?.exists ?? false;
 
     // Filter user schema list to only those that exist in the DB
-    const tablesToDrop = schemas.filter((s) => existingTableNames.has(s.config.name));
+    const tablesToDrop = schemas.filter((sch) => existingTableNames.has(sch.config.name));
 
     if (tablesToDrop.length === 0 && !migrationTableExists && !pushTableExists) {
-      console.log("No tables to drop (they either don't exist or were already dropped).");
+      ms.stop("Nothing to do.");
+      p.log.success(pc.green("No tables to drop (they either don't exist or were already dropped)."));
+      p.outro("Done.");
       return;
     }
+    ms.stop("Database check complete.");
 
     const tableNamesToPrint = tablesToDrop.map(
-      (s) => (s.config.schema ? s.config.schema + "." : "") + s.config.name
+      (sch) => (sch.config.schema ? sch.config.schema + "." : "") + sch.config.name
     );
     if (migrationTableExists) {
       tableNamesToPrint.push(`${config.migrationsSchema}.${config.migrationsTable}`);
@@ -70,37 +84,48 @@ export async function runDrop(
     }
 
     if (!opts.force) {
-      console.warn(colorize("\n⚠️  WARNING: This will drop the following tables and ALL their data:\n", "red"));
-      for (const name of tableNamesToPrint) console.log(colorize(`  - ${name}`, "yellow"));
-      process.stdout.write(colorize("\nAre you sure? Type YES to continue: ", "cyan"));
+      p.log.warn(pc.bgRed(pc.white(" ⚠️ WARNING ")));
+      p.log.message(pc.bold(pc.red("This will drop the following tables and ALL their data:")));
+      for (const name of tableNamesToPrint) {
+        p.log.info(pc.yellow(`  - ${name}`));
+      }
 
-      for await (const line of console) {
-        if (line.trim().toLowerCase() !== "yes") {
-          console.log("Aborted.");
-          return;
-        }
-        break;
+      const confirm = await p.confirm({
+        message: "Are you sure you want to proceed?",
+        initialValue: false
+      });
+
+      if (p.isCancel(confirm) || !confirm) {
+        p.outro(pc.gray("Drop aborted."));
+        return;
       }
     }
+
+    const exSpinner = p.spinner();
+    exSpinner.start("Dropping tables...");
 
     for (const entry of tablesToDrop) {
       const ddl = `DROP TABLE IF EXISTS "${entry.config.name}" CASCADE;`;
       await sql.unsafe(ddl);
-      console.log(colorize(`  ✓ dropped ${entry.config.name}`, "green"));
+      p.log.step(pc.gray(`Dropped ${entry.config.name}`));
     }
 
     if (migrationTableExists) {
       const qualifiedMigTable = `"${config.migrationsSchema}"."${config.migrationsTable}"`;
       await sql.unsafe(`DROP TABLE IF EXISTS ${qualifiedMigTable} CASCADE`);
-      console.log(colorize(`  ✓ dropped ${config.migrationsSchema}.${config.migrationsTable}`, "green"));
+      p.log.step(pc.gray(`Dropped ${config.migrationsSchema}.${config.migrationsTable}`));
     }
 
     if (pushTableExists) {
       await sql.unsafe(`DROP TABLE IF EXISTS "${config.migrationsSchema}"."__bungres_push" CASCADE`);
-      console.log(colorize(`  ✓ dropped ${config.migrationsSchema}.__bungres_push`, "green"));
+      p.log.step(pc.gray(`Dropped ${config.migrationsSchema}.__bungres_push`));
     }
 
-    console.log(colorize("\nDrop complete.", "green"));
+    exSpinner.stop("Tables dropped.");
+    p.outro(pc.cyan("✨ Drop complete."));
+  } catch (err: any) {
+    p.log.error(pc.red(`Drop failed: ${err.message}`));
+    p.outro("Failed.");
   } finally {
     await sql.end();
   }

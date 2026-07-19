@@ -1,27 +1,37 @@
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import * as p from "@clack/prompts";
+import pc from "picocolors";
 
 // ---------------------------------------------------------------------------
 // init — Initialize bungres project with config file and db folder structure
 // ---------------------------------------------------------------------------
 
 export async function runInit(cwd = process.cwd()): Promise<void> {
+  p.intro(pc.bgCyan(pc.black(" @bungres/kit init ")));
+
   const configPath = join(cwd, "bungres.config.ts");
   const dbDir = join(cwd, "src", "db");
 
   // Check if config already exists
   if (existsSync(configPath)) {
-    console.log("Config file already exists at bungres.config.ts");
+    p.log.warn(pc.yellow("Config file already exists at bungres.config.ts"));
+    p.outro("Failed.");
     return;
   }
+
+  const s = p.spinner();
+  s.start("Creating project structure...");
 
   // Create db directory structure
   try {
     await mkdir(dbDir, { recursive: true });
-    console.log("Created src/db directory");
+    p.log.step(`Created ${pc.cyan("src/db")} directory`);
   } catch (e) {
-    console.error("Failed to create src/db directory:", e);
+    s.stop("Failed");
+    p.log.error(`Failed to create src/db directory: ${e}`);
+    p.outro("Failed.");
     return;
   }
 
@@ -39,9 +49,11 @@ export default defineConfig({
 
   try {
     await Bun.write(configPath, configContent);
-    console.log("Created bungres.config.ts");
+    p.log.step(`Created ${pc.cyan("bungres.config.ts")}`);
   } catch (e) {
-    console.error("Failed to create config file:", e);
+    s.stop("Failed");
+    p.log.error(`Failed to create config file: ${e}`);
+    p.outro("Failed.");
     return;
   }
 
@@ -68,9 +80,9 @@ export const users = table("users", {
 
   try {
     await Bun.write(join(dbDir, "schema.ts"), schemaContent);
-    console.log("Created src/db/schema.ts with example table");
+    p.log.step(`Created ${pc.cyan("src/db/schema.ts")} with example table`);
   } catch (e) {
-    console.error("Failed to create schema file:", e);
+    p.log.error(`Failed to create schema file: ${e}`);
   }
 
   // Create client.ts file
@@ -84,15 +96,18 @@ export const db = bungres({ url, schema });
 
   try {
     await Bun.write(join(dbDir, "client.ts"), clientContent);
-    console.log("Created src/db/client.ts");
+    p.log.step(`Created ${pc.cyan("src/db/client.ts")}`);
   } catch (e) {
-    console.error("Failed to create client file:", e);
+    p.log.error(`Failed to create client file: ${e}`);
   }
 
-  console.log("\n✨ Bungres project initialized!");
-  console.log("\nNext steps:");
-  console.log("  1. Set DATABASE_URL in your .env file");
-  console.log("  2. Edit src/db/schema.ts to define your tables");
-  console.log("  3. Run 'bungres generate' to create migrations");
-  console.log("  4. Run 'bungres migrate' to apply migrations");
+  s.stop("Project initialized.");
+
+  const nextSteps = `1. Set DATABASE_URL in your .env file
+2. Edit src/db/schema.ts to define your tables
+3. Run ${pc.green("bungres generate")} to create migrations
+4. Run ${pc.green("bungres migrate")} to apply migrations`;
+
+  p.note(nextSteps, "Next steps");
+  p.outro(pc.cyan("✨ Bungres project initialized!"));
 }

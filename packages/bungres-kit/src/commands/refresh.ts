@@ -1,6 +1,6 @@
 import type { ResolvedConfig } from "../config.js";
 import { loadSchemas } from "../schema-loader.js";
-import { colorize } from "../utils/colors.js";
+import pc from "picocolors";
 
 // ---------------------------------------------------------------------------
 // refresh — truncate all tables to reset data without dropping schema
@@ -27,10 +27,10 @@ export async function runRefresh(config: ResolvedConfig): Promise<void> {
     for (const entry of schemas) {
       const ddl = `TRUNCATE TABLE "${entry.config.name}" CASCADE;`;
       await sql.unsafe(ddl);
-      console.log(colorize(`  ✓ truncated ${entry.config.name}`, "green"));
+      console.log(pc.green(`  ✓ truncated ${entry.config.name}`));
     }
 
-    console.log(colorize("\nRefresh complete. All tables are now empty.", "green"));
+    console.log(pc.green("\nRefresh complete. All tables are now empty."));
   } finally {
     await sql.end();
   }

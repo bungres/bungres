@@ -1,37 +1,42 @@
 import { join, resolve } from "node:path";
+import { readdirSync } from "node:fs";
 import { generateCreateTable } from "@bungres/orm";
 import type { TableConfig } from "@bungres/orm";
 import type { ResolvedConfig } from "../config.js";
 import { loadSchemas, type SchemaEntry } from "../schema-loader.js";
 import { diffSchemas, type SchemaSnapshot } from "../differ.js";
-import { colorize } from "../utils/colors.js";
+import * as p from "@clack/prompts";
+import pc from "picocolors";
 
 // ---------------------------------------------------------------------------
 // generate — diff-based SQL migration generator (drizzle-style numbering)
 //
-// First run:  full CREATE TABLE for every table  → 0001_init.sql
-// Later runs: only the changes (ADD COLUMN, CREATE TABLE, etc.) → 0002_*.sql
-//
-// Schema state is tracked in <migrationsDir>/.snapshot.json
+// Generates a single .sql file with `-- ==== UP ====` and `-- ==== DOWN ====`
+// Schema state is tracked in <migrationsDir>/meta/*_snapshot.json
 // ---------------------------------------------------------------------------
-
-const SNAPSHOT_FILE = ".snapshot.json";
 
 export async function runGenerate(
   config: ResolvedConfig,
   name?: string
 ): Promise<void> {
-  console.log("@bungres/kit generate: loading schemas...");
+  p.intro(pc.bgCyan(pc.black(" @bungres/kit generate ")));
+  const s = p.spinner();
+  s.start("Loading schemas...");
 
   const schemas = await loadSchemas(config.schema);
 
   if (schemas.length === 0) {
-    console.warn(colorize("No table definitions found. Check your schema glob pattern.", "yellow"));
+    s.stop("No table definitions found.");
+    p.log.warn(pc.yellow("Check your schema glob pattern."));
+    p.outro("Failed.");
     return;
   }
+  s.stop(`Loaded ${schemas.length} schemas.`);
 
   const migrationsDir = resolve(config.out);
+  const metaDir = join(migrationsDir, "meta");
   await Bun.$`mkdir -p ${migrationsDir}`.quiet();
+  await Bun.$`mkdir -p ${metaDir}`.quiet();
 
   // ── Build current snapshot from loaded schemas ────────────────────────────
   const currentSnapshot: SchemaSnapshot = Object.fromEntries(
@@ -39,12 +44,26 @@ export async function runGenerate(
   );
 
   // ── Load previous snapshot (if any) ──────────────────────────────────────
-  const snapshotPath = join(migrationsDir, SNAPSHOT_FILE);
-  const snapshotFile = Bun.file(snapshotPath);
-  const isFirstMigration = !(await snapshotFile.exists());
-  const prevSnapshot: SchemaSnapshot = isFirstMigration
-    ? {}
-    : (JSON.parse(await snapshotFile.text()) as SchemaSnapshot);
+  let prevSnapshot: SchemaSnapshot = {};
+  let isFirstMigration = true;
+
+  try {
+    const files = readdirSync(metaDir).filter(f => f.endsWith("_snapshot.json")).sort();
+    if (files.length > 0) {
+      const latest = files[files.length - 1] as string;
+      prevSnapshot = JSON.parse(await Bun.file(join(metaDir, latest)).text());
+      isFirstMigration = false;
+    } else {
+      // Fallback to legacy .snapshot.json
+      const legacyFile = Bun.file(join(migrationsDir, ".snapshot.json"));
+      if (await legacyFile.exists()) {
+        prevSnapshot = JSON.parse(await legacyFile.text());
+        isFirstMigration = false;
+      }
+    }
+  } catch (e) {
+    // ignore dir missing errors initially
+  }
 
   // ── Determine next sequence number ───────────────────────────────────────
   const now = new Date();
@@ -60,7 +79,8 @@ export async function runGenerate(
   const outPath = join(migrationsDir, filename);
 
   // ── Diff ──────────────────────────────────────────────────────────────────
-  let statements: string[];
+  let upStatements: string[];
+  let downStatements: string[];
   let summary: string[];
   let warnings: string[] = [];
 
@@ -68,27 +88,65 @@ export async function runGenerate(
     // First migration — full schema sorted by FK dependency order
     const sorted = topoSort(schemas);
 
-    statements = [
-      ...sorted.flatMap((entry) => [
-        `-- ${entry.exportName}`,
-        generateCreateTable(entry.config, true),
-        ``,
-      ]),
-    ];
+    upStatements = sorted.flatMap((entry) => [
+      `-- ${entry.exportName}`,
+      generateCreateTable(entry.config, true),
+      ``,
+    ]);
+    
+    downStatements = [...sorted].reverse().flatMap((entry) => {
+      const tbl = entry.config.schema ? `"${entry.config.schema}"."${entry.config.name}"` : `"${entry.config.name}"`;
+      return [`DROP TABLE IF EXISTS ${tbl};`];
+    });
+
     summary = sorted.map((s) => `CREATE TABLE ${s.config.name}`);
   } else {
     // Subsequent migrations — diff only
-    const diff = diffSchemas(prevSnapshot, currentSnapshot);
+    const upDiff = diffSchemas(prevSnapshot, currentSnapshot);
 
-    if (diff.statements.length === 0) {
-      console.log(colorize("\nNo schema changes detected. Nothing to generate.", "yellow"));
+    if (upDiff.statements.length === 0) {
+      p.log.warn(pc.yellow("No schema changes detected. Nothing to generate."));
+      p.outro("Done.");
       return;
     }
 
-    statements = diff.statements;
-    summary = diff.summary;
-    warnings = diff.warnings;
+    upStatements = upDiff.statements;
+    summary = upDiff.summary;
+    warnings = upDiff.warnings;
+
+    // Generate reverse diff for down.sql!
+    const downDiff = diffSchemas(currentSnapshot, prevSnapshot);
+    downStatements = downDiff.statements;
   }
+
+  // ── Prompt for confirmation ───────────────────────────────────────────────
+  p.log.message(pc.bold("Schema changes detected:"));
+  for (const s of summary) {
+    if (s.startsWith("CREATE") || s.startsWith("ALTER TABLE") && s.includes("ADD")) {
+      p.log.success(pc.green(`  + ${s}`));
+    } else if (s.startsWith("DROP") || s.startsWith("ALTER TABLE") && s.includes("DROP")) {
+      p.log.error(pc.red(`  - ${s}`));
+    } else {
+      p.log.info(pc.blue(`  ~ ${s}`));
+    }
+  }
+
+  if (warnings.length > 0) {
+    p.log.warn(pc.bgRed(pc.white(" ⚠️ DATA LOSS DETECTED ")));
+    for (const w of warnings) p.log.warn(pc.red(`  ! ${w}`));
+  }
+
+  const shouldGenerate = await p.confirm({
+    message: "Generate this migration?",
+    initialValue: true
+  });
+
+  if (p.isCancel(shouldGenerate) || !shouldGenerate) {
+    p.outro(pc.gray("Generation cancelled."));
+    return;
+  }
+
+  s.start("Writing files...");
 
   // ── Write migration file ──────────────────────────────────────────────────
   const lines: string[] = [
@@ -96,25 +154,28 @@ export async function runGenerate(
     `-- Generated by @bungres/kit at ${new Date().toISOString()}`,
     `-- Changes: ${summary.join(", ")}`,
     ``,
-    ...statements,
+    `-- ==== UP ====`,
+    ...upStatements,
+    ``,
+    `-- ==== DOWN ====`,
+    ...downStatements,
+    ``,
   ];
 
   await Bun.write(outPath, lines.join("\n"));
 
   // ── Save updated snapshot ─────────────────────────────────────────────────
-  await Bun.write(snapshotPath, JSON.stringify(currentSnapshot, null, 2));
+  const metaPath = join(metaDir, `${prefix}_snapshot.json`);
+  await Bun.write(metaPath, JSON.stringify(currentSnapshot, null, 2));
 
-  console.log(colorize(`\nGenerated: ${outPath}`, "green"));
-  console.log(`  Changes:`);
-  for (const s of summary) console.log(colorize(`    + ${s}`, "cyan"));
-
-  if (warnings.length > 0) {
-    console.warn(colorize(`\n  ⚠️  WARNING: Data Loss Detected!`, "red"));
-    for (const w of warnings) console.warn(colorize(`    ! ${w}`, "red"));
-    console.warn(colorize(`  Please review the generated migration carefully before applying it.\n`, "yellow"));
+  // Clean up legacy snapshot if it exists
+  const legacyFile = Bun.file(join(migrationsDir, ".snapshot.json"));
+  if (await legacyFile.exists()) {
+    await Bun.$`rm ${legacyFile.name}`.quiet();
   }
 
-  console.log(colorize(`\nRun \`bungres migrate\` to apply it.`, "cyan"));
+  s.stop(`Generated ${pc.cyan(filename)}`);
+  p.outro(`Run ${pc.green("bungres migrate")} to apply it.`);
 }
 
 // ---------------------------------------------------------------------------

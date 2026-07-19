@@ -9,13 +9,16 @@ import {
   timestamptz,
   unique,
   uuid,
-  varchar
+  varchar,
+  boolean
 } from "@bungres/orm";
 
 export const users = table("users", {
   id: uuid({ primaryKey: true }),
   name: varchar({ length: 255, notNull: true }),
   email: varchar({ length: 255, notNull: true }),
+  bio: text(),
+  isActive: boolean({ default: true }),
   createdAt: timestamptz({ notNull: true, defaultRaw: "NOW()" }),
 }, (t) => [
   unique().on(t.email),
@@ -36,7 +39,6 @@ export const stores = table("stores", {
 export const categories = table("categories", {
   id: uuid({ primaryKey: true }),
   name: varchar({ length: 100, notNull: true }),
-  description: text(),
 }, (t) => [
   index().on(t.name)
 ]);
@@ -46,7 +48,7 @@ export const products = table("products", {
   storeId: uuid({ notNull: true, references: { table: "stores", column: "id", onDelete: "cascade", relationName: "store", backRelationName: "products" } }),
   categoryId: uuid({ notNull: true, references: { table: "categories", column: "id", onDelete: "cascade", relationName: "category", backRelationName: "products" } }),
   name: varchar({ length: 255, notNull: true }),
-  price: numeric({ notNull: true }),
+  price: numeric(),
   stock: integer({ notNull: true, default: 0 }),
   createdAt: timestamptz({ notNull: true, defaultRaw: "NOW()" }),
 }, (t) => [

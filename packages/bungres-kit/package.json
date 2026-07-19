@@ -50,7 +50,9 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@bungres/orm": "latest"
+    "@bungres/orm": "^0.6.0",
+    "@clack/prompts": "^1.7.0",
+    "picocolors": "^1.1.1"
   },
   "devDependencies": {
     "bun-types": "latest",

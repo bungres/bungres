@@ -1,12 +1,15 @@
 import { join, resolve } from "node:path";
 import type { ResolvedConfig } from "../config.js";
-import { colorize } from "../utils/colors.js";
+import * as p from "@clack/prompts";
+import pc from "picocolors";
 
 // ---------------------------------------------------------------------------
 // migrate — run pending .sql files, track applied in the migrations table
 // ---------------------------------------------------------------------------
 
 export async function runMigrate(config: ResolvedConfig): Promise<void> {
+  p.intro(pc.bgCyan(pc.black(" @bungres/kit migrate ")));
+
   const migrationsDir = resolve(config.out);
   const sql = new Bun.SQL(config.dbUrl);
 
@@ -23,6 +26,9 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
   applied_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );`.trim();
 
+  const s = p.spinner();
+  s.start("Checking pending migrations...");
+
   try {
     // Ensure schema and tracking table exist
     await sql.unsafe(createSchema);
@@ -37,8 +43,10 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
     files.sort(); // 0001_ < 0002_ etc.
 
     if (files.length === 0) {
-      console.log(colorize("No migration files found in " + migrationsDir, "yellow"));
-      console.log(colorize("Run `bungres generate` first.", "yellow"));
+      s.stop("No files found.");
+      p.log.warn(pc.yellow(`No migration files found in ${migrationsDir}`));
+      p.log.info(`Run ${pc.green("bungres generate")} first.`);
+      p.outro("Done.");
       return;
     }
 
@@ -49,26 +57,37 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
     const pending = files.filter((f) => !appliedSet.has(f));
 
     if (pending.length === 0) {
-      console.log(colorize("Everything is up to date.", "green"));
+      s.stop("Up to date.");
+      p.log.success(pc.green("Everything is up to date."));
+      p.outro("Done.");
       return;
     }
 
-    console.log(colorize(`\nRunning ${pending.length} pending migration(s)...\n`, "cyan"));
+    s.stop(`Found ${pending.length} pending migration(s).`);
 
     for (const file of pending) {
+      const ms = p.spinner();
+      ms.start(`Applying ${file}...`);
+      
       const content = await Bun.file(join(migrationsDir, file)).text();
 
+      // Extract only the UP section if delimiters exist
+      let upContent = content;
+      const upMatch = content.match(/-- ==== UP ====([\s\S]*?)(?:-- ==== DOWN ====|$)/i);
+      if (upMatch) {
+        upContent = upMatch[1]!.trim();
+      }
+
       if (config.verbose) {
-        console.log(`-- ${file} --\n${content}\n`);
+        p.log.info(pc.gray(`-- ${file} --\n${upContent}\n`));
       }
 
       await sql.transaction(async (txSql: InstanceType<typeof Bun.SQL>) => {
-        // Split on breakpoint markers if enabled (default: true)
         const statements = config.breakpoints
-          ? content
+          ? upContent
               .split(/-->statement-breakpoint/g)
               .flatMap((chunk) => chunk.split(";").map((s) => s.trim()).filter(Boolean))
-          : content
+          : upContent
               .split(";")
               .map((s) => s.trim())
               .filter(Boolean);
@@ -83,10 +102,13 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
         );
       });
 
-      console.log(colorize(`  ✓  ${file}`, "green"));
+      ms.stop(pc.green(`✓ Applied ${file}`));
     }
 
-    console.log(colorize("\nDone.", "green"));
+    p.outro(pc.cyan("✨ All migrations applied successfully."));
+  } catch (err: any) {
+    p.log.error(pc.red(`Migration failed: ${err.message}`));
+    p.outro("Failed.");
   } finally {
     await sql.end();
   }

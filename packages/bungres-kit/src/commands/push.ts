@@ -1,7 +1,8 @@
-import * as fs from "node:fs";
 import type { ResolvedConfig } from "../config.js";
 import { diffSchemas, type SchemaSnapshot } from "../differ.js";
 import { loadSchemas } from "../schema-loader.js";
+import * as p from "@clack/prompts";
+import pc from "picocolors";
 
 // ---------------------------------------------------------------------------
 // push — apply schema directly to the database (no migration files)
@@ -13,16 +14,23 @@ export async function runPush(
   config: ResolvedConfig,
   opts: { force?: boolean } = {}
 ): Promise<void> {
-  console.log("@bungres/kit push: loading schemas...");
+  p.intro(pc.bgCyan(pc.black(" @bungres/kit push ")));
+  const s = p.spinner();
+  s.start("Loading schemas...");
 
   const schemas = await loadSchemas(config.schema);
 
   if (schemas.length === 0) {
-    console.warn("No table definitions found. Check your schema glob pattern.");
+    s.stop("No schemas found.");
+    p.log.warn(pc.yellow("No table definitions found. Check your schema glob pattern."));
+    p.outro("Failed.");
     return;
   }
+  s.stop(`Loaded ${schemas.length} schemas.`);
 
   const sql = new Bun.SQL(config.dbUrl);
+  const ms = p.spinner();
+  ms.start("Computing diff from database...");
 
   try {
     // Ensure schema exists
@@ -48,41 +56,56 @@ export async function runPush(
 
     // Current snapshot from TypeScript
     const currentSnapshot: SchemaSnapshot = Object.fromEntries(
-      schemas.map((s) => [s.config.name, s.config])
+      schemas.map((schemaEntry) => [schemaEntry.config.name, schemaEntry.config])
     );
 
     // Diff
     const diff = diffSchemas(prevSnapshot, currentSnapshot);
 
     if (diff.statements.length === 0) {
-      console.log("\nNo schema changes detected. Database is up to date.");
+      ms.stop("Up to date.");
+      p.log.success(pc.green("No schema changes detected. Database is up to date."));
+      p.outro("Done.");
       return;
     }
+    
+    ms.stop(`Computed ${diff.statements.length} statements.`);
 
-    console.log(`\nChanges to apply:`);
-    for (const s of diff.summary) console.log(`  + ${s}`);
+    p.log.message(pc.bold("Changes to apply:"));
+    for (const change of diff.summary) {
+      if (change.startsWith("CREATE") || change.startsWith("ALTER TABLE") && change.includes("ADD")) {
+        p.log.success(pc.green(`  + ${change}`));
+      } else if (change.startsWith("DROP") || change.startsWith("ALTER TABLE") && change.includes("DROP")) {
+        p.log.error(pc.red(`  - ${change}`));
+      } else {
+        p.log.info(pc.blue(`  ~ ${change}`));
+      }
+    }
 
     if (diff.warnings && diff.warnings.length > 0) {
-      console.warn(`\n  ⚠️  WARNING: Data Loss Detected!`);
-      for (const w of diff.warnings) console.warn(`    ! ${w}`);
-      console.warn(`\n  These changes will be immediately executed against the database!`);
+      p.log.warn(pc.bgRed(pc.white(" ⚠️ DATA LOSS DETECTED ")));
+      for (const w of diff.warnings) p.log.warn(pc.red(`  ! ${w}`));
+      p.log.warn(pc.yellow("These changes will be immediately executed against the database!"));
     }
 
     if (!opts.force) {
-      process.stdout.write("\nAre you sure you want to push these changes? Type YES to continue: ");
-      const answer = await readLine();
-      if (answer.trim().toLowerCase() !== "yes") {
-        console.log("Aborted.");
+      const confirm = await p.confirm({
+        message: "Are you sure you want to push these changes?",
+        initialValue: true
+      });
+      if (p.isCancel(confirm) || !confirm) {
+        p.outro(pc.gray("Push aborted."));
         return;
       }
     }
 
-    console.log(`\nPushing changes...`);
+    const exSpinner = p.spinner();
+    exSpinner.start("Pushing changes...");
 
     // Execute diff statements
     for (const stmt of diff.statements) {
       if (config.verbose) {
-        console.log(`-- ${stmt}`);
+        p.log.info(pc.gray(`-- ${stmt}`));
       }
       await sql.unsafe(stmt);
     }
@@ -93,14 +116,12 @@ export async function runPush(
       [JSON.stringify(currentSnapshot)]
     );
 
-    console.log("\nPush complete.");
+    exSpinner.stop(pc.green("Changes applied successfully."));
+    p.outro(pc.cyan("✨ Push complete."));
+  } catch (err: any) {
+    p.log.error(pc.red(`Push failed: ${err.message}`));
+    p.outro("Failed.");
   } finally {
     await sql.end();
   }
-}
-
-async function readLine(): Promise<string> {
-  const buf = Buffer.alloc(256);
-  const n = fs.readSync(0, buf, 0, 256, null);
-  return buf.subarray(0, n).toString().trim();
 }

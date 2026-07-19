@@ -1,18 +1,24 @@
 import { resolve } from "node:path";
 import type { ResolvedConfig } from "../config.js";
-import { colorize } from "../utils/colors.js";
+import * as p from "@clack/prompts";
+import pc from "picocolors";
 
 // ---------------------------------------------------------------------------
 // status — show which migrations have been applied vs. pending
 // ---------------------------------------------------------------------------
 
 export async function runStatus(config: ResolvedConfig): Promise<void> {
+  p.intro(pc.bgCyan(pc.black(" @bungres/kit status ")));
+
   const migrationsDir = resolve(config.out);
   const sql = new Bun.SQL(config.dbUrl);
 
   const table = config.migrationsTable;
   const schema = config.migrationsSchema;
   const qualifiedTable = `"${schema}"."${table}"`;
+
+  const s = p.spinner();
+  s.start("Checking migration status...");
 
   try {
     // Check if migrations table exists
@@ -35,7 +41,10 @@ export async function runStatus(config: ResolvedConfig): Promise<void> {
     files.sort();
 
     if (files.length === 0) {
-      console.log(colorize("No migration files found. Run `bungres generate` first.", "yellow"));
+      s.stop("No files found.");
+      p.log.warn(pc.yellow("No migration files found."));
+      p.log.info(`Run ${pc.green("bungres generate")} first.`);
+      p.outro("Done.");
       return;
     }
 
@@ -47,19 +56,26 @@ export async function runStatus(config: ResolvedConfig): Promise<void> {
       appliedSet = new Set(applied.map((r) => r.name));
     }
 
-    console.log(colorize("\nMigration status:\n", "cyan"));
+    s.stop("Status check complete.");
+
+    p.log.message(pc.bold("Migration status:"));
     let pendingCount = 0;
 
     for (const file of files) {
       const isApplied = appliedSet.has(file);
-      const status = isApplied ? colorize("✓ applied ", "green") : colorize("✗ pending ", "yellow");
-      if (!isApplied) pendingCount++;
-      console.log(`  ${status}  ${file}`);
+      if (isApplied) {
+        p.log.success(`${pc.green("✓ applied ")} ${file}`);
+      } else {
+        pendingCount++;
+        p.log.warn(`${pc.yellow("✗ pending ")} ${file}`);
+      }
     }
 
-    console.log(
-      `\n${colorize(appliedSet.size.toString(), "green")} applied, ${colorize(pendingCount.toString(), "yellow")} pending.\n`
-    );
+    p.log.info(`${pc.green(appliedSet.size.toString())} applied, ${pc.yellow(pendingCount.toString())} pending.`);
+    p.outro("Done.");
+  } catch (err: any) {
+    p.log.error(pc.red(`Status check failed: ${err.message}`));
+    p.outro("Failed.");
   } finally {
     await sql.end();
   }

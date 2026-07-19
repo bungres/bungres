@@ -41,14 +41,15 @@ bun run bungres --help
 | Command | Description |
 |---|---|
 | `bungres init` | Initialize bungres project with config file and db folder structure |
-| `bungres generate` | Write a timestamped `.sql` migration file from your schema |
-| `bungres migrate` | Run pending `.sql` files, track applied in `__bungres_migrations` |
+| `bungres generate` | Write a single timestamped `.sql` migration file with UP/DOWN sections |
+| `bungres migrate` | Run pending `.sql` UP sections, track applied in `__bungres_migrations` |
+| `bungres rollback` | Automatically revert the last applied migration using its DOWN section |
 | `bungres push` | Apply schema directly to DB — no files (great for dev/prototyping) |
 | `bungres pull` | Introspect the DB and generate TypeScript schema |
 | `bungres status` | Show applied vs pending migrations |
 | `bungres fresh` | Drop all tables and re-run all migrations from scratch |
 | `bungres refresh` | Truncate all tables to quickly reset data without dropping schema |
-| `bungres seed` | Execute the seed script to populate the database |
+| `bungres seed` | Execute the seed script, or run the Auto-Seeder using `@faker-js/faker` |
 | `bungres studio` | Start a local web interface to browse database data |
 | `bungres tusky` | Boot up a Node REPL connected to the database with schema loaded |
 | `bungres drop` | Drop all tables defined in the schema (prompts for confirmation) |
@@ -59,6 +60,7 @@ bun run bungres --help
 bun run bungres init
 bun run bungres generate
 bun run bungres migrate
+bun run bungres rollback
 bun run bungres push
 bun run bungres pull
 bun run bungres status
@@ -69,6 +71,13 @@ bun run bungres studio
 bun run bungres tusky
 bun run bungres drop --force   # skip confirmation
 ```
+
+## Features ✨
+
+- **Interactive UI**: Enjoy beautiful, interactive terminal prompts and spinners powered by `@clack/prompts`.
+- **Drizzle-Style Diffs**: Before applying or generating migrations, visually inspect exactly what tables and columns will be added, dropped, or altered.
+- **Rollbacks**: Single file migrations with `-- ==== UP ====` and `-- ==== DOWN ====` sections allow you to rollback your schema effortlessly.
+- **Auto-Seeder**: Run `bungres seed` without a custom script to automatically generate mock data for your database using `@faker-js/faker`, resolving foreign key dependencies automatically!
 
 ## License
 MIT

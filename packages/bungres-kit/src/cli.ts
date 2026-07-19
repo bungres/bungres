@@ -12,28 +12,30 @@ import { runMigrate } from "./commands/migrate.js";
 import { runPull } from "./commands/pull.js";
 import { runPush } from "./commands/push.js";
 import { runRefresh } from "./commands/refresh.js";
+import { runRollback } from "./commands/rollback.js";
 import { runSeed } from "./commands/seed.js";
 import { runStatus } from "./commands/status.js";
 import { runStudio } from "./commands/studio.js";
 import { runTusky } from "./commands/tusky.js";
+import pc from "picocolors";
 import { loadConfig } from "./config.js";
 import { ensureDatabase } from "./ensure-db.js";
-import { colorize } from "./utils/colors.js";
 
 import pkg from "../package.json";
 
 const VERSION = pkg.version;
 
 const HELP = `
-${colorize("🐘 Bungres ORM CLI", "cyan")} v${VERSION}
+${pc.cyan("🐘 Bungres ORM CLI")} v${VERSION}
 
-${colorize("Usage:", "yellow")}
+${pc.yellow("Usage:")}
   bungres <command> [options]
 
-${colorize("Commands:", "yellow")}
+${pc.yellow("Commands:")}
   init          Initialize bungres project with config file and db folder structure
   generate      Generate SQL migration files from your schema definitions
   migrate       Run pending migration files against the database
+  rollback      Revert the last applied migration
   push          Apply schema directly to the DB (no migration files, dev mode)
   pull          Introspect the database and generate TypeScript schema
   status        Show applied vs. pending migrations
@@ -44,17 +46,18 @@ ${colorize("Commands:", "yellow")}
   tusky         Boot up a Node REPL connected to the database with schema loaded
   drop          Drop all tables defined in the schema (dev only)
 
-${colorize("Options:", "yellow")}
+${pc.yellow("Options:")}
   --config      Path to config file (default: bungres.config.ts)
   --verbose     Enable verbose SQL logging
   --force       Skip confirmation prompts (use with drop)
   --version     Show version
   --help        Show this help
 
-${colorize("Examples:", "yellow")}
+${pc.yellow("Examples:")}
   bungres init
   bungres generate
   bungres migrate
+  bungres rollback
   bungres push
   bungres pull
   bungres status
@@ -93,7 +96,7 @@ async function main() {
   // Override verbose from flag
   if (flags.verbose) config.verbose = true;
 
-  if (command && ["migrate", "push", "drop", "status", "fresh", "refresh"].includes(command)) {
+  if (command && ["migrate", "rollback", "push", "drop", "status", "fresh", "refresh"].includes(command)) {
     await ensureDatabase(config.dbUrl);
   }
 
@@ -104,6 +107,10 @@ async function main() {
 
     case "migrate":
       await runMigrate(config);
+      break;
+
+    case "rollback":
+      await runRollback(config);
       break;
 
     case "push":

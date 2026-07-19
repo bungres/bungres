@@ -19,14 +19,6 @@
         "unique": false,
         "length": 100,
         "tableName": "\"categories\""
-      },
-      "description": {
-        "name": "description",
-        "dataType": "text",
-        "notNull": false,
-        "primaryKey": false,
-        "unique": false,
-        "tableName": "\"categories\""
       }
     },
     "indexes": [
@@ -352,7 +344,7 @@
       "price": {
         "name": "price",
         "dataType": "numeric",
-        "notNull": true,
+        "notNull": false,
         "primaryKey": false,
         "unique": false,
         "tableName": "\"products\""
@@ -633,6 +625,23 @@
         "primaryKey": false,
         "unique": false,
         "length": 255,
+        "tableName": "\"users\""
+      },
+      "bio": {
+        "name": "bio",
+        "dataType": "text",
+        "notNull": false,
+        "primaryKey": false,
+        "unique": false,
+        "tableName": "\"users\""
+      },
+      "isActive": {
+        "name": "is_active",
+        "dataType": "boolean",
+        "notNull": false,
+        "primaryKey": false,
+        "unique": false,
+        "defaultValue": true,
         "tableName": "\"users\""
       },
       "createdAt": {

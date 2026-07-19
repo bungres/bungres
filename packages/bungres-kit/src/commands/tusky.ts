@@ -1,5 +1,7 @@
-import * as readline from "node:readline";
 import { bungres } from "@bungres/orm";
+import * as p from "@clack/prompts";
+import pc from "picocolors";
+
 import type { ResolvedConfig } from "../config.js";
 import { loadSchemas } from "../schema-loader.js";
 
@@ -17,24 +19,9 @@ export async function runTusky(config: ResolvedConfig): Promise<void> {
 
   const db = bungres({ url: config.dbUrl, schema: schemaObj });
 
-  console.log("=========================================");
-  console.log("🐘 Welcome to Bungres REPL (Tusky)");
-  console.log("=========================================");
-  console.log("\nDatabase connection established.");
-  console.log("\nPre-loaded Context:");
-  console.log("  - db      (Bungres Database Client)");
-  for (const s of schemas) {
-    console.log(`  - ${s.exportName} (Table)`);
-  }
-  console.log("\nExample query: await db.select().from(users)");
-  console.log("Type .exit to quit.\n");
-
-  // Create a custom REPL using readline since Bun doesn't support node:repl.start()
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    prompt: "bungres> "
-  });
+  p.intro(pc.bgCyan(pc.black(" 🐘 Bungres REPL (Tusky) ")));
+  p.log.success(pc.green("Database connection established."));
+  p.note(`Example: ${pc.cyan("db.select().from(users);")}\nExit:    ${pc.cyan("exit")}`, "Commands");
 
   // Inject variables into the global scope so eval() can see them
   (globalThis as any).db = db;
@@ -42,42 +29,49 @@ export async function runTusky(config: ResolvedConfig): Promise<void> {
     (globalThis as any)[s.exportName] = s.table;
   }
 
-  rl.prompt();
+  process.stdout.write("bungres> ");
 
-  rl.on("line", async (line) => {
+  for await (const line of console) {
     const input = line.trim();
-    if (input === ".exit") {
-      rl.close();
-      return;
+    if (["exit", ".exit", "quit", ".quit", "exit()", "quit()"].includes(input.toLowerCase())) {
+      break;
     }
     if (!input) {
-      rl.prompt();
-      return;
+      process.stdout.write("bungres> ");
+      continue;
     }
 
     try {
       let code = input;
-      
+
       // DX Improvement: If the input starts with a SQL keyword, automatically wrap it in db.raw()
       const isRawSql = /^(select|insert|update|delete|create|drop|alter|truncate|with)\b/i.test(input);
-      
+
       if (isRawSql) {
         console.log(`(Running as raw SQL: await db.raw(\`${input}\`))`);
         code = `(async () => { return await db.raw(\`${input}\`); })()`;
       } else if (input.includes("await ")) {
         // Top-level await needs an async IIFE.
-        code = `(async () => { return ${input}; })()`;
+        code = `(async () => { return await ${input}; })()`;
+      }
+
+      const start = performance.now();
+      const result = await eval(code);
+      const end = performance.now();
+      const duration = (end - start).toFixed(2);
+
+      if (Array.isArray(result) && result.length > 0 && typeof result[0] === "object") {
+        console.table(result);
+      } else {
+        console.log(result);
       }
       
-      const result = await eval(code);
-      console.log(result);
+      console.log(`\n(Execution time: ${duration}ms)`);
     } catch (err: any) {
       console.error(err.message || err);
     }
-    rl.prompt();
-  });
+    process.stdout.write("bungres> ");
+  }
 
-  rl.on("close", () => {
-    process.exit(0);
-  });
+  process.exit(0);
 }
