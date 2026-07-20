@@ -18,9 +18,13 @@ export async function runDrop(
 
   const schemas = await loadSchemas(config.schema);
 
-  if (schemas.length === 0) {
+  const tableSchemas = schemas.filter((s) => s.type === "table") as any[];
+  const enumSchemas = schemas.filter((s) => s.type === "enum") as any[];
+  const viewSchemas = schemas.filter((s) => s.type === "view") as any[];
+
+  if (tableSchemas.length === 0 && enumSchemas.length === 0 && viewSchemas.length === 0) {
     s.stop("No schemas found.");
-    p.log.warn(pc.yellow("No table definitions found in schema files."));
+    p.log.warn(pc.yellow("No definitions found in schema files."));
     p.outro("Failed.");
     return;
   }
@@ -63,30 +67,36 @@ export async function runDrop(
     const pushTableExists = pushTableCheck[0]?.exists ?? false;
 
     // Filter user schema list to only those that exist in the DB
-    const tablesToDrop = schemas.filter((sch) => existingTableNames.has(sch.config.name));
+    const tablesToDrop = tableSchemas.filter((sch) => existingTableNames.has(sch.config.name));
 
-    if (tablesToDrop.length === 0 && !migrationTableExists && !pushTableExists) {
+    if (tablesToDrop.length === 0 && enumSchemas.length === 0 && viewSchemas.length === 0 && !migrationTableExists && !pushTableExists) {
       ms.stop("Nothing to do.");
-      p.log.success(pc.green("No tables to drop (they either don't exist or were already dropped)."));
+      p.log.success(pc.green("No items to drop (they either don't exist or were already dropped)."));
       p.outro("Done.");
       return;
     }
     ms.stop("Database check complete.");
 
-    const tableNamesToPrint = tablesToDrop.map(
-      (sch) => (sch.config.schema ? sch.config.schema + "." : "") + sch.config.name
+    const namesToPrint = tablesToDrop.map(
+      (sch) => (sch.config.schema ? sch.config.schema + "." : "") + sch.config.name + " (table)"
     );
+    for (const v of viewSchemas) {
+      namesToPrint.push(`${v.config.name} (view)`);
+    }
+    for (const e of enumSchemas) {
+      namesToPrint.push(`${e.enumName} (enum)`);
+    }
     if (migrationTableExists) {
-      tableNamesToPrint.push(`${config.migrationsSchema}.${config.migrationsTable}`);
+      namesToPrint.push(`${config.migrationsSchema}.${config.migrationsTable} (table)`);
     }
     if (pushTableExists) {
-      tableNamesToPrint.push(`${config.migrationsSchema}.__bungres_push`);
+      namesToPrint.push(`${config.migrationsSchema}.__bungres_push (table)`);
     }
 
     if (!opts.force) {
       p.log.warn(pc.bgRed(pc.white(" ⚠️ WARNING ")));
-      p.log.message(pc.bold(pc.red("This will drop the following tables and ALL their data:")));
-      for (const name of tableNamesToPrint) {
+      p.log.message(pc.bold(pc.red("This will drop the following items and ALL their data:")));
+      for (const name of namesToPrint) {
         p.log.info(pc.yellow(`  - ${name}`));
       }
 
@@ -104,10 +114,23 @@ export async function runDrop(
     const exSpinner = p.spinner();
     exSpinner.start("Dropping tables...");
 
+    for (const entry of viewSchemas) {
+      const isMat = entry.config.materialized ? "MATERIALIZED VIEW" : "VIEW";
+      const ddl = `DROP ${isMat} IF EXISTS "${entry.config.name}" CASCADE;`;
+      await sql.unsafe(ddl);
+      p.log.step(pc.gray(`Dropped ${entry.config.name}`));
+    }
+
     for (const entry of tablesToDrop) {
       const ddl = `DROP TABLE IF EXISTS "${entry.config.name}" CASCADE;`;
       await sql.unsafe(ddl);
       p.log.step(pc.gray(`Dropped ${entry.config.name}`));
+    }
+    
+    for (const entry of enumSchemas) {
+      const ddl = `DROP TYPE IF EXISTS "${entry.enumName}" CASCADE;`;
+      await sql.unsafe(ddl);
+      p.log.step(pc.gray(`Dropped ${entry.enumName}`));
     }
 
     if (migrationTableExists) {
@@ -121,7 +144,7 @@ export async function runDrop(
       p.log.step(pc.gray(`Dropped ${config.migrationsSchema}.__bungres_push`));
     }
 
-    exSpinner.stop("Tables dropped.");
+    exSpinner.stop("Items dropped.");
     p.outro(pc.cyan("✨ Drop complete."));
   } catch (err: any) {
     p.log.error(pc.red(`Drop failed: ${err.message}`));

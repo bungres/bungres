@@ -47,17 +47,33 @@ export async function runPush(
 
     // Load previous snapshot from DB
     const rows = await sql.unsafe(`SELECT snapshot FROM ${qualifiedPush} ORDER BY id DESC LIMIT 1;`) as any[];
-    let prevSnapshot: SchemaSnapshot = {};
+    let prevSnapshot: SchemaSnapshot = { tables: {}, enums: {}, views: {} };
     if (rows.length > 0) {
-      prevSnapshot = typeof rows[0].snapshot === "string"
+      const parsed = typeof rows[0].snapshot === "string"
         ? JSON.parse(rows[0].snapshot)
         : rows[0].snapshot;
+      if (parsed.tables || parsed.enums || parsed.views) {
+        prevSnapshot = {
+          tables: parsed.tables || {},
+          enums: parsed.enums || {},
+          views: parsed.views || {}
+        };
+      } else {
+        prevSnapshot = { tables: parsed, enums: {}, views: {} };
+      }
     }
 
     // Current snapshot from TypeScript
-    const currentSnapshot: SchemaSnapshot = Object.fromEntries(
-      schemas.map((schemaEntry) => [schemaEntry.config.name, schemaEntry.config])
-    );
+    const currentSnapshot: SchemaSnapshot = { tables: {}, enums: {}, views: {} };
+    for (const s of schemas) {
+      if (s.type === "table") {
+        currentSnapshot.tables[s.config.name] = s.config;
+      } else if (s.type === "enum") {
+        currentSnapshot.enums[s.enumName] = { enumName: s.enumName, enumValues: s.enumValues };
+      } else if (s.type === "view") {
+        currentSnapshot.views[s.config.name] = s.config;
+      }
+    }
 
     // Diff
     const diff = diffSchemas(prevSnapshot, currentSnapshot);

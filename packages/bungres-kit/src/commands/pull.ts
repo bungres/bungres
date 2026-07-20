@@ -194,20 +194,19 @@ function generateSchemaTS(
     `// Generated at: ${new Date().toISOString()}`,
     ``,
     `import {`,
-    `  table,`,
+    `  pgTable,`,
     `  text, varchar, char, integer, bigint, smallint,`,
     `  serial, bigserial, boolean, real, doublePrecision,`,
     `  numeric, decimal, json, jsonb,`,
     `  timestamp, timestamptz, date, time, uuid,`,
     `  bytea, inet,`,
-    `  textArray, integerArray, varcharArray, uuidArray,`,
     `} from "@bungres/orm";`,
     ``,
   ];
 
   for (const [, table] of tableMap) {
     const varName = toCamelCase(table.tableName);
-    lines.push(`export const ${varName} = table("${table.tableName}", {`);
+    lines.push(`export const ${varName} = pgTable("${table.tableName}", {`);
 
     for (const col of table.columns) {
       const colExpr = buildColumnExpression(col);
@@ -292,15 +291,16 @@ function buildColumnExpression(col: TableInfo["columns"][number]): string {
     opts.push(`references: { ${refOpts} }`);
   }
 
-  let builderName = pgTypeToBungresBuilderName(col);
+  let builderResult = pgTypeToBungresBuilderName(col);
+  let builderName = typeof builderResult === "string" ? builderResult : builderResult.base;
+  let isArray = typeof builderResult !== "string" && builderResult.isArray;
   
-  if (opts.length > 0) {
-    return `${builderName}({ ${opts.join(", ")} })`;
-  }
-  return `${builderName}()`;
+  let expr = opts.length > 0 ? `${builderName}({ ${opts.join(", ")} })` : `${builderName}()`;
+  if (isArray) expr += `.array()`;
+  return expr;
 }
 
-function pgTypeToBungresBuilderName(col: TableInfo["columns"][number]): string {
+function pgTypeToBungresBuilderName(col: TableInfo["columns"][number]): string | { base: string; isArray: boolean } {
   const dt = col.dataType;
 
   if (dt === "uuid") return "uuid";
@@ -324,11 +324,11 @@ function pgTypeToBungresBuilderName(col: TableInfo["columns"][number]): string {
   if (dt === "inet") return "inet";
   if (dt === "USER-DEFINED" && col.udtName === "citext") return "text";
   if (dt === "ARRAY") {
-    if (col.udtName === "_text") return "textArray";
-    if (col.udtName === "_int4" || col.udtName === "_int8") return "integerArray";
-    if (col.udtName === "_varchar") return "varcharArray";
-    if (col.udtName === "_uuid") return "uuidArray";
-    return "textArray";
+    if (col.udtName === "_text") return { base: "text", isArray: true };
+    if (col.udtName === "_int4" || col.udtName === "_int8") return { base: "integer", isArray: true };
+    if (col.udtName === "_varchar") return { base: "varchar", isArray: true };
+    if (col.udtName === "_uuid") return { base: "uuid", isArray: true };
+    return { base: "text", isArray: true };
   }
   // Fallback
   return "text";

@@ -52,7 +52,7 @@ bun run bungres --help
 | `bungres seed` | Execute the seed script, or run the Auto-Seeder using `@faker-js/faker` |
 | `bungres studio` | Start a local web interface to browse database data |
 | `bungres tusky` | Boot up a Node REPL connected to the database with schema loaded |
-| `bungres drop` | Drop all tables defined in the schema (prompts for confirmation) |
+| `bungres drop` | Drop all tables, enums, and views defined in the schema (prompts for confirmation) |
 
 ### Usage Examples
 
@@ -77,6 +77,8 @@ bun run bungres drop --force   # skip confirmation
 - **Interactive UI**: Enjoy beautiful, interactive terminal prompts and spinners powered by `@clack/prompts`.
 - **Drizzle-Style Diffs**: Before applying or generating migrations, visually inspect exactly what tables and columns will be added, dropped, or altered.
 - **Rollbacks**: Single file migrations with `-- ==== UP ====` and `-- ==== DOWN ====` sections allow you to rollback your schema effortlessly.
+- **Advanced Types & Views**: Full native Postgres support for `pgEnum`, Arrays, `pgView`, and `pgMaterializedView`. The differ natively tracks view signature changes and emits safe `DROP` / `CREATE` generation.
+- **Intelligent Casting**: Alters column data types seamlessly by automatically managing and restoring `DEFAULT` constraints across incompatible type casts.
 - **Auto-Seeder**: Run `bungres seed` without a custom script to automatically generate mock data for your database using `@faker-js/faker`, resolving foreign key dependencies automatically!
 
 ## License

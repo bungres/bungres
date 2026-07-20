@@ -1,6 +1,6 @@
 import { join, resolve } from "node:path";
 import { readdirSync } from "node:fs";
-import { generateCreateTable } from "@bungres/orm";
+import { generateCreateTable, generateCreateView } from "@bungres/orm";
 import type { TableConfig } from "@bungres/orm";
 import type { ResolvedConfig } from "../config.js";
 import { loadSchemas, type SchemaEntry } from "../schema-loader.js";
@@ -39,25 +39,50 @@ export async function runGenerate(
   await Bun.$`mkdir -p ${metaDir}`.quiet();
 
   // ── Build current snapshot from loaded schemas ────────────────────────────
-  const currentSnapshot: SchemaSnapshot = Object.fromEntries(
-    schemas.map((s) => [s.config.name, s.config])
-  );
+  const currentSnapshot: SchemaSnapshot = { tables: {}, enums: {}, views: {} };
+  for (const s of schemas) {
+    if (s.type === "table") {
+      currentSnapshot.tables[s.config.name] = s.config;
+    } else if (s.type === "enum") {
+      currentSnapshot.enums[s.enumName] = { enumName: s.enumName, enumValues: s.enumValues };
+    } else if (s.type === "view") {
+      currentSnapshot.views[s.config.name] = s.config;
+    }
+  }
 
   // ── Load previous snapshot (if any) ──────────────────────────────────────
-  let prevSnapshot: SchemaSnapshot = {};
+  let prevSnapshot: SchemaSnapshot = { tables: {}, enums: {}, views: {} };
   let isFirstMigration = true;
 
   try {
     const files = readdirSync(metaDir).filter(f => f.endsWith("_snapshot.json")).sort();
     if (files.length > 0) {
       const latest = files[files.length - 1] as string;
-      prevSnapshot = JSON.parse(await Bun.file(join(metaDir, latest)).text());
+      const parsed = JSON.parse(await Bun.file(join(metaDir, latest)).text());
+      if (parsed.tables || parsed.enums || parsed.views) {
+        prevSnapshot = {
+          tables: parsed.tables || {},
+          enums: parsed.enums || {},
+          views: parsed.views || {}
+        };
+      } else {
+        prevSnapshot = { tables: parsed, enums: {}, views: {} };
+      }
       isFirstMigration = false;
     } else {
       // Fallback to legacy .snapshot.json
       const legacyFile = Bun.file(join(migrationsDir, ".snapshot.json"));
       if (await legacyFile.exists()) {
-        prevSnapshot = JSON.parse(await legacyFile.text());
+        const parsed = JSON.parse(await legacyFile.text());
+        if (parsed.tables || parsed.enums || parsed.views) {
+          prevSnapshot = {
+            tables: parsed.tables || {},
+            enums: parsed.enums || {},
+            views: parsed.views || {}
+          };
+        } else {
+          prevSnapshot = { tables: parsed, enums: {}, views: {} };
+        }
         isFirstMigration = false;
       }
     }
@@ -86,20 +111,38 @@ export async function runGenerate(
 
   if (isFirstMigration) {
     // First migration — full schema sorted by FK dependency order
-    const sorted = topoSort(schemas);
-
-    upStatements = sorted.flatMap((entry) => [
-      `-- ${entry.exportName}`,
-      generateCreateTable(entry.config, true),
-      ``,
-    ]);
+    const tableSchemas = schemas.filter(s => s.type === "table") as any[];
+    const enumSchemas = schemas.filter(s => s.type === "enum") as any[];
+    const viewSchemas = schemas.filter(s => s.type === "view") as any[];
     
-    downStatements = [...sorted].reverse().flatMap((entry) => {
-      const tbl = entry.config.schema ? `"${entry.config.schema}"."${entry.config.name}"` : `"${entry.config.name}"`;
-      return [`DROP TABLE IF EXISTS ${tbl};`];
-    });
+    const sorted = topoSort(tableSchemas);
 
-    summary = sorted.map((s) => `CREATE TABLE ${s.config.name}`);
+    upStatements = [];
+    downStatements = [];
+    summary = [];
+
+    // Enums first
+    for (const e of enumSchemas) {
+      upStatements.push(`-- ${e.exportName}`, `CREATE TYPE "${e.enumName}" AS ENUM (${e.enumValues.map((v: string) => `'${v.replace(/'/g, "''")}'`).join(", ")});`, ``);
+      downStatements.unshift(`DROP TYPE IF EXISTS "${e.enumName}";`);
+      summary.push(`CREATE TYPE ${e.enumName}`);
+    }
+
+    // Then tables
+    for (const entry of sorted) {
+      upStatements.push(`-- ${entry.exportName}`, generateCreateTable(entry.config, true), ``);
+      const tbl = entry.config.schema ? `"${entry.config.schema}"."${entry.config.name}"` : `"${entry.config.name}"`;
+      downStatements.unshift(`DROP TABLE IF EXISTS ${tbl};`);
+      summary.push(`CREATE TABLE ${entry.config.name}`);
+    }
+
+    // Finally views
+    for (const v of viewSchemas) {
+      upStatements.push(`-- ${v.exportName}`, generateCreateView(v.config), ``);
+      const isMat = v.config.materialized ? "MATERIALIZED VIEW" : "VIEW";
+      downStatements.unshift(`DROP ${isMat} IF EXISTS "${v.config.name}";`);
+      summary.push(`CREATE ${isMat} ${v.config.name}`);
+    }
   } else {
     // Subsequent migrations — diff only
     const upDiff = diffSchemas(prevSnapshot, currentSnapshot);
@@ -182,8 +225,8 @@ export async function runGenerate(
 // Topological sort — referenced tables come before dependents
 // ---------------------------------------------------------------------------
 
-function topoSort(schemas: SchemaEntry[]): SchemaEntry[] {
-  const byName = new Map<string, SchemaEntry>(
+function topoSort(schemas: any[]): any[] {
+  const byName = new Map<string, any>(
     schemas.map((s) => [s.config.name, s])
   );
 
@@ -194,7 +237,7 @@ function topoSort(schemas: SchemaEntry[]): SchemaEntry[] {
   }
 
   const visited = new Set<string>();
-  const result: SchemaEntry[] = [];
+  const result: any[] = [];
 
   function visit(name: string): void {
     if (visited.has(name)) return;

@@ -60,7 +60,7 @@ export async function runSeed(config: ResolvedConfig): Promise<void> {
   const s = p.spinner();
   s.start("Loading schemas for auto-seeding...");
 
-  const schemas = await loadSchemas(config.schema);
+  const schemas = (await loadSchemas(config.schema)).filter((s: any) => s.type === "table") as any[];
   if (schemas.length === 0) {
     s.stop("No schemas.");
     p.outro("Nothing to seed.");

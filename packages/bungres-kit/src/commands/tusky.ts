@@ -10,7 +10,7 @@ import { loadSchemas } from "../schema-loader.js";
 // ---------------------------------------------------------------------------
 
 export async function runTusky(config: ResolvedConfig): Promise<void> {
-  const schemas = await loadSchemas(config.schema);
+  const schemas = (await loadSchemas(config.schema)).filter((s: any) => s.type === "table") as any[];
 
   const schemaObj: Record<string, any> = {};
   for (const s of schemas) {

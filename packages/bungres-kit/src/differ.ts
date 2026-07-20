@@ -1,5 +1,5 @@
 import type { ColumnConfig, TableConfig } from "@bungres/orm";
-import { generateCreateTable, generateAddColumn, generateDropColumn, generateAddConstraint, generateDropConstraint } from "@bungres/orm";
+import { generateCreateTable, generateAddColumn, generateDropColumn, generateAddConstraint, generateDropConstraint, generateCreateEnum, generateDropEnum, generateCreateView, generateDropView } from "@bungres/orm";
 
 // ---------------------------------------------------------------------------
 // Schema differ — compares two schema snapshots and emits SQL statements
@@ -7,7 +7,11 @@ import { generateCreateTable, generateAddColumn, generateDropColumn, generateAdd
 // ---------------------------------------------------------------------------
 
 /** Snapshot stored on disk after each generate */
-export type SchemaSnapshot = Record<string, TableConfig>;
+export interface SchemaSnapshot {
+  tables: Record<string, TableConfig>;
+  enums: Record<string, { enumName: string; enumValues: string[] }>;
+  views: Record<string, any>; // ViewConfig
+}
 
 export interface DiffResult {
   statements: string[];
@@ -23,14 +27,72 @@ export function diffSchemas(
   const summary: string[] = [];
   const warnings: string[] = [];
 
-  const prevTables = new Set(Object.keys(prev));
-  const nextTables = new Set(Object.keys(next));
+  const prevEnums = prev.enums || {};
+  const nextEnums = next.enums || {};
+  const prevEnumNames = new Set(Object.keys(prevEnums));
+  const nextEnumNames = new Set(Object.keys(nextEnums));
+
+  // ── New enums ─────────────────────────────────────────────────────────────
+  for (const enumName of nextEnumNames) {
+    if (!prevEnumNames.has(enumName)) {
+      const e = nextEnums[enumName]!;
+      statements.push(generateCreateEnum(e.enumName, e.enumValues));
+      summary.push(`CREATE TYPE ${e.enumName}`);
+    }
+  }
+
+  // ── Dropped enums ─────────────────────────────────────────────────────────
+  for (const enumName of prevEnumNames) {
+    if (!nextEnumNames.has(enumName)) {
+      const e = prevEnums[enumName]!;
+      statements.push(generateDropEnum(e.enumName, true));
+      summary.push(`DROP TYPE ${e.enumName}`);
+    }
+  }
+
+  // Note: Modifying an enum (e.g. ADD VALUE) is complex in Postgres,
+  // we could just warn the user or attempt a DROP/CREATE if it's safe (it's usually not if used in a table).
+  // For now, if the values change, we'll log a warning.
+  for (const enumName of nextEnumNames) {
+    if (prevEnumNames.has(enumName)) {
+      const p = prevEnums[enumName]!;
+      const n = nextEnums[enumName]!;
+      if (JSON.stringify(p.enumValues) !== JSON.stringify(n.enumValues)) {
+        warnings.push(`Enum '${n.enumName}' values have changed. Bungres Kit currently requires manual migration for ALTER TYPE ... ADD VALUE.`);
+      }
+    }
+  }
+
+  // ── Views ─────────────────────────────────────────────────────────────────
+  const prevViews = prev.views || {};
+  const nextViews = next.views || {};
+  const prevViewNames = new Set(Object.keys(prevViews));
+  const nextViewNames = new Set(Object.keys(nextViews));
+
+  // Dropped views (drop before creating/altering tables)
+  for (const viewName of prevViewNames) {
+    if (!nextViewNames.has(viewName)) {
+      statements.push(generateDropView(prevViews[viewName]!));
+      summary.push(`DROP VIEW ${viewName}`);
+    } else {
+      // Changed views need to be dropped and recreated
+      const pSql = generateCreateView(prevViews[viewName]!);
+      const nSql = generateCreateView(nextViews[viewName]!);
+      if (pSql !== nSql) {
+        statements.push(generateDropView(prevViews[viewName]!));
+        summary.push(`DROP VIEW ${viewName} (for recreation)`);
+      }
+    }
+  }
+
+  const prevTables = new Set(Object.keys(prev.tables || {}));
+  const nextTables = new Set(Object.keys(next.tables || {}));
 
   // ── New tables — topo-sorted so FK deps come first ────────────────────────
   const newTableConfigs: TableConfig[] = [];
   for (const tableName of nextTables) {
     if (!prevTables.has(tableName)) {
-      newTableConfigs.push(next[tableName]!);
+      newTableConfigs.push(next.tables[tableName]!);
     }
   }
 
@@ -42,7 +104,7 @@ export function diffSchemas(
   // ── Dropped tables ────────────────────────────────────────────────────────
   for (const tableName of prevTables) {
     if (!nextTables.has(tableName)) {
-      const config = prev[tableName]!;
+      const config = prev.tables[tableName]!;
       const tbl = config.schema
         ? `"${config.schema}"."${tableName}"`
         : `"${tableName}"`;
@@ -56,8 +118,8 @@ export function diffSchemas(
   for (const tableName of nextTables) {
     if (!prevTables.has(tableName)) continue; // already handled above
 
-    const prevConfig = prev[tableName]!;
-    const nextConfig = next[tableName]!;
+    const prevConfig = prev.tables[tableName]!;
+    const nextConfig = next.tables[tableName]!;
     const prevCols = prevConfig.columns;
     const nextCols = nextConfig.columns;
     const prevColNames = new Set(Object.keys(prevCols));
@@ -153,6 +215,21 @@ export function diffSchemas(
     }
   }
 
+  // New & Recreated views (create after tables)
+  for (const viewName of nextViewNames) {
+    if (!prevViewNames.has(viewName)) {
+      statements.push(generateCreateView(nextViews[viewName]!));
+      summary.push(`CREATE VIEW ${viewName}`);
+    } else {
+      const pSql = generateCreateView(prevViews[viewName]!);
+      const nSql = generateCreateView(nextViews[viewName]!);
+      if (pSql !== nSql) {
+        statements.push(generateCreateView(nextViews[viewName]!));
+        summary.push(`CREATE VIEW ${viewName} (recreated)`);
+      }
+    }
+  }
+
   return { statements, summary, warnings };
 }
 
@@ -192,7 +269,20 @@ function diffColumn(prev: ColumnConfig, next: ColumnConfig): string[] {
   const changes: string[] = [];
   const col = `"${next.name}"`;
 
+  const prevDef =
+    prev.defaultFn ??
+    (prev.defaultValue !== undefined ? String(prev.defaultValue) : undefined);
+  const nextDef =
+    next.defaultFn ??
+    (next.defaultValue !== undefined ? String(next.defaultValue) : undefined);
+
+  let typeChanged = false;
+
   if (prev.dataType !== next.dataType) {
+    typeChanged = true;
+    if (prevDef !== undefined) {
+      changes.push(`ALTER COLUMN ${col} DROP DEFAULT`);
+    }
     changes.push(
       `ALTER COLUMN ${col} TYPE ${next.dataType.toUpperCase()} USING ${col}::${next.dataType}`
     );
@@ -214,14 +304,12 @@ function diffColumn(prev: ColumnConfig, next: ColumnConfig): string[] {
     changes.push(`ALTER COLUMN ${col} DROP NOT NULL`);
   }
 
-  const prevDef =
-    prev.defaultFn ??
-    (prev.defaultValue !== undefined ? String(prev.defaultValue) : undefined);
-  const nextDef =
-    next.defaultFn ??
-    (next.defaultValue !== undefined ? String(next.defaultValue) : undefined);
-
-  if (prevDef !== nextDef) {
+  if (typeChanged) {
+    if (nextDef !== undefined) {
+      const val = next.defaultFn ?? formatDefault(next.defaultValue, next.dataType);
+      changes.push(`ALTER COLUMN ${col} SET DEFAULT ${val}`);
+    }
+  } else if (prevDef !== nextDef) {
     if (nextDef !== undefined) {
       const val = next.defaultFn ?? formatDefault(next.defaultValue, next.dataType);
       changes.push(`ALTER COLUMN ${col} SET DEFAULT ${val}`);

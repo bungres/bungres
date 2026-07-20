@@ -62,12 +62,12 @@ export default defineConfig({
   uuid,
   varchar,
   timestamptz,
-  table,
+  pgTable,
   unique,
   index
 } from "@bungres/orm";
 
-export const users = table("users", {
+export const users = pgTable("users", {
   id: uuid({ primaryKey: true }),
   name: varchar({ length: 255, notNull: true }),
   email: varchar({ length: 255, notNull: true }),

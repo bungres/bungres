@@ -7,7 +7,7 @@ import pc from "picocolors";
 // ---------------------------------------------------------------------------
 
 export async function runRefresh(config: ResolvedConfig): Promise<void> {
-  const schemas = await loadSchemas(config.schema);
+  const schemas = (await loadSchemas(config.schema)).filter((s: any) => s.type === "table") as any[];
 
   if (schemas.length === 0) {
     console.warn("No table definitions found in schema files.");
