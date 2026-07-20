@@ -163,3 +163,76 @@ export function parseOrderByObject(tableConfig: TableConfig, orderByObj: OrderBy
   return parts;
 }
 
+// ---------------------------------------------------------------------------
+// Postgres JSONB Operators
+// ---------------------------------------------------------------------------
+
+export const containsJson = (column: string | ColumnConfig | SQLChunk, value: unknown): SQLChunk =>
+  sql`${rawSql(colName(column))} @> ${JSON.stringify(value)}::jsonb`;
+
+export const containedInJson = (column: string | ColumnConfig | SQLChunk, value: unknown): SQLChunk =>
+  sql`${rawSql(colName(column))} <@ ${JSON.stringify(value)}::jsonb`;
+
+export const hasKey = (column: string | ColumnConfig | SQLChunk, key: string): SQLChunk =>
+  sql`${rawSql(colName(column))} ? ${key}`;
+
+export const hasAnyKeys = (column: string | ColumnConfig | SQLChunk, keys: string[]): SQLChunk => {
+  if (keys.length === 0) return rawSql("FALSE");
+  const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+  return { sql: `${colName(column)} ?| ARRAY[${placeholders}]`, params: keys };
+};
+
+export const hasAllKeys = (column: string | ColumnConfig | SQLChunk, keys: string[]): SQLChunk => {
+  if (keys.length === 0) return rawSql("TRUE");
+  const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+  return { sql: `${colName(column)} ?& ARRAY[${placeholders}]`, params: keys };
+};
+
+export const jsonExtractText = (column: string | ColumnConfig | SQLChunk, path: string | number): SQLChunk =>
+  sql`${rawSql(colName(column))} ->> ${path.toString()}`;
+
+export const jsonExtract = (column: string | ColumnConfig | SQLChunk, path: string | number): SQLChunk =>
+  sql`${rawSql(colName(column))} -> ${path.toString()}`;
+
+// ---------------------------------------------------------------------------
+// Postgres Array Operators
+// ---------------------------------------------------------------------------
+
+export const arrayContains = (column: string | ColumnConfig | SQLChunk, values: unknown[]): SQLChunk => {
+  if (values.length === 0) return rawSql(`${colName(column)} @> ARRAY[]::text[]`); // fallback
+  const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
+  return { sql: `${colName(column)} @> ARRAY[${placeholders}]`, params: values };
+};
+
+export const arrayContained = (column: string | ColumnConfig | SQLChunk, values: unknown[]): SQLChunk => {
+  if (values.length === 0) return rawSql(`${colName(column)} <@ ARRAY[]::text[]`);
+  const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
+  return { sql: `${colName(column)} <@ ARRAY[${placeholders}]`, params: values };
+};
+
+export const arrayOverlaps = (column: string | ColumnConfig | SQLChunk, values: unknown[]): SQLChunk => {
+  if (values.length === 0) return rawSql("FALSE");
+  const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
+  return { sql: `${colName(column)} && ARRAY[${placeholders}]`, params: values };
+};
+
+// ---------------------------------------------------------------------------
+// Full Text Search
+// ---------------------------------------------------------------------------
+
+export const toTsquery = (query: string): SQLChunk => sql`to_tsquery(${query})`;
+export const plainToTsquery = (query: string): SQLChunk => sql`plainto_tsquery(${query})`;
+
+export const toTsvector = (column: string | ColumnConfig | SQLChunk, config?: string): SQLChunk => {
+  if (config) {
+    return sql`to_tsvector(${config}::regconfig, ${rawSql(colName(column))})`;
+  }
+  return sql`to_tsvector(${rawSql(colName(column))})`;
+};
+
+export const tsMatch = (vector: string | ColumnConfig | SQLChunk, query: string | SQLChunk): SQLChunk => {
+  if (typeof query === "string") {
+    return sql`${rawSql(colName(vector))} @@ plainto_tsquery(${query})`;
+  }
+  return sql`${rawSql(colName(vector))} @@ ${query}`;
+};

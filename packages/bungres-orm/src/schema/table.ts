@@ -126,6 +126,7 @@ function createTableFactory(casing: "none" | "snake" | "camel") {
  * });
  */
 export const table = createTableFactory("snake");
+export const pgTable = table; // Alias for Drizzle compatibility
 export const snakeCase = { table: createTableFactory("snake") };
 export const camelCase = { table: createTableFactory("camel") };
 export const noCasing = { table: createTableFactory("none") };

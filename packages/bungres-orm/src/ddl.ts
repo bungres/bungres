@@ -1,4 +1,5 @@
 import type { ColumnConfig, IndexConfig, TableConfig } from "./types/index.js";
+import type { ViewConfig } from "./schema/view.js";
 
 // ---------------------------------------------------------------------------
 // DDL generator — converts TableConfig into CREATE TABLE SQL
@@ -86,7 +87,9 @@ function buildColumnDDL(key: string, col: ColumnConfig, tableName: string): stri
     parts.push("UNIQUE");
   }
 
-  if (col.defaultFn) {
+  if (col.generatedAs) {
+    parts.push(`GENERATED ALWAYS AS (${col.generatedAs}) STORED`);
+  } else if (col.defaultFn) {
     parts.push(`DEFAULT ${col.defaultFn}`);
   } else if (col.defaultValue !== undefined) {
     parts.push(`DEFAULT ${formatDefaultValue(col.defaultValue, col.dataType)}`);
@@ -109,6 +112,15 @@ function buildColumnDDL(key: string, col: ColumnConfig, tableName: string): stri
 }
 
 function buildType(col: ColumnConfig & { length?: number }): string {
+  if (col.enumConfig) {
+    return `"${col.enumConfig.enumName}"`;
+  }
+
+  if (col.dataType.endsWith("[]")) {
+    const baseType = buildType({ ...col, dataType: col.dataType.slice(0, -2) as any });
+    return `${baseType}[]`;
+  }
+
   switch (col.dataType) {
     case "varchar":
       return col.length ? `VARCHAR(${col.length})` : "VARCHAR";
@@ -173,4 +185,42 @@ export function generateDropColumn(
 ): string {
   const tbl = schema ? `"${schema}"."${tableName}"` : `"${tableName}"`;
   return `ALTER TABLE ${tbl} DROP COLUMN IF EXISTS "${columnName}";`;
+}
+
+/** Generate CREATE TYPE ... AS ENUM statement */
+export function generateCreateEnum(name: string, values: string[]): string {
+  const vals = values.map(v => `'${v.replace(/'/g, "''")}'`).join(", ");
+  return `CREATE TYPE "${name}" AS ENUM (${vals});`;
+}
+
+/** Generate DROP TYPE statement */
+export function generateDropEnum(name: string, ifExists = true): string {
+  return `DROP TYPE${ifExists ? " IF EXISTS" : ""} "${name}";`;
+}
+
+/** Inlines parameters into a SQL string for DDL generation where $1 parameters are not allowed */
+export function inlineParams(chunk: { sql: string; params: unknown[] }): string {
+  let { sql, params } = chunk;
+  return sql.replace(/\$(\d+)/g, (_, n) => {
+    const p = params[parseInt(n) - 1];
+    if (typeof p === "string") return `'${p.replace(/'/g, "''")}'`;
+    if (typeof p === "number") return String(p);
+    if (typeof p === "boolean") return p ? "TRUE" : "FALSE";
+    if (p === null) return "NULL";
+    // fallback
+    return `'${String(p).replace(/'/g, "''")}'`;
+  });
+}
+
+/** Generate CREATE VIEW statement */
+export function generateCreateView(view: ViewConfig): string {
+  const kind = view.materialized ? "MATERIALIZED VIEW" : "VIEW";
+  const inlineSql = inlineParams(view.query.toSQL());
+  return `CREATE ${kind} "${view.name}" AS ${inlineSql};`;
+}
+
+/** Generate DROP VIEW statement */
+export function generateDropView(view: ViewConfig, ifExists = true): string {
+  const kind = view.materialized ? "MATERIALIZED VIEW" : "VIEW";
+  return `DROP ${kind}${ifExists ? " IF EXISTS" : ""} "${view.name}";`;
 }

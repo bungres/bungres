@@ -40,7 +40,8 @@ export type ColumnDataType =
   | "text[]"
   | "integer[]"
   | "varchar[]"
-  | "uuid[]";
+  | "uuid[]"
+  | (string & {});
 
 /** Column config stored internally */
 export interface ColumnConfig<
@@ -60,6 +61,8 @@ export interface ColumnConfig<
   references?: TRef;
   check?: string;
   generated?: "always" | "by default"; // for identity columns
+  generatedAs?: string; // for GENERATED ALWAYS AS (expr) STORED
+  enumConfig?: { enumName: string; enumValues: string[] };
 }
 
 export interface ForeignKeyRef<
@@ -112,7 +115,9 @@ export interface TableConfig {
 
 type IsNullable<C extends ColumnConfig<any, any, any, any>> = C["notNull"] extends true ? false : true;
 
-type InferBaseType<C extends ColumnConfig<any, any, any, any>> = C["dataType"] extends
+type InferBaseType<C extends ColumnConfig<any, any, any, any>> = C extends { _enumType: infer E } 
+  ? E 
+  : C["dataType"] extends
   | "text"
   | "varchar"
   | "char"

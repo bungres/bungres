@@ -62,8 +62,15 @@ export function buildColumn<
   return Object.assign(config, {
     as(this: any, alias: string) {
       return Object.assign({}, this, { alias });
+    },
+    array(this: any) {
+      return Object.assign({}, this, { dataType: `${this.dataType}[]` });
+    },
+    generatedAlwaysAs(this: any, expr: string | { sql: string }) {
+      const sqlStr = typeof expr === "string" ? expr : expr.sql;
+      return Object.assign({}, this, { generatedAs: sqlStr });
     }
-  }) as unknown as ColumnConfig<T, ActualNotNull<TNotNull, TPrimary>, TPrimary, TRef> & { as: (alias: string) => any };
+  }) as any;
 }
 
 export type ColBuilder<
@@ -71,7 +78,11 @@ export type ColBuilder<
   N extends boolean,
   P extends boolean,
   R extends ForeignKeyRef | undefined
-> = ColumnConfig<T, ActualNotNull<N, P>, P, R> & { as: (alias: string) => any };
+> = ColumnConfig<T, ActualNotNull<N, P>, P, R> & { 
+  as: (alias: string) => any;
+  array: () => ColBuilder<`${T}[]`, N, P, R>;
+  generatedAlwaysAs: (expr: string | { sql: string }) => ColBuilder<T, N, P, R>;
+};
 
 // ---------------------------------------------------------------------------
 // Typed Column Helpers
@@ -132,3 +143,10 @@ export const textArray = col("text[]");
 export const integerArray = col("integer[]");
 export const varcharArray = col("varchar[]");
 export const uuidArray = col("uuid[]");
+
+export function customType<TData>(dataType: string) {
+  return <const N extends boolean = false, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(
+    nameOrOpts?: string | ColumnOptions<N, P, R>,
+    opts?: ColumnOptions<N, P, R>
+  ): ColBuilder<any, N, P, R> => buildColumn(dataType as any, nameOrOpts, opts) as any;
+}

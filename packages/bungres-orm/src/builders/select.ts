@@ -4,6 +4,7 @@ import { sqlJoin, sql, rawSql } from "../core/sql.js";
 import { parseWhereObject } from "../core/conditions.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferColumnType, InferTable } from "../types/index.js";
+import type { CTEBuilder } from "./cte.js";
 
 export type SelectedFields = {
   [key: string]: ColumnConfig<any, any, any, any> | SQLChunk<any> | SelectedFields;
@@ -23,7 +24,7 @@ export class SelectBuilder<
   TColumns extends Record<string, ColumnConfig>,
   TResult = InferTable<TColumns>
 > implements PromiseLike<TResult[]> {
-  private _table: Table<string, TColumns>;
+  private _table: Table<string, TColumns> | CTEBuilder;
   private _executor: QueryExecutor;
   private _where: SQLChunk[] = [];
   private _orderBy: Array<{ column: string | ColumnConfig | SQLChunk<any>; dir: OrderDir }> = [];
@@ -34,9 +35,11 @@ export class SelectBuilder<
   private _select?: ((keyof TColumns & string) | ColumnConfig)[];
   private _selection?: SelectedFields | undefined;
   private _joins: (string | SQLChunk)[] = [];
+  private _with: CTEBuilder[] = [];
+  private _setOperations: { type: string, builder: { toSQL(): SQLChunk } }[] = [];
   private _comment?: string;
 
-  constructor(table: Table<string, TColumns>, executor: QueryExecutor, selection?: SelectedFields) {
+  constructor(table: Table<string, TColumns> | CTEBuilder, executor: QueryExecutor, selection?: SelectedFields) {
     this._table = table;
     this._executor = executor;
     this._selection = selection;
@@ -50,11 +53,39 @@ export class SelectBuilder<
   }
 
   async single(): Promise<TResult | null> {
+    if (this._limit === undefined) {
+      this.limit(1);
+    }
     return this._executor.executeSingle<TResult>(this);
   }
 
   select(...columns: ((keyof TColumns & string) | ColumnConfig)[]): this {
     this._select = columns;
+    return this;
+  }
+
+  with(...ctes: CTEBuilder[]): this {
+    this._with.push(...ctes);
+    return this;
+  }
+
+  union(other: { toSQL(): SQLChunk }): this {
+    this._setOperations.push({ type: "UNION", builder: other });
+    return this;
+  }
+
+  unionAll(other: { toSQL(): SQLChunk }): this {
+    this._setOperations.push({ type: "UNION ALL", builder: other });
+    return this;
+  }
+
+  intersect(other: { toSQL(): SQLChunk }): this {
+    this._setOperations.push({ type: "INTERSECT", builder: other });
+    return this;
+  }
+
+  except(other: { toSQL(): SQLChunk }): this {
+    this._setOperations.push({ type: "EXCEPT", builder: other });
     return this;
   }
 
@@ -178,9 +209,26 @@ export class SelectBuilder<
         .join(", ");
     } else {
       const qName = getTableConfig(this._table).qualifiedName;
-      cols = Object.keys(getTableConfig(this._table).columns)
-        .map((c) => `${qName}."${getTableConfig(this._table).columns[c]!.name}" AS "${c}"`)
-        .join(", ");
+      const colsKeys = Object.keys(getTableConfig(this._table).columns);
+      if (colsKeys.length === 0) {
+        cols = "*";
+      } else {
+        cols = colsKeys
+          .map((c) => `${qName}."${getTableConfig(this._table).columns[c]!.name}" AS "${c}"`)
+          .join(", ");
+      }
+    }
+
+    let prefix = "";
+    if (this._with.length > 0) {
+      const cteStrs: string[] = [];
+      for (const cte of this._with) {
+        const chunk = cte.query.toSQL();
+        const offset = params.length;
+        params.push(...chunk.params);
+        cteStrs.push(`"${cte.alias}" AS (${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)})`);
+      }
+      prefix = `WITH ${cteStrs.join(", ")} `;
     }
 
     let query = `SELECT ${cols} FROM ${getTableConfig(this._table).qualifiedName}`;
@@ -257,11 +305,20 @@ export class SelectBuilder<
       query += ` OFFSET $${params.length}`;
     }
 
+    if (this._setOperations.length > 0) {
+      for (const op of this._setOperations) {
+        const chunk = op.builder.toSQL();
+        const offset = params.length;
+        params.push(...chunk.params);
+        query += ` ${op.type} ${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)}`;
+      }
+    }
+
     if (this._comment) {
       query += ` /* ${this._comment.replace(/\*\//g, "")} */`;
     }
 
-    return { sql: query, params };
+    return { sql: prefix + query, params };
   }
 }
 
@@ -269,11 +326,11 @@ export class SelectBuilderIntermediate<TSelection extends SelectedFields | undef
   constructor(private _executor: QueryExecutor, private _selection?: TSelection) { }
 
   from<TName extends string, TColumns extends Record<string, ColumnConfig<any, any, any, any>>>(
-    table: Table<TName, TColumns>
+    table: Table<TName, TColumns> | CTEBuilder
   ): SelectBuilder<
     TColumns,
     TSelection extends SelectedFields ? InferSelection<TSelection> : InferTable<TColumns>
   > {
-    return new SelectBuilder(table, this._executor, this._selection);
+    return new SelectBuilder(table as any, this._executor, this._selection);
   }
 }

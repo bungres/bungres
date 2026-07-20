@@ -5,6 +5,10 @@ import {
   SelectBuilder, InsertBuilder, UpdateBuilder, DeleteBuilder,
   eq, ne, gt, gte, lt, lte, like, ilike,
   isNull, isNotNull, inArray, and, or, not,
+  containsJson, containedInJson, hasKey, hasAnyKeys, hasAllKeys, jsonExtract, jsonExtractText,
+  arrayContains, arrayContained, arrayOverlaps,
+  toTsquery, plainToTsquery, toTsvector, tsMatch,
+  withCte, count, over,
   type QueryExecutor
 } from "../index.js";
 
@@ -29,13 +33,13 @@ const users = table("users", {
 describe("SelectBuilder", () => {
   it("generates a basic SELECT *", () => {
     const { sql, params } = new SelectBuilder(users, dummyExecutor).toSQL();
-    expect(sql).toBe('SELECT "id" AS "id", "email" AS "email", "name" AS "name", "age" AS "age", "verified" AS "verified", "created_at" AS "createdAt" FROM "users"');
+    expect(sql).toBe('SELECT "users"."id" AS "id", "users"."email" AS "email", "users"."name" AS "name", "users"."age" AS "age", "users"."verified" AS "verified", "users"."created_at" AS "createdAt" FROM "users"');
     expect(params).toHaveLength(0);
   });
 
   it("generates SELECT with specific columns", () => {
     const { sql } = new SelectBuilder(users, dummyExecutor).select("id", "email").toSQL();
-    expect(sql).toBe('SELECT "id" AS "id", "email" AS "email" FROM "users"');
+    expect(sql).toBe('SELECT "users"."id" AS "id", "users"."email" AS "email" FROM "users"');
   });
 
   it("generates WHERE clause", () => {
@@ -48,7 +52,7 @@ describe("SelectBuilder", () => {
 
   it("generates ORDER BY", () => {
     const { sql } = new SelectBuilder(users, dummyExecutor).orderBy("created_at", "desc").toSQL();
-    expect(sql).toContain('ORDER BY "created_at" DESC');
+    expect(sql).toContain('ORDER BY "users"."created_at" DESC');
   });
 
   it("generates LIMIT and OFFSET", () => {
@@ -73,7 +77,7 @@ describe("SelectBuilder", () => {
     const { sql } = new SelectBuilder(users, dummyExecutor)
       .select(users.age.as("userAge"))
       .toSQL();
-    expect(sql).toBe('SELECT "age" AS "userAge" FROM "users"');
+    expect(sql).toBe('SELECT "users"."age" AS "userAge" FROM "users"');
   });
 
   it("supports SQL commenter .comment()", () => {
@@ -109,6 +113,18 @@ describe("InsertBuilder", () => {
       .onConflictDoNothing()
       .toSQL();
     expect(sql).toContain("ON CONFLICT DO NOTHING");
+  });
+
+  it("generates INSERT with ON CONFLICT DO UPDATE", () => {
+    const { sql, params } = new InsertBuilder(users, dummyExecutor)
+      .values({ email: "dave@example.com", name: "Dave" })
+      .onConflictDoUpdate({
+        target: "email",
+        set: { name: "Dave Updated" },
+      })
+      .toSQL();
+    expect(sql).toContain('ON CONFLICT ("email") DO UPDATE SET "name" = $3');
+    expect(params).toEqual(["dave@example.com", "Dave", "Dave Updated"]);
   });
 
   it("inserts multiple rows", () => {
@@ -232,5 +248,152 @@ describe("Condition helpers", () => {
   it("not wraps in NOT (...)", () => {
     const { sql } = not(eq("verified", false));
     expect(sql.startsWith("NOT (")).toBe(true);
+  });
+});
+
+// ── JSONB Condition helpers ──────────────────────────────────────────────────
+
+describe("JSONB Condition helpers", () => {
+  it("containsJson produces @>", () => {
+    const { sql, params } = containsJson("data", { role: "admin" });
+    expect(sql).toContain("@>");
+    expect(sql).toContain("::jsonb");
+    expect(params).toHaveLength(1);
+    expect(params[0]).toBe('{"role":"admin"}');
+  });
+
+  it("hasKey produces ?", () => {
+    const { sql, params } = hasKey("data", "role");
+    expect(sql).toContain("?");
+    expect(params).toContain("role");
+  });
+
+  it("hasAnyKeys produces ?|", () => {
+    const { sql, params } = hasAnyKeys("data", ["role", "age"]);
+    expect(sql).toContain("?|");
+    expect(sql).toContain("ARRAY[$1, $2]");
+    expect(params).toEqual(["role", "age"]);
+  });
+
+  it("jsonExtractText produces ->>", () => {
+    const { sql, params } = jsonExtractText("data", "role");
+    expect(sql).toContain("->> $1");
+    expect(params[0]).toBe("role");
+  });
+});
+
+// ── CTE and Set Operations ──────────────────────────────────────────────────
+
+describe("CTE and Set Operations", () => {
+  it("SelectBuilder > generates query with CTE", () => {
+    const activeUsers = withCte("active_users", new SelectBuilder(users, dummyExecutor).where(eq("verified", true)));
+    
+    const { sql, params } = new SelectBuilder(users, dummyExecutor)
+      .with(activeUsers)
+      .select("id")
+      .toSQL();
+      
+    expect(sql).toContain('WITH "active_users" AS (SELECT "users"."id" AS "id", "users"."email" AS "email", "users"."name" AS "name", "users"."age" AS "age", "users"."verified" AS "verified", "users"."created_at" AS "createdAt" FROM "users" WHERE "verified" = $1)');
+    expect(sql).toContain('SELECT "users"."id" AS "id" FROM "users"');
+    expect(params).toEqual([true]);
+  });
+
+  it("SelectBuilder > generates query with UNION", () => {
+    const q1 = new SelectBuilder(users, dummyExecutor).select("id").where(eq("name", "Alice"));
+    const q2 = new SelectBuilder(users, dummyExecutor).select("id").where(eq("name", "Bob"));
+    
+    const { sql, params } = q1.union(q2).toSQL();
+    expect(sql).toContain('UNION SELECT "users"."id" AS "id" FROM "users" WHERE "name" = $2');
+    expect(params).toEqual(["Alice", "Bob"]);
+  });
+});
+
+// ── Window Functions ────────────────────────────────────────────────────────
+
+describe("Window Functions", () => {
+  it("over() > generates basic OVER clause", () => {
+    const { sql } = over(count());
+    expect(sql).toBe("COUNT(*) OVER ()");
+  });
+
+  it("over() > generates OVER with PARTITION BY", () => {
+    const { sql, params } = over(count(), { partitionBy: users.verified });
+    expect(sql).toBe('COUNT(*) OVER (PARTITION BY "users"."verified")');
+    expect(params).toHaveLength(0);
+  });
+
+  it("over() > generates OVER with ORDER BY", () => {
+    const { sql, params } = over(count(), { orderBy: { column: users.createdAt, dir: "desc" } });
+    expect(sql).toBe('COUNT(*) OVER (ORDER BY "users"."created_at" DESC)');
+    expect(params).toHaveLength(0);
+  });
+
+  it("over() > generates OVER with both PARTITION BY and ORDER BY", () => {
+    const { sql } = over(count(), {
+      partitionBy: users.verified,
+      orderBy: [{ column: users.createdAt, dir: "desc" }]
+    });
+    expect(sql).toBe('COUNT(*) OVER (PARTITION BY "users"."verified" ORDER BY "users"."created_at" DESC)');
+  });
+});
+
+// ── Array Operators ─────────────────────────────────────────────────────────
+
+describe("Array Operators", () => {
+  it("arrayContains() > generates @>", () => {
+    const { sql, params } = arrayContains("tags", ["a", "b"]);
+    expect(sql).toBe('"tags" @> ARRAY[$1, $2]');
+    expect(params).toEqual(["a", "b"]);
+  });
+
+  it("arrayContained() > generates <@", () => {
+    const { sql, params } = arrayContained("tags", ["a", "b"]);
+    expect(sql).toBe('"tags" <@ ARRAY[$1, $2]');
+    expect(params).toEqual(["a", "b"]);
+  });
+
+  it("arrayOverlaps() > generates &&", () => {
+    const { sql, params } = arrayOverlaps("tags", ["a", "b"]);
+    expect(sql).toBe('"tags" && ARRAY[$1, $2]');
+    expect(params).toEqual(["a", "b"]);
+  });
+});
+
+// ── Full Text Search ────────────────────────────────────────────────────────
+
+describe("Full Text Search", () => {
+  it("toTsquery() > generates to_tsquery", () => {
+    const { sql, params } = toTsquery("'cat' & 'dog'");
+    expect(sql).toBe("to_tsquery($1)");
+    expect(params).toEqual(["'cat' & 'dog'"]);
+  });
+
+  it("plainToTsquery() > generates plainto_tsquery", () => {
+    const { sql, params } = plainToTsquery("'cat dog'");
+    expect(sql).toBe("plainto_tsquery($1)");
+    expect(params).toEqual(["'cat dog'"]);
+  });
+
+  it("toTsvector() > without config generates to_tsvector(col)", () => {
+    const { sql } = toTsvector(users.name);
+    expect(sql).toBe('to_tsvector("users"."name")');
+  });
+
+  it("toTsvector() > with config generates to_tsvector(config, col)", () => {
+    const { sql, params } = toTsvector(users.name, "'english'");
+    expect(sql).toBe('to_tsvector($1::regconfig, "users"."name")');
+    expect(params).toEqual(["'english'"]);
+  });
+
+  it("tsMatch() > with string generates @@ plainto_tsquery", () => {
+    const { sql, params } = tsMatch(toTsvector(users.name), "'hello'");
+    expect(sql).toBe('to_tsvector("users"."name") @@ plainto_tsquery($1)');
+    expect(params).toEqual(["'hello'"]);
+  });
+
+  it("tsMatch() > with SQLChunk generates @@", () => {
+    const { sql, params } = tsMatch(toTsvector(users.name), toTsquery("'hello'"));
+    expect(sql).toBe('to_tsvector("users"."name") @@ to_tsquery($1)');
+    expect(params).toEqual(["'hello'"]);
   });
 });

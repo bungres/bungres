@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
-import { generateCreateTable, generateDropTable, generateAddColumn, generateDropColumn } from "../ddl.js";
-import type { TableConfig } from "../index.js";
+import { generateCreateTable, generateDropTable, generateAddColumn, generateDropColumn, generateCreateEnum, generateDropEnum, generateCreateView, generateDropView } from "../ddl.js";
+import { pgEnum, pgView, pgMaterializedView, SelectBuilder, table, text, boolean, getTableConfig, customType, varchar } from "../index.js";
+import type { TableConfig, QueryExecutor } from "../index.js";
 
 const usersConfig: TableConfig = {
   name: "users",
@@ -78,8 +79,36 @@ describe("generateCreateTable", () => {
   });
 
   it("respects ifNotExists=false", () => {
-    const ddl = generateCreateTable(usersConfig, false);
-    expect(ddl).not.toContain("IF NOT EXISTS");
+    const config = getTableConfig(
+      table("users", { id: text("id") })
+    ) as TableConfig;
+    const sql = generateCreateTable(config, false);
+    expect(sql).toContain("CREATE TABLE \"users\" (");
+  });
+
+  it("generates GENERATED ALWAYS AS (...) STORED", () => {
+    const config = getTableConfig(
+      table("users", { 
+        firstName: text("first_name"),
+        lastName: text("last_name"),
+        fullName: text("full_name").generatedAlwaysAs("first_name || ' ' || last_name")
+      })
+    ) as TableConfig;
+    const sql = generateCreateTable(config);
+    expect(sql).toContain("\"full_name\" TEXT GENERATED ALWAYS AS (first_name || ' ' || last_name) STORED");
+  });
+
+  it("handles dynamic array types and custom types", () => {
+    const citext = customType("citext");
+    const config = getTableConfig(
+      table("users", { 
+        emails: citext("emails").array(),
+        titles: varchar("titles", { length: 50 }).array()
+      })
+    ) as TableConfig;
+    const sql = generateCreateTable(config);
+    expect(sql).toContain("\"emails\" CITEXT[]");
+    expect(sql).toContain("\"titles\" VARCHAR(50)[]");
   });
 });
 
@@ -117,5 +146,79 @@ describe("generateDropColumn", () => {
     expect(ddl).toContain("ALTER TABLE");
     expect(ddl).toContain("DROP COLUMN IF EXISTS");
     expect(ddl).toContain('"bio"');
+  });
+});
+
+describe("Enum DDL", () => {
+  it("generateCreateEnum > creates an enum type", () => {
+    const sql = generateCreateEnum("status", ["active", "archived", "deleted"]);
+    expect(sql).toBe(`CREATE TYPE "status" AS ENUM ('active', 'archived', 'deleted');`);
+  });
+
+  it("generateCreateEnum > escapes single quotes in values", () => {
+    const sql = generateCreateEnum("user_role", ["admin", "super'admin"]);
+    expect(sql).toBe(`CREATE TYPE "user_role" AS ENUM ('admin', 'super''admin');`);
+  });
+
+  it("generateDropEnum > drops an enum type", () => {
+    const sql = generateDropEnum("status");
+    expect(sql).toBe(`DROP TYPE IF EXISTS "status";`);
+  });
+
+  it("generateCreateTable > uses the enum name for the column type", () => {
+    const statusEnum = pgEnum("status", ["active", "archived"]);
+    
+    const config = {
+      name: "users",
+      columns: {
+        id: { name: "id", dataType: "uuid", notNull: true, primaryKey: true, unique: false },
+        status: statusEnum("status", { default: "active" }),
+      }
+    } as any;
+
+    const sql = generateCreateTable(config);
+    expect(sql).toContain(`"status" "status" DEFAULT 'active'`);
+  });
+});
+
+// ── Views DDL ───────────────────────────────────────────────────────────────
+
+const dummyExecutor: QueryExecutor = {
+  execute: async () => [],
+  executeSingle: async () => null,
+};
+
+const usersTable = table("users", {
+  id: text("id"),
+  verified: boolean("verified")
+});
+
+describe("Views DDL", () => {
+  it("generateCreateView > generates CREATE VIEW with inlined params", () => {
+    const qb = new SelectBuilder(usersTable, dummyExecutor).select("id").where({ verified: true });
+    const view = pgView("active_users", qb);
+    
+    const sql = generateCreateView(view);
+    expect(sql).toBe('CREATE VIEW "active_users" AS SELECT "users"."id" AS "id" FROM "users" WHERE "users"."verified" = TRUE;');
+  });
+
+  it("generateCreateView > generates CREATE MATERIALIZED VIEW", () => {
+    const qb = new SelectBuilder(usersTable, dummyExecutor).select("id").where({ verified: false });
+    const view = pgMaterializedView("inactive_users", qb);
+    
+    const sql = generateCreateView(view);
+    expect(sql).toBe('CREATE MATERIALIZED VIEW "inactive_users" AS SELECT "users"."id" AS "id" FROM "users" WHERE "users"."verified" = FALSE;');
+  });
+
+  it("generateDropView > generates DROP VIEW IF EXISTS", () => {
+    const view = pgView("active_users", new SelectBuilder(usersTable, dummyExecutor));
+    const sql = generateDropView(view);
+    expect(sql).toBe('DROP VIEW IF EXISTS "active_users";');
+  });
+
+  it("generateDropView > generates DROP MATERIALIZED VIEW", () => {
+    const view = pgMaterializedView("inactive_users", new SelectBuilder(usersTable, dummyExecutor));
+    const sql = generateDropView(view, false);
+    expect(sql).toBe('DROP MATERIALIZED VIEW "inactive_users";');
   });
 });

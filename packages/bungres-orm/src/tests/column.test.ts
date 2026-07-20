@@ -73,4 +73,22 @@ describe("Column Builder Functions", () => {
     const col = jsonb("meta");
     expect(col.dataType).toBe("jsonb");
   });
+
+  it("supports the .array() modifier", () => {
+    const col = text("tags").array();
+    expect(col.dataType).toBe("text[]");
+  });
+
+  it("supports .generatedAlwaysAs()", () => {
+    const col = text("full_name").generatedAlwaysAs("first_name || ' ' || last_name");
+    expect(col.generatedAs).toBe("first_name || ' ' || last_name");
+  });
+
+  it("supports customType()", () => {
+    // Need to import customType, but we can just use it if we import it or we can require it
+    const { customType } = require("../index.js");
+    const citext = customType("citext");
+    const col = citext("email_citext");
+    expect(col.dataType).toBe("citext");
+  });
 });

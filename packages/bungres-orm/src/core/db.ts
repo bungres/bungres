@@ -220,6 +220,7 @@ export class BungresDB implements QueryExecutor {
 
 export class BungresTransaction implements QueryExecutor {
   private readonly _sql: InstanceType<typeof Bun.SQL>;
+  private _savepointCounter = 0;
 
   constructor(sql: InstanceType<typeof Bun.SQL>) {
     this._sql = sql;
@@ -281,6 +282,26 @@ export class BungresTransaction implements QueryExecutor {
   ): Promise<T[]> {
     const result = await this._sql.unsafe(query, params as string[]);
     return Array.from(result) as T[];
+  }
+
+  /**
+   * Run a nested transaction using SAVEPOINT.
+   * If the callback throws, it rolls back to the savepoint, leaving the outer transaction intact.
+   */
+  async transaction<T>(fn: (tx: BungresTransaction) => Promise<T>): Promise<T> {
+    this._savepointCounter++;
+    const spName = `sp_${this._savepointCounter}`;
+    
+    await this._sql.unsafe(`SAVEPOINT ${spName}`);
+    
+    try {
+      const result = await fn(this);
+      await this._sql.unsafe(`RELEASE SAVEPOINT ${spName}`);
+      return result;
+    } catch (e) {
+      await this._sql.unsafe(`ROLLBACK TO SAVEPOINT ${spName}`);
+      throw e;
+    }
   }
 }
 

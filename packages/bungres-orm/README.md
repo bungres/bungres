@@ -141,13 +141,83 @@ const result = await db.users.findMany({
 
 ## Advanced Features
 
-### Transactions
+### 1. 100% Schema Parity
+Bungres supports advanced Postgres schema definitions seamlessly:
+
+```ts
+import { pgTable, pgEnum, pgView, text, integer, customType } from "@bungres/orm";
+
+export const roles = pgEnum("roles", ["admin", "user"]);
+
+const citext = customType<string>("citext");
+
+export const users = pgTable("users", {
+  role: roles("role").default("user"),
+  tags: text("tags").array(), // Arrays!
+  email: citext("email").unique(), // Custom extensions
+  fullName: text("full_name").generatedAlwaysAs("first_name || ' ' || last_name") // Postgres 12+ generated
+});
+
+// Views and Materialized Views
+export const activeUsers = pgView(
+  "active_users",
+  db.select().from(users).where(eq(users.role, "admin"))
+);
+```
+
+### 2. Advanced Querying Power
+We support Subqueries, CTEs, Window Functions, and Set Operations:
+
+```ts
+import { withCte, union, over, sum } from "@bungres/orm";
+
+// CTEs
+const regionalSales = withCte("regional_sales")
+  .as(db.select().from(sales).where(eq(sales.region, "NA")));
+
+const rows = await db.with(regionalSales)
+  .select()
+  .from(regionalSales);
+
+// Window Functions
+const result = await db.select(
+  users.name,
+  over(sum(orders.total)).partitionBy(users.department).orderBy(orders.createdAt).as("dept_total")
+).from(users).leftJoin(orders, eq(users.id, orders.userId));
+```
+
+### 3. Native Postgres Operators
+Query JSONB, Arrays, and Full Text Search naturally:
+
+```ts
+import { containsJson, arrayContains, tsMatch, toTsvector, plainToTsquery } from "@bungres/orm";
+
+// JSONB
+db.select().from(users).where(containsJson(users.metadata, { role: "admin" }));
+
+// Arrays
+db.select().from(posts).where(arrayContains(posts.tags, ["javascript"]));
+
+// Full Text Search
+db.select().from(articles).where(tsMatch(toTsvector(articles.body), plainToTsquery("bun orm")));
+```
+
+### 4. Nested Transactions (Savepoints)
+Start a transaction inside an existing transaction! Bungres automatically uses Postgres `SAVEPOINT`s to allow inner blocks to roll back without destroying outer progress.
 
 ```ts
 const result = await db.transaction(async (tx) => {
-  const post = await tx.insert(posts).values(data).returning().single();
-  await tx.update(users).set({ postCount: n + 1 }).where(eq(users.id, authorId));
-  return post;
+  await tx.insert(users).values(data).execute();
+  
+  try {
+    // Automatically creates a SAVEPOINT instead of BEGIN
+    await tx.transaction(async (nested) => {
+      await nested.insert(logs).values({ msg: "User created" }).execute();
+      throw new Error("Oops"); // Rolls back ONLY the log insert
+    });
+  } catch (e) {
+    // User insert is completely safe!
+  }
 });
 ```
 

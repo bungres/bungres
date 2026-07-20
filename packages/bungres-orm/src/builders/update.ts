@@ -4,6 +4,7 @@ import { sqlJoin } from "../core/sql.js";
 import { parseWhereObject } from "../core/conditions.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferTable } from "../types/index.js";
+import type { CTEBuilder } from "./cte.js";
 
 export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implements PromiseLike<InferTable<TColumns>[]> {
   private _table: Table<string, TColumns>;
@@ -12,6 +13,7 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
   private _where: SQLChunk[] = [];
   private _returning?: string[];
   private _comment?: string;
+  private _with: CTEBuilder[] = [];
 
   constructor(table: Table<string, TColumns>, executor: QueryExecutor) {
     this._table = table;
@@ -43,6 +45,11 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
     return this;
   }
 
+  with(...ctes: CTEBuilder[]): this {
+    this._with.push(...ctes);
+    return this;
+  }
+
   returning(...columns: (keyof TColumns & string)[]): this {
     this._returning = columns.length > 0 ? columns : ["*"];
     return this;
@@ -60,6 +67,19 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
     }
 
     const params: unknown[] = [];
+
+    let prefix = "";
+    if (this._with.length > 0) {
+      const cteStrs: string[] = [];
+      for (const cte of this._with) {
+        const chunk = cte.query.toSQL();
+        const offset = params.length;
+        params.push(...chunk.params);
+        cteStrs.push(`"${cte.alias}" AS (${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)})`);
+      }
+      prefix = `WITH ${cteStrs.join(", ")} `;
+    }
+
     const setClauses = entries.map(([key, value]) => {
       const dbCol = getTableConfig(this._table).columns[key]?.name ?? key;
       if (value && typeof value === "object" && "sql" in value && "params" in value) {
@@ -115,6 +135,6 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
       query += ` /* ${this._comment.replace(/\*\//g, "")} */`;
     }
 
-    return { sql: query, params };
+    return { sql: prefix + query, params };
   }
 }

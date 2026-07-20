@@ -2,14 +2,20 @@ import type { QueryExecutor } from "../core/query.js";
 import type { SQLChunk } from "../core/sql.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferInsert, InferTable } from "../types/index.js";
+import type { CTEBuilder } from "./cte.js";
 
 export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implements PromiseLike<InferTable<TColumns>[]> {
   private _table: Table<string, TColumns>;
   private _executor: QueryExecutor;
   private _values: Partial<InferTable<TColumns>>[] = [];
   private _onConflict?: "do nothing" | SQLChunk;
+  private _onConflictUpdateConfig?: {
+    target: string | SQLChunk | (string | SQLChunk)[];
+    set: Partial<{ [K in keyof InferTable<TColumns>]: InferTable<TColumns>[K] | SQLChunk }>;
+  };
   private _returning?: string[];
   private _comment?: string;
+  private _with: CTEBuilder[] = [];
 
   constructor(table: Table<string, TColumns>, executor: QueryExecutor) {
     this._table = table;
@@ -46,6 +52,16 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
     return this;
   }
 
+  onConflictDoUpdate(config: { target: string | SQLChunk | (string | SQLChunk)[]; set: Partial<{ [K in keyof InferTable<TColumns>]: InferTable<TColumns>[K] | SQLChunk }> }): this {
+    this._onConflictUpdateConfig = config;
+    return this;
+  }
+
+  with(...ctes: CTEBuilder[]): this {
+    this._with.push(...ctes);
+    return this;
+  }
+
   returning(...columns: (keyof TColumns & string)[]): this {
     this._returning = columns.length > 0 ? columns : ["*"];
     return this;
@@ -79,6 +95,19 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
     const columnsStr = keys.map((k) => `"${tConfig.columns[k]?.name ?? k}"`).join(", ");
 
     const params: unknown[] = [];
+
+    let prefix = "";
+    if (this._with.length > 0) {
+      const cteStrs: string[] = [];
+      for (const cte of this._with) {
+        const chunk = cte.query.toSQL();
+        const offset = params.length;
+        params.push(...chunk.params);
+        cteStrs.push(`"${cte.alias}" AS (${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)})`);
+      }
+      prefix = `WITH ${cteStrs.join(", ")} `;
+    }
+
     const valuesStrs = this._values.map((v) => {
       const vals = keys.map((k) => {
         const val = (v as any)[k];
@@ -121,6 +150,52 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
         query += " " + this._onConflict.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
         params.push(...this._onConflict.params);
       }
+    } else if (this._onConflictUpdateConfig) {
+      const config = this._onConflictUpdateConfig;
+      const targets = Array.isArray(config.target) ? config.target : [config.target];
+      const targetStrs: string[] = [];
+      for (const t of targets) {
+        if (typeof t === "string") {
+          targetStrs.push(`"${tConfig.columns[t]?.name ?? t}"`);
+        } else {
+          const offset = params.length;
+          targetStrs.push(t.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`));
+          params.push(...t.params);
+        }
+      }
+
+      const setEntries = Object.entries(config.set as Record<string, unknown>);
+      if (setEntries.length === 0) throw new Error("InsertBuilder: onConflictDoUpdate requires 'set' fields");
+
+      const setClauses = setEntries.map(([key, value]) => {
+        const dbCol = tConfig.columns[key]?.name ?? key;
+        if (value && typeof value === "object" && "sql" in value && "params" in value) {
+          const chunk = value as SQLChunk;
+          const offset = params.length;
+          params.push(...chunk.params);
+          return `"${dbCol}" = ${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)}`;
+        }
+        if (value && typeof value === "object" && !(value instanceof Date)) {
+          const colType = tConfig.columns[key]?.dataType;
+          if (colType === "json" || colType === "jsonb") {
+            params.push(value);
+          } else if (Array.isArray(value)) {
+            const pgArray = '{' + value.map(item => {
+              if (item === null || item === undefined) return 'NULL';
+              if (typeof item === 'string') return '"' + item.replace(/"/g, '\\"') + '"';
+              return typeof item === 'object' ? '"' + JSON.stringify(item).replace(/"/g, '\\"') + '"' : String(item);
+            }).join(',') + '}';
+            params.push(pgArray);
+          } else {
+            params.push(JSON.stringify(value));
+          }
+          return `"${dbCol}" = $${params.length}`;
+        }
+        params.push(value);
+        return `"${dbCol}" = $${params.length}`;
+      });
+
+      query += ` ON CONFLICT (${targetStrs.join(", ")}) DO UPDATE SET ${setClauses.join(", ")}`;
     }
 
     if (this._returning) {
@@ -139,6 +214,6 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
       query += ` /* ${this._comment.replace(/\*\//g, "")} */`;
     }
 
-    return { sql: query, params };
+    return { sql: prefix + query, params };
   }
 }
