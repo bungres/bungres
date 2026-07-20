@@ -1,6 +1,6 @@
 {
   "name": "@bungres/kit",
-  "version": "0.7.0",
+  "version": "1.0.0",
   "description": "CLI toolkit for @bungres/orm — migrate, push, generate, pull",
   "license": "MIT",
   "engines": {
@@ -50,7 +50,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@bungres/orm": "^0.6.0",
+    "@bungres/orm": "^1.0.0",
     "@clack/prompts": "^1.7.0",
     "picocolors": "^1.1.1"
   },

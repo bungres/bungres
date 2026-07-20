@@ -1,5 +1,12 @@
 # @bungres/kit
 
+## 1.0.0
+
+### Patch Changes
+
+- Updated dependencies [7f6f1f9]
+  - @bungres/orm@1.0.0
+
 ## 0.7.0
 
 ### Minor Changes
