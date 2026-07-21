@@ -19,8 +19,9 @@
     "@bungres/orm": "workspace:*"
   },
   "devDependencies": {
-    "bun-types": "latest",
-    "@bungres/kit": "workspace:*"
+    "@bungres/kit": "workspace:*",
+    "@faker-js/faker": "^10.5.0",
+    "bun-types": "latest"
   },
   "module": "src/index.js"
 }

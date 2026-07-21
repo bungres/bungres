@@ -1,18 +1,18 @@
 import { eq, gte, inArray, sql } from "@bungres/orm";
 import type { UnwrapSchema } from "elysia";
 import { db } from "../../db/client";
-import { orderItems, orders, products, users } from "../../db/schema";
+import { orderLines, orders, products, users } from "../../db/schema";
 import type { OrderModel } from "./model";
 
 export abstract class OrderService {
   static async create(data: UnwrapSchema<typeof OrderModel.createBody>) {
     return await db.transaction(async (tx) => {
       // 1. Validate user exists
-      const user = await tx.select(users).where(eq(users.id, data.userId)).single();
-      if (!user) throw new Error(JSON.stringify({ code: "VALIDATION", message: "User not found" }));
+      const user = await tx.select(users).where(eq(users.id, data.customerId)).single();
+      if (!user) throw new Error(JSON.stringify({ code: "VALIDATION", message: "Customer not found" }));
 
       // 2. Fetch products to calculate total and verify stock
-      let total = 0;
+      let subtotal = 0;
       const productIds = data.items.map((i) => i.productId);
 
       if (productIds.length === 0) {
@@ -30,7 +30,7 @@ export abstract class OrderService {
         if (prod.stock < item.quantity) {
           throw new Error(JSON.stringify({ code: "VALIDATION", message: `Insufficient stock for product ${prod.name}` }));
         }
-        total += Number(prod.price) * item.quantity;
+        subtotal += Number(prod.price) * item.quantity;
       }
 
       // 3. Deduct stock (atomic)
@@ -43,24 +43,26 @@ export abstract class OrderService {
       // 4. Create Order
       const order = await tx.insert(orders)
         .values({
-          userId: data.userId,
-          total: total,
-          ...(data.status !== undefined && { status: data.status }),
+          customerId: data.customerId,
+          subtotal: subtotal,
+          total: subtotal, // simplified for example
+          ...(data.status !== undefined && { status: data.status as any }),
         })
         .returning()
         .single();
 
       if (!order) throw new Error("Failed to create order");
 
-      // 5. Batch Insert Order Items
-      const orderItemsData = data.items.map((item) => ({
+      // 5. Batch Insert Order Lines
+      const orderLinesData = data.items.map((item) => ({
         orderId: order.id,
         productId: item.productId,
         quantity: item.quantity,
-        price: productMap.get(item.productId)!.price,
+        unitPrice: productMap.get(item.productId)!.price,
+        totalPrice: Number(productMap.get(item.productId)!.price) * item.quantity,
       }));
 
-      const items = await tx.insert(orderItems).values(orderItemsData).returning();
+      const items = await tx.insert(orderLines).values(orderLinesData).returning();
 
       return { ...order, items };
     });
@@ -68,15 +70,15 @@ export abstract class OrderService {
 
   static async findMany() {
     return await db.select({
-      id: orderItems.id,
-      quantity: orderItems.quantity,
-      price: orderItems.price,
+      id: orderLines.id,
+      quantity: orderLines.quantity,
+      unitPrice: orderLines.unitPrice,
       order: {
         id: orders.id,
         total: orders.total,
         status: orders.status,
         createdAt: orders.createdAt,
-        user: {
+        customer: {
           id: users.id,
           name: users.name,
           email: users.email
@@ -88,14 +90,23 @@ export abstract class OrderService {
         price: products.price
       }
     })
-      .from(orderItems)
-      .innerJoin(orders, eq(orderItems.orderId, orders.id))
-      .innerJoin(products, eq(orderItems.productId, products.id))
-      .innerJoin(users, eq(orders.userId, users.id))
-      .where(gte(orderItems.quantity, 1))
-      .orderBy(orderItems.quantity, "desc")
+      .from(orderLines)
+      .innerJoin(orders, eq(orderLines.orderId, orders.id))
+      .innerJoin(products, eq(orderLines.productId, products.id))
+      .innerJoin(users, eq(orders.customerId, users.id))
+      .where(gte(orderLines.quantity, 1))
+      .orderBy(orderLines.quantity, "desc")
       .orderBy(orders.createdAt, "desc")
       .limit(10);
+  }
+
+  static async findManyNested() {
+    return await db.select()
+      .from(orderLines)
+      .innerJoin(orders, eq(orderLines.orderId, orders.id))
+      .innerJoin(products, eq(orderLines.productId, products.id))
+      .innerJoin(users, eq(orders.customerId, users.id))
+      .limit(5);
   }
 
   static async findById(id: string) {
@@ -103,15 +114,15 @@ export abstract class OrderService {
       columns: { id: true, total: true, status: true, createdAt: true },
       where: eq(orders.id, id),
       with: {
-        items: {
-          columns: { id: true, quantity: true, price: true },
+        lines: {
+          columns: { id: true, quantity: true, unitPrice: true },
           with: {
             product: {
               columns: { id: true, name: true }
             }
           }
         },
-        user: {
+        customer: {
           columns: { id: true, name: true }
         }
       }
@@ -122,7 +133,7 @@ export abstract class OrderService {
     return await db.update(orders)
       .set({
         ...(data.total !== undefined && { total: data.total }),
-        ...(data.status !== undefined && { status: data.status }),
+        ...(data.status !== undefined && { status: data.status as any }),
       })
       .where(eq(orders.id, id))
       .returning()

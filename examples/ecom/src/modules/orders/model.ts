@@ -2,7 +2,7 @@ import { t } from "elysia";
 
 export const OrderModel = {
   createBody: t.Object({
-    userId: t.String(),
+    customerId: t.String(),
     items: t.Array(t.Object({
       productId: t.String(),
       quantity: t.Numeric()

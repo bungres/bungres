@@ -7,6 +7,7 @@ export const ordersModule = new Elysia({ prefix: "/orders" })
     body: OrderModel.createBody,
   })
   .get("/", () => OrderService.findMany())
+  .get("/nested", () => OrderService.findManyNested())
   .get("/:id", ({ params }) => OrderService.findById(params.id), {
     params: OrderModel.params,
   })
