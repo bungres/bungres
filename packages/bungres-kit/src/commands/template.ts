@@ -53,6 +53,33 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
     th { border-bottom: 1px solid #2c2c2f; border-right: 1px solid #2c2c2f; background: #1c1c1f; font-weight: 500; font-size: 13px; color: #8f8f91; }
     td { border-bottom: 1px solid #2c2c2f; border-right: 1px solid #2c2c2f; font-size: 13px; }
     tr:hover td { background-color: #28282c; }
+    
+    input[type="checkbox"] {
+      appearance: none;
+      background-color: transparent;
+      border: 1px solid #8f8f91;
+      border-radius: 3px;
+      width: 14px;
+      height: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      margin: 0;
+    }
+    input[type="checkbox"]:checked {
+      background-color: #00e599;
+      border-color: #00e599;
+    }
+    input[type="checkbox"]:checked::after {
+      content: '';
+      width: 4px;
+      height: 7px;
+      border: solid #161618;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+      margin-top: -1px;
+    }
   </style>
 </head>
 <body class="font-sans h-screen flex overflow-hidden text-sm selection:bg-accent/30">
@@ -69,7 +96,7 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
           <button @click="jsonModalOpen = false" class="text-muted hover:text-text p-1 rounded hover:bg-hover transition-colors"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
         <div class="p-4 overflow-auto flex-1">
-          <pre class="font-mono text-xs text-text bg-bg p-4 rounded border border-border whitespace-pre-wrap break-all" x-text="jsonModalData"></pre>
+          <pre class="font-mono text-xs text-text bg-bg p-4 rounded border border-border whitespace-pre-wrap break-all" x-html="syntaxHighlight(jsonModalData)"></pre>
         </div>
       </div>
     </div>
@@ -111,8 +138,14 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
             class="h-full flex items-center gap-2 pl-4 pr-2 cursor-pointer border-r border-border min-w-max transition-colors group relative select-none"
           >
             <!-- Icon -->
-            <template x-if="tab.type === 'table'">
+            <template x-if="tab.type === 'table' && tab.tableType === 'r'">
               <svg class="w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+            </template>
+            <template x-if="tab.type === 'table' && tab.tableType === 'v'">
+              <svg class="w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </template>
+            <template x-if="tab.type === 'table' && tab.tableType === 'm'">
+              <svg class="w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
             </template>
             <template x-if="tab.type === 'query'">
               <svg class="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
@@ -153,7 +186,15 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
                 <div class="h-12 border-b border-border flex items-center justify-between px-3 shrink-0 bg-panel">
                   <div class="flex items-center gap-2">
                     <span class="text-xs text-muted font-medium ml-1 flex items-center gap-2">
-                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                      <template x-if="tab.tableType === 'r'">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                      </template>
+                      <template x-if="tab.tableType === 'v'">
+                        <svg class="w-3.5 h-3.5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                      </template>
+                      <template x-if="tab.tableType === 'm'">
+                        <svg class="w-3.5 h-3.5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                      </template>
                       <span x-text="tab.title"></span>
                     </span>
                   </div>
@@ -164,7 +205,32 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
                 <!-- Table Data Grid Container -->
                 <div class="flex-1 overflow-auto bg-bg" :id="'data-' + tab.id" 
                      x-init="htmx.ajax('GET', '/htmx/tables/' + tab.name + '?schema=' + tab.schema + '&tabId=' + tab.id, {target: '#data-' + tab.id})">
-                   <div class="p-8 text-center text-muted">Loading data...</div>
+                   <div class="w-full flex flex-col">
+                     <div class="h-9 bg-panel border-b border-border flex items-center px-4 gap-6">
+                       <div class="w-4 h-4 rounded bg-border animate-pulse"></div>
+                       <div class="w-24 h-3 rounded bg-border animate-pulse"></div>
+                       <div class="w-32 h-3 rounded bg-border animate-pulse"></div>
+                       <div class="w-20 h-3 rounded bg-border animate-pulse"></div>
+                     </div>
+                     <div class="h-10 border-b border-border flex items-center px-4 gap-6 opacity-80">
+                       <div class="w-4 h-4 rounded bg-panel animate-pulse"></div>
+                       <div class="w-32 h-3 rounded bg-panel animate-pulse"></div>
+                       <div class="w-48 h-3 rounded bg-panel animate-pulse"></div>
+                       <div class="w-24 h-3 rounded bg-panel animate-pulse"></div>
+                     </div>
+                     <div class="h-10 border-b border-border flex items-center px-4 gap-6 opacity-60">
+                       <div class="w-4 h-4 rounded bg-panel animate-pulse"></div>
+                       <div class="w-28 h-3 rounded bg-panel animate-pulse"></div>
+                       <div class="w-40 h-3 rounded bg-panel animate-pulse"></div>
+                       <div class="w-32 h-3 rounded bg-panel animate-pulse"></div>
+                     </div>
+                     <div class="h-10 border-b border-border flex items-center px-4 gap-6 opacity-40">
+                       <div class="w-4 h-4 rounded bg-panel animate-pulse"></div>
+                       <div class="w-36 h-3 rounded bg-panel animate-pulse"></div>
+                       <div class="w-52 h-3 rounded bg-panel animate-pulse"></div>
+                       <div class="w-28 h-3 rounded bg-panel animate-pulse"></div>
+                     </div>
+                   </div>
                 </div>
               </div>
             </template>
@@ -232,11 +298,12 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
           // Listen for table clicks from the sidebar
           window.addEventListener('open-table', (e) => {
             const tableName = e.detail.tableName;
+            const tableType = e.detail.tableType || 'r';
             const schema = this.currentSchema;
             const tabId = 'table_' + schema + '_' + tableName;
             
             if (!this.tabs.find(t => t.id === tabId)) {
-              this.tabs.push({ id: tabId, type: 'table', title: tableName, name: tableName, schema: schema });
+              this.tabs.push({ id: tabId, type: 'table', tableType: tableType, title: tableName, name: tableName, schema: schema });
             }
             this.activeTab = tabId;
           });
@@ -249,6 +316,28 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
               this.jsonModalData = 'Invalid JSON data';
             }
             this.jsonModalOpen = true;
+          });
+        },
+        
+        syntaxHighlight(json) {
+          if (!json || json === 'Invalid JSON data') return json;
+          json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+            let cls = 'text-emerald-400';
+            if (/^"/.test(match)) {
+              if (/:$/.test(match)) {
+                cls = 'text-blue-400';
+              } else {
+                cls = 'text-orange-300';
+              }
+            } else if (/true|false/.test(match)) {
+              cls = 'text-purple-400';
+            } else if (/null/.test(match)) {
+              cls = 'text-muted';
+            } else {
+              cls = 'text-teal-400';
+            }
+            return '<span class="' + cls + '">' + match + '</span>';
           });
         },
         

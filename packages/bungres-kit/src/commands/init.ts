@@ -1,7 +1,7 @@
+import * as p from "@clack/prompts";
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import * as p from "@clack/prompts";
 import pc from "picocolors";
 
 // ---------------------------------------------------------------------------
@@ -12,7 +12,6 @@ export async function runInit(cwd = process.cwd()): Promise<void> {
   p.intro(pc.bgCyan(pc.black(" @bungres/kit init ")));
 
   const configPath = join(cwd, "bungres.config.ts");
-  const dbDir = join(cwd, "src", "db");
 
   // Check if config already exists
   if (existsSync(configPath)) {
@@ -21,16 +20,43 @@ export async function runInit(cwd = process.cwd()): Promise<void> {
     return;
   }
 
+  let shouldPrompt = true;
+  const defaultDbDir = "src/db";
+
+  if (existsSync(join(cwd, "src"))) {
+    if (!existsSync(join(cwd, defaultDbDir, "schema.ts")) && !existsSync(join(cwd, defaultDbDir, "client.ts"))) {
+      shouldPrompt = false;
+    }
+  }
+
+  let dbDirInput: string | symbol = defaultDbDir;
+
+  if (shouldPrompt) {
+    dbDirInput = await p.text({
+      message: "Where would you like to initialize the database files?",
+      placeholder: defaultDbDir,
+      defaultValue: defaultDbDir,
+    });
+
+    if (p.isCancel(dbDirInput)) {
+      p.outro(pc.gray("Initialization cancelled."));
+      return;
+    }
+  }
+
+  const dbDirRel = (dbDirInput as string).replace(/^(\.\/|\/+)/, ''); // remove leading ./ or /
+  const dbDir = join(cwd, dbDirRel);
+
   const s = p.spinner();
   s.start("Creating project structure...");
 
   // Create db directory structure
   try {
     await mkdir(dbDir, { recursive: true });
-    p.log.step(`Created ${pc.cyan("src/db")} directory`);
+    p.log.step(`Created ${pc.cyan(dbDirRel)} directory`);
   } catch (e) {
     s.stop("Failed");
-    p.log.error(`Failed to create src/db directory: ${e}`);
+    p.log.error(`Failed to create ${dbDirRel} directory: ${e}`);
     p.outro("Failed.");
     return;
   }
@@ -39,7 +65,7 @@ export async function runInit(cwd = process.cwd()): Promise<void> {
   const configContent = `import { defineConfig } from "@bungres/kit";
 
 export default defineConfig({
-  schema: "./src/db/schema.ts",
+  schema: "./${dbDirRel}/schema.ts",
   out: "./bungres",
   dbCredentials: {
     url: process.env.DATABASE_URL!,
@@ -80,7 +106,7 @@ export const users = pgTable("users", {
 
   try {
     await Bun.write(join(dbDir, "schema.ts"), schemaContent);
-    p.log.step(`Created ${pc.cyan("src/db/schema.ts")} with example table`);
+    p.log.step(`Created ${pc.cyan(`${dbDirRel}/schema.ts`)} with example table`);
   } catch (e) {
     p.log.error(`Failed to create schema file: ${e}`);
   }
@@ -96,7 +122,7 @@ export const db = bungres({ url, schema });
 
   try {
     await Bun.write(join(dbDir, "client.ts"), clientContent);
-    p.log.step(`Created ${pc.cyan("src/db/client.ts")}`);
+    p.log.step(`Created ${pc.cyan(`${dbDirRel}/client.ts`)}`);
   } catch (e) {
     p.log.error(`Failed to create client file: ${e}`);
   }
@@ -104,7 +130,7 @@ export const db = bungres({ url, schema });
   s.stop("Project initialized.");
 
   const nextSteps = `1. Set DATABASE_URL in your .env file
-2. Edit src/db/schema.ts to define your tables
+2. Edit ${dbDirRel}/schema.ts to define your tables
 3. Run ${pc.green("bungres generate")} to create migrations
 4. Run ${pc.green("bungres migrate")} to apply migrations`;
 

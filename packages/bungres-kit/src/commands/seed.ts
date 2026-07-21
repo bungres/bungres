@@ -57,7 +57,7 @@ export async function runSeed(config: ResolvedConfig): Promise<void> {
     return;
   }
 
-  const s = p.spinner();
+  let s = p.spinner();
   s.start("Loading schemas for auto-seeding...");
 
   const schemas = (await loadSchemas(config.schema)).filter((s: any) => s.type === "table") as any[];
@@ -79,8 +79,8 @@ export async function runSeed(config: ResolvedConfig): Promise<void> {
 
   try {
     for (const table of sorted) {
-      const ms = p.spinner();
-      ms.start(`Seeding ${table.name}...`);
+      s = p.spinner();
+      s.start(`Seeding ${table.name}...`);
       
       const rowsToInsert = 10;
       const rows: any[] = [];
@@ -128,11 +128,12 @@ export async function runSeed(config: ResolvedConfig): Promise<void> {
       });
 
       insertedData[table.name] = insertedRows;
-      ms.stop(pc.green(`✓ Seeded ${rowsToInsert} rows into ${table.name}`));
+      s.stop(pc.green(`✓ Seeded ${rowsToInsert} rows into ${table.name}`));
     }
 
     p.outro(pc.cyan("✨ Auto-seeding complete."));
   } catch (err: any) {
+    s.stop("Failed.");
     p.log.error(pc.red(`Auto-seeding failed: ${err.message}`));
     p.outro("Failed.");
   } finally {

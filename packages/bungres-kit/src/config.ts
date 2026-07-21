@@ -98,15 +98,26 @@ const CONFIG_FILES = [
   "bungres.config.mjs",
 ];
 
-export async function loadConfig(cwd = process.cwd()): Promise<ResolvedConfig> {
+export async function loadConfig(cwd = process.cwd(), explicitConfigPath?: string): Promise<ResolvedConfig> {
   let userConfig: Partial<BungresKitConfig> = {};
 
-  for (const file of CONFIG_FILES) {
-    const configPath = join(cwd, file);
-    if (await Bun.file(configPath).exists()) {
-      const mod = await import(resolve(configPath));
+  if (explicitConfigPath) {
+    const fullPath = resolve(cwd, explicitConfigPath);
+    if (await Bun.file(fullPath).exists()) {
+      const mod = await import(fullPath);
       userConfig = mod.default ?? mod;
-      break;
+    } else {
+      console.error(`bungres: Config file not found at ${fullPath}`);
+      process.exit(1);
+    }
+  } else {
+    for (const file of CONFIG_FILES) {
+      const configPath = join(cwd, file);
+      if (await Bun.file(configPath).exists()) {
+        const mod = await import(resolve(configPath));
+        userConfig = mod.default ?? mod;
+        break;
+      }
     }
   }
 

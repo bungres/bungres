@@ -74,6 +74,7 @@ export async function runStatus(config: ResolvedConfig): Promise<void> {
     p.log.info(`${pc.green(appliedSet.size.toString())} applied, ${pc.yellow(pendingCount.toString())} pending.`);
     p.outro("Done.");
   } catch (err: any) {
+    s.stop("Failed.");
     p.log.error(pc.red(`Status check failed: ${err.message}`));
     p.outro("Failed.");
   } finally {

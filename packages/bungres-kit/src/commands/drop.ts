@@ -1,7 +1,6 @@
-import type { ResolvedConfig } from "../config.js";
-import { loadSchemas } from "../schema-loader.js";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
+import type { ResolvedConfig } from "../config.js";
 
 // ---------------------------------------------------------------------------
 // drop — drop all tables defined in the schema (dev utility)
@@ -13,38 +12,31 @@ export async function runDrop(
   opts: { force?: boolean } = {}
 ): Promise<void> {
   p.intro(pc.bgCyan(pc.black(" @bungres/kit drop ")));
-  const s = p.spinner();
-  s.start("Loading schemas...");
-
-  const schemas = await loadSchemas(config.schema);
-
-  const tableSchemas = schemas.filter((s) => s.type === "table") as any[];
-  const enumSchemas = schemas.filter((s) => s.type === "enum") as any[];
-  const viewSchemas = schemas.filter((s) => s.type === "view") as any[];
-
-  if (tableSchemas.length === 0 && enumSchemas.length === 0 && viewSchemas.length === 0) {
-    s.stop("No schemas found.");
-    p.log.warn(pc.yellow("No definitions found in schema files."));
-    p.outro("Failed.");
-    return;
-  }
-  s.stop(`Loaded ${schemas.length} schemas.`);
-
   const ms = p.spinner();
-  ms.start("Checking database tables...");
+  ms.start("Scanning database for objects to drop...");
 
   const sql = new Bun.SQL(config.dbUrl);
 
   try {
-    // Check which user tables exist in the database (in dbSchema, default: public)
-    const userSchema = config.dbSchema;
-    const existingUserTablesResult = await sql.unsafe(
-      `SELECT table_name FROM information_schema.tables WHERE table_schema = $1`,
+    const userSchema = config.dbSchema || "public";
+
+    // Fetch all views
+    const existingViews = await sql.unsafe(
+      `SELECT table_name FROM information_schema.views WHERE table_schema = $1`,
       [userSchema]
-    );
-    const existingTableNames = new Set(
-      (existingUserTablesResult as { table_name: string }[]).map((r) => r.table_name)
-    );
+    ) as { table_name: string }[];
+
+    // Fetch all tables
+    const existingTables = await sql.unsafe(
+      `SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'BASE TABLE'`,
+      [userSchema]
+    ) as { table_name: string }[];
+
+    // Fetch all user-defined types (enums)
+    const existingTypes = await sql.unsafe(
+      `SELECT t.typname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE n.nspname = $1 AND t.typtype = 'e'`,
+      [userSchema]
+    ) as { typname: string }[];
 
     // Check if the migrations table exists in its own schema (default: bungres)
     const migTableCheck = await sql.unsafe(
@@ -66,42 +58,23 @@ export async function runDrop(
     ) as Array<{ exists: boolean }>;
     const pushTableExists = pushTableCheck[0]?.exists ?? false;
 
-    // Filter user schema list to only those that exist in the DB
-    const tablesToDrop = tableSchemas.filter((sch) => existingTableNames.has(sch.config.name));
+    const totalObjects = existingViews.length + existingTables.length + existingTypes.length + (migrationTableExists ? 1 : 0) + (pushTableExists ? 1 : 0);
 
-    if (tablesToDrop.length === 0 && enumSchemas.length === 0 && viewSchemas.length === 0 && !migrationTableExists && !pushTableExists) {
+    if (totalObjects === 0) {
       ms.stop("Nothing to do.");
-      p.log.success(pc.green("No items to drop (they either don't exist or were already dropped)."));
+      p.log.success(pc.green("No items to drop (schema is empty)."));
       p.outro("Done.");
       return;
     }
-    ms.stop("Database check complete.");
-
-    const namesToPrint = tablesToDrop.map(
-      (sch) => (sch.config.schema ? sch.config.schema + "." : "") + sch.config.name + " (table)"
-    );
-    for (const v of viewSchemas) {
-      namesToPrint.push(`${v.config.name} (view)`);
-    }
-    for (const e of enumSchemas) {
-      namesToPrint.push(`${e.enumName} (enum)`);
-    }
-    if (migrationTableExists) {
-      namesToPrint.push(`${config.migrationsSchema}.${config.migrationsTable} (table)`);
-    }
-    if (pushTableExists) {
-      namesToPrint.push(`${config.migrationsSchema}.__bungres_push (table)`);
-    }
+    ms.stop("Database scan complete.");
 
     if (!opts.force) {
       p.log.warn(pc.bgRed(pc.white(" ⚠️ WARNING ")));
-      p.log.message(pc.bold(pc.red("This will drop the following items and ALL their data:")));
-      for (const name of namesToPrint) {
-        p.log.info(pc.yellow(`  - ${name}`));
-      }
+      p.log.message(pc.bold(pc.red("This will GLOBALLY drop all tables, views, and types in the database schema!")));
+      p.log.info(pc.yellow(`Found ${existingViews.length} views, ${existingTables.length} tables, ${existingTypes.length} enums.`));
 
       const confirm = await p.confirm({
-        message: "Are you sure you want to proceed?",
+        message: "Are you absolutely sure you want to drop ALL data?",
         initialValue: false
       });
 
@@ -112,41 +85,38 @@ export async function runDrop(
     }
 
     const exSpinner = p.spinner();
-    exSpinner.start("Dropping tables...");
+    exSpinner.start("Dropping objects...");
 
-    for (const entry of viewSchemas) {
-      const isMat = entry.config.materialized ? "MATERIALIZED VIEW" : "VIEW";
-      const ddl = `DROP ${isMat} IF EXISTS "${entry.config.name}" CASCADE;`;
-      await sql.unsafe(ddl);
-      p.log.step(pc.gray(`Dropped ${entry.config.name}`));
+    for (const v of existingViews) {
+      await sql.unsafe(`DROP VIEW IF EXISTS "${userSchema}"."${v.table_name}" CASCADE;`);
+      if (opts.force !== true) p.log.step(pc.gray(`Dropped view ${v.table_name}`));
     }
 
-    for (const entry of tablesToDrop) {
-      const ddl = `DROP TABLE IF EXISTS "${entry.config.name}" CASCADE;`;
-      await sql.unsafe(ddl);
-      p.log.step(pc.gray(`Dropped ${entry.config.name}`));
+    for (const t of existingTables) {
+      await sql.unsafe(`DROP TABLE IF EXISTS "${userSchema}"."${t.table_name}" CASCADE;`);
+      if (opts.force !== true) p.log.step(pc.gray(`Dropped table ${t.table_name}`));
     }
-    
-    for (const entry of enumSchemas) {
-      const ddl = `DROP TYPE IF EXISTS "${entry.enumName}" CASCADE;`;
-      await sql.unsafe(ddl);
-      p.log.step(pc.gray(`Dropped ${entry.enumName}`));
+
+    for (const type of existingTypes) {
+      await sql.unsafe(`DROP TYPE IF EXISTS "${userSchema}"."${type.typname}" CASCADE;`);
+      if (opts.force !== true) p.log.step(pc.gray(`Dropped enum ${type.typname}`));
     }
 
     if (migrationTableExists) {
-      const qualifiedMigTable = `"${config.migrationsSchema}"."${config.migrationsTable}"`;
-      await sql.unsafe(`DROP TABLE IF EXISTS ${qualifiedMigTable} CASCADE`);
-      p.log.step(pc.gray(`Dropped ${config.migrationsSchema}.${config.migrationsTable}`));
+      await sql.unsafe(`DROP TABLE IF EXISTS "${config.migrationsSchema}"."${config.migrationsTable}" CASCADE`);
+      if (opts.force !== true) p.log.step(pc.gray(`Dropped ${config.migrationsSchema}.${config.migrationsTable}`));
     }
 
     if (pushTableExists) {
       await sql.unsafe(`DROP TABLE IF EXISTS "${config.migrationsSchema}"."__bungres_push" CASCADE`);
-      p.log.step(pc.gray(`Dropped ${config.migrationsSchema}.__bungres_push`));
+      if (opts.force !== true) p.log.step(pc.gray(`Dropped ${config.migrationsSchema}.__bungres_push`));
     }
 
     exSpinner.stop("Items dropped.");
     p.outro(pc.cyan("✨ Drop complete."));
   } catch (err: any) {
+    // If an error occurs, make sure we stop any active spinners
+    ms.stop("Scan failed.");
     p.log.error(pc.red(`Drop failed: ${err.message}`));
     p.outro("Failed.");
   } finally {

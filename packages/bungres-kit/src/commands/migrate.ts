@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
   applied_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );`.trim();
 
-  const s = p.spinner();
+  let s = p.spinner();
   s.start("Checking pending migrations...");
 
   try {
@@ -66,8 +66,8 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
     s.stop(`Found ${pending.length} pending migration(s).`);
 
     for (const file of pending) {
-      const ms = p.spinner();
-      ms.start(`Applying ${file}...`);
+      s = p.spinner();
+      s.start(`Applying ${file}...`);
       
       const content = await Bun.file(join(migrationsDir, file)).text();
 
@@ -102,11 +102,12 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
         );
       });
 
-      ms.stop(pc.green(`✓ Applied ${file}`));
+      s.stop(pc.green(`✓ Applied ${file}`));
     }
 
     p.outro(pc.cyan("✨ All migrations applied successfully."));
   } catch (err: any) {
+    s.stop("Failed.");
     p.log.error(pc.red(`Migration failed: ${err.message}`));
     p.outro("Failed.");
   } finally {

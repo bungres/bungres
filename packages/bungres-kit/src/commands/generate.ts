@@ -1,6 +1,6 @@
 import { join, resolve } from "node:path";
 import { readdirSync } from "node:fs";
-import { generateCreateTable, generateCreateView } from "@bungres/orm";
+import { generateCreateTable, generateCreateView, inlineParams } from "@bungres/orm";
 import type { TableConfig } from "@bungres/orm";
 import type { ResolvedConfig } from "../config.js";
 import { loadSchemas, type SchemaEntry } from "../schema-loader.js";
@@ -46,7 +46,11 @@ export async function runGenerate(
     } else if (s.type === "enum") {
       currentSnapshot.enums[s.enumName] = { enumName: s.enumName, enumValues: s.enumValues };
     } else if (s.type === "view") {
-      currentSnapshot.views[s.config.name] = s.config;
+      currentSnapshot.views[s.config.name] = {
+        name: s.config.name,
+        materialized: s.config.materialized,
+        sql: typeof s.config.query?.toSQL === 'function' ? inlineParams(s.config.query.toSQL()) : s.config.sql
+      };
     }
   }
 

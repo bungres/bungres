@@ -4,6 +4,7 @@
 // Usage: bungres <command> [options]
 // ---------------------------------------------------------------------------
 
+import pc from "picocolors";
 import { runDrop } from "./commands/drop.js";
 import { runFresh } from "./commands/fresh.js";
 import { runGenerate } from "./commands/generate.js";
@@ -17,7 +18,6 @@ import { runSeed } from "./commands/seed.js";
 import { runStatus } from "./commands/status.js";
 import { runStudio } from "./commands/studio.js";
 import { runTusky } from "./commands/tusky.js";
-import pc from "picocolors";
 import { loadConfig } from "./config.js";
 import { ensureDatabase } from "./ensure-db.js";
 
@@ -91,7 +91,8 @@ async function main() {
     process.exit(0);
   }
 
-  const config = await loadConfig(process.cwd());
+  const configPath = typeof flags.config === "string" ? flags.config : undefined;
+  const config = await loadConfig(process.cwd(), configPath);
 
   // Override verbose from flag
   if (flags.verbose) config.verbose = true;

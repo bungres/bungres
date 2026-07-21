@@ -17,22 +17,22 @@ export async function runRollback(config: ResolvedConfig): Promise<void> {
   const schema = config.migrationsSchema;
   const qualifiedTable = `"${schema}"."${table}"`;
 
-  const s = p.spinner();
-  s.start("Checking applied migrations...");
+  let activeSpinner = p.spinner();
+  activeSpinner.start("Checking applied migrations...");
 
   try {
     // Fetch last applied migration
     const applied = await sql.unsafe(`SELECT name FROM ${qualifiedTable} ORDER BY name DESC LIMIT 1`);
     
     if (applied.length === 0) {
-      s.stop("No migrations to rollback.");
+      activeSpinner.stop("No migrations to rollback.");
       p.log.warn(pc.yellow("No applied migrations found in the database."));
       p.outro("Done.");
       return;
     }
 
     const lastMigration = (applied[0] as { name: string }).name;
-    s.stop(`Found migration to rollback: ${pc.cyan(lastMigration)}`);
+    activeSpinner.stop(`Found migration to rollback: ${pc.cyan(lastMigration)}`);
 
     const shouldRollback = await p.confirm({
       message: `Are you sure you want to rollback ${pc.cyan(lastMigration)}?`,
@@ -44,8 +44,8 @@ export async function runRollback(config: ResolvedConfig): Promise<void> {
       return;
     }
 
-    const ms = p.spinner();
-    ms.start(`Rolling back ${lastMigration}...`);
+    activeSpinner = p.spinner();
+    activeSpinner.start(`Rolling back ${lastMigration}...`);
 
     const content = await Bun.file(join(migrationsDir, lastMigration)).text();
 
@@ -55,7 +55,7 @@ export async function runRollback(config: ResolvedConfig): Promise<void> {
     if (downMatch) {
       downContent = downMatch[1]!.trim();
     } else {
-      ms.stop("Failed.");
+      activeSpinner.stop("Failed.");
       p.log.error(pc.red(`No '-- ==== DOWN ====' section found in ${lastMigration}. Cannot rollback safely.`));
       p.outro("Failed.");
       return;
@@ -91,10 +91,11 @@ export async function runRollback(config: ResolvedConfig): Promise<void> {
       );
     });
 
-    ms.stop(pc.green(`✓ Rolled back ${lastMigration}`));
+    activeSpinner.stop(pc.green(`✓ Rolled back ${lastMigration}`));
     p.outro(pc.cyan("✨ Rollback successful."));
 
   } catch (err: any) {
+    activeSpinner.stop("Failed.");
     p.log.error(pc.red(`Rollback failed: ${err.message}`));
     p.outro("Failed.");
   } finally {

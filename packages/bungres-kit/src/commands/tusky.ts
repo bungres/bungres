@@ -48,7 +48,6 @@ export async function runTusky(config: ResolvedConfig): Promise<void> {
       const isRawSql = /^(select|insert|update|delete|create|drop|alter|truncate|with)\b/i.test(input);
 
       if (isRawSql) {
-        console.log(`(Running as raw SQL: await db.raw(\`${input}\`))`);
         code = `(async () => { return await db.raw(\`${input}\`); })()`;
       } else if (input.includes("await ")) {
         // Top-level await needs an async IIFE.
@@ -56,12 +55,21 @@ export async function runTusky(config: ResolvedConfig): Promise<void> {
       }
 
       const start = performance.now();
-      const result = await eval(code);
+      let evaluated = eval(code);
+      if (evaluated && typeof evaluated.toSQL === "function") {
+        const chunk = evaluated.toSQL();
+        let sqlStr = chunk.sql;
+        if (chunk.params && chunk.params.length > 0) {
+          sqlStr += ` -- params: [${chunk.params.join(", ")}]`;
+        }
+        console.log(`(Generated SQL: ${sqlStr})`);
+      }
+      const result = await evaluated;
       const end = performance.now();
       const duration = (end - start).toFixed(2);
 
       if (Array.isArray(result) && result.length > 0 && typeof result[0] === "object") {
-        console.table(result);
+        console.log(JSON.stringify(result, null, 2));
       } else {
         console.log(result);
       }

@@ -1,5 +1,6 @@
 import type { ResolvedConfig } from "../config.js";
 import { diffSchemas, type SchemaSnapshot } from "../differ.js";
+import { inlineParams } from "@bungres/orm";
 import { loadSchemas } from "../schema-loader.js";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
@@ -15,22 +16,22 @@ export async function runPush(
   opts: { force?: boolean } = {}
 ): Promise<void> {
   p.intro(pc.bgCyan(pc.black(" @bungres/kit push ")));
-  const s = p.spinner();
-  s.start("Loading schemas...");
+  let activeSpinner = p.spinner();
+  activeSpinner.start("Loading schemas...");
 
   const schemas = await loadSchemas(config.schema);
 
   if (schemas.length === 0) {
-    s.stop("No schemas found.");
+    activeSpinner.stop("No schemas found.");
     p.log.warn(pc.yellow("No table definitions found. Check your schema glob pattern."));
     p.outro("Failed.");
     return;
   }
-  s.stop(`Loaded ${schemas.length} schemas.`);
+  activeSpinner.stop(`Loaded ${schemas.length} schemas.`);
 
   const sql = new Bun.SQL(config.dbUrl);
-  const ms = p.spinner();
-  ms.start("Computing diff from database...");
+  activeSpinner = p.spinner();
+  activeSpinner.start("Computing diff from database...");
 
   try {
     // Ensure schema exists
@@ -71,7 +72,11 @@ export async function runPush(
       } else if (s.type === "enum") {
         currentSnapshot.enums[s.enumName] = { enumName: s.enumName, enumValues: s.enumValues };
       } else if (s.type === "view") {
-        currentSnapshot.views[s.config.name] = s.config;
+        currentSnapshot.views[s.config.name] = {
+          name: s.config.name,
+          materialized: s.config.materialized,
+          sql: typeof s.config.query?.toSQL === 'function' ? inlineParams(s.config.query.toSQL()) : s.config.sql
+        };
       }
     }
 
@@ -79,13 +84,13 @@ export async function runPush(
     const diff = diffSchemas(prevSnapshot, currentSnapshot);
 
     if (diff.statements.length === 0) {
-      ms.stop("Up to date.");
+      activeSpinner.stop("Up to date.");
       p.log.success(pc.green("No schema changes detected. Database is up to date."));
       p.outro("Done.");
       return;
     }
     
-    ms.stop(`Computed ${diff.statements.length} statements.`);
+    activeSpinner.stop(`Computed ${diff.statements.length} statements.`);
 
     p.log.message(pc.bold("Changes to apply:"));
     for (const change of diff.summary) {
@@ -115,8 +120,8 @@ export async function runPush(
       }
     }
 
-    const exSpinner = p.spinner();
-    exSpinner.start("Pushing changes...");
+    activeSpinner = p.spinner();
+    activeSpinner.start("Pushing changes...");
 
     // Execute diff statements
     for (const stmt of diff.statements) {
@@ -132,9 +137,10 @@ export async function runPush(
       [JSON.stringify(currentSnapshot)]
     );
 
-    exSpinner.stop(pc.green("Changes applied successfully."));
+    activeSpinner.stop(pc.green("Changes applied successfully."));
     p.outro(pc.cyan("✨ Push complete."));
   } catch (err: any) {
+    activeSpinner.stop("Failed.");
     p.log.error(pc.red(`Push failed: ${err.message}`));
     p.outro("Failed.");
   } finally {
