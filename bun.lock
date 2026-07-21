@@ -18,17 +18,18 @@
       },
       "devDependencies": {
         "@bungres/kit": "workspace:*",
+        "@faker-js/faker": "^10.5.0",
         "bun-types": "latest",
       },
     },
     "packages/bungres-kit": {
       "name": "@bungres/kit",
-      "version": "0.6.2",
+      "version": "1.1.0",
       "bin": {
         "bungres": "./dist/cli.js",
       },
       "dependencies": {
-        "@bungres/orm": "workspace:*",
+        "@bungres/orm": "^1.0.0",
         "@clack/prompts": "^1.7.0",
         "picocolors": "^1.1.1",
       },
@@ -39,7 +40,7 @@
     },
     "packages/bungres-orm": {
       "name": "@bungres/orm",
-      "version": "0.6.0",
+      "version": "1.0.0",
       "devDependencies": {
         "bun-types": "latest",
         "typescript": "latest",
@@ -92,6 +93,8 @@
     "@clack/core": ["@clack/core@1.4.3", "", { "dependencies": { "fast-wrap-ansi": "^0.2.0", "sisteransi": "^1.0.5" } }, "sha512-/kr3UWNtdJfxZtPgDqUOmG2pvwlmcLGheex5yiZKdwbzZJxhV+HMNR9QNmyY5cGwTNV6LrR7Jtp+KjhUAP1qBQ=="],
 
     "@clack/prompts": ["@clack/prompts@1.7.0", "", { "dependencies": { "@clack/core": "1.4.3", "fast-string-width": "^3.0.2", "fast-wrap-ansi": "^0.2.0", "sisteransi": "^1.0.5" } }, "sha512-y7/yvZ2TPAnR9+jnc00klvNNLkJiXFFrQA/hlLCcxA9a2A4zQIOimyFQ9XfwYKiGD1fb5GY8vbKIIgO8d5Tb2A=="],
+
+    "@faker-js/faker": ["@faker-js/faker@10.5.0", "", {}, "sha512-bsxD8WLS5lIj7aaoCx1YJkktqYj5vlBUE6HWzu2Q51ksrGJ0H737ECCKlFU7Yf8Br45z9t99frBp/J7kzbMPAg=="],
 
     "@inquirer/external-editor": ["@inquirer/external-editor@1.0.3", "", { "dependencies": { "chardet": "^2.1.1", "iconv-lite": "^0.7.0" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-RWbSrDiYmO4LbejWY7ttpxczuwQyZLBUyygsA9Nsv95hpzUWwnNTVQmAq3xuh7vNwCp07UTmE5i11XAEExx4RA=="],
 
