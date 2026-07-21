@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { bungres, table, text, uuid } from "../../index.js";
+import { bungres, pgTable, text, uuid } from "../../index.js";
 
 const DB_URL = Bun.env.DATABASE_URL;
 
@@ -8,17 +8,17 @@ if (!DB_URL) {
   process.exit(0);
 }
 
-const users = table("_bungres_rel_users", {
+const users = pgTable("_bungres_rel_users", {
   id: uuid("id", { primaryKey: true }),
   name: text("name", { notNull: true }),
 });
 
-const groups = table("_bungres_rel_groups", {
+const groups = pgTable("_bungres_rel_groups", {
   id: uuid("id", { primaryKey: true }),
   name: text("name", { notNull: true }),
 });
 
-const userGroups = table("_bungres_rel_user_groups", {
+const userGroups = pgTable("_bungres_rel_user_groups", {
   id: uuid("id", { primaryKey: true }),
   userId: uuid("user_id", { notNull: true, references: { table: "users" as const, column: "id", relationName: "user" } }),
   groupId: uuid("group_id", { notNull: true, references: { table: "groups" as const, column: "id", relationName: "group" } }),

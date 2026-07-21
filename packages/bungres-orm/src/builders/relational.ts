@@ -149,6 +149,7 @@ export class RelationalQueryBuilder<
     // 2. Find "Many" relations from other tables pointing to this table
     for (const [otherName, otherTable] of Object.entries(this._schema)) {
       const otherConfig = (otherTable as any)[TableConfigSymbol];
+      if (!otherConfig) continue;
       for (const [colName, col] of Object.entries(otherConfig.columns as Record<string, any>)) {
         if (col.references && col.references.table === tableName) {
           const ref = col.references;
@@ -161,6 +162,7 @@ export class RelationalQueryBuilder<
     // 3. Find "ManyToMany" relations through junction tables
     for (const [junctionName, junctionTable] of Object.entries(this._schema)) {
       const junctionConfig = (junctionTable as any)[TableConfigSymbol];
+      if (!junctionConfig) continue;
       const refs = Object.entries(junctionConfig.columns).filter(([_, c]) => (c as any).references);
 
       const toThis = refs.find(([_, c]) => (c as any).references.table === tableName);
@@ -347,7 +349,7 @@ export class RelationalQueryBuilder<
 
   buildSQL(args: FindManyArgs<TSchema, TTableName>): SQLChunk {
     const params: unknown[] = [];
-    const rootAlias = "root";
+    const rootAlias = this._tableName as string;
     const subQuery = this._buildSelectJson(this._tableName as string, args, rootAlias, params);
 
     // Final wrapping to return rows as `_data`

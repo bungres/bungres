@@ -34,7 +34,8 @@ export class SelectBuilder<
   private _offset?: number;
   private _select?: ((keyof TColumns & string) | ColumnConfig)[];
   private _selection?: SelectedFields | undefined;
-  private _joins: (string | SQLChunk)[] = [];
+  private _joins: { table?: Table<any, any>; chunk: SQLChunk }[] = [];
+  private _isNestedOutput = false;
   private _with: CTEBuilder[] = [];
   private _setOperations: { type: string, builder: { toSQL(): SQLChunk } }[] = [];
   private _comment?: string;
@@ -49,14 +50,20 @@ export class SelectBuilder<
     onfulfilled?: ((value: TResult[]) => TResult1 | PromiseLike<TResult1>) | undefined,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined
   ): Promise<TResult1 | TResult2> {
-    return this._executor.execute<TResult>(this).then(onfulfilled, onrejected);
+    return this._executor.execute<TResult>(this).then((rows: any) => {
+      if (this._isNestedOutput) {
+        rows = rows.map((r: any) => typeof r._nested_data === "string" ? JSON.parse(r._nested_data) : r._nested_data);
+      }
+      return onfulfilled ? onfulfilled(rows) : rows;
+    }, onrejected);
   }
 
   async single(): Promise<TResult | null> {
     if (this._limit === undefined) {
       this.limit(1);
     }
-    return this._executor.executeSingle<TResult>(this);
+    const rows = await this.then();
+    return (rows as any)[0] ?? null;
   }
 
   select(...columns: ((keyof TColumns & string) | ColumnConfig)[]): this {
@@ -132,28 +139,75 @@ export class SelectBuilder<
     return this;
   }
 
+  as(aliasName: string): any {
+    const columns: Record<string, any> = {};
+    let fields: any[] = [];
+    
+    if (this._selection) {
+      fields = Object.keys(this._selection);
+    } else if (this._select && this._select.length > 0) {
+      fields = this._select;
+    } else if (!("alias" in this._table && "query" in this._table)) {
+      fields = Object.keys(getTableConfig(this._table as any).columns);
+    }
+          
+    for (const f of fields) {
+      const key = typeof f === "string" ? f : (f as any).name || (f as any).alias;
+      const dataType = typeof f !== "string" && (f as any).dataType ? (f as any).dataType : "any";
+      if (key) columns[key] = { name: key, tableName: aliasName, dataType };
+    }
+
+    const sqObj: any = { ...columns };
+    const TableConfigSymbol = Symbol.for("BungresTableConfig");
+    sqObj[TableConfigSymbol] = {
+      name: aliasName,
+      qualifiedName: `"${aliasName}"`,
+      columns,
+      isSubquery: true,
+      builder: this
+    };
+
+    return sqObj;
+  }
+
   join(rawClause: string): this {
-    this._joins.push(rawClause);
+    this._joins.push({ chunk: rawSql(rawClause) });
     return this;
   }
 
-  innerJoin(table: Table<any, any>, condition: SQLChunk): this {
-    this._joins.push(sql`INNER JOIN ${rawSql(getTableConfig(table).qualifiedName)} ON ${condition}`);
+  private _buildJoin(type: string, table: any, condition: SQLChunk): { table: any, chunk: SQLChunk } {
+    const TableConfigSymbol = Symbol.for("BungresTableConfig");
+    const cfg = table[TableConfigSymbol];
+    if (cfg && cfg.isSubquery) {
+      const sqChunk = cfg.builder.toSQL();
+      return { 
+        table, 
+        chunk: sql`${rawSql(type)} JOIN (${sqChunk}) AS "${rawSql(cfg.name)}" ON ${condition}` 
+      };
+    }
+    return { 
+      table, 
+      chunk: sql`${rawSql(type)} JOIN ${rawSql(cfg.qualifiedName)} ON ${condition}` 
+    };
+  }
+
+  innerJoin(table: any, condition: SQLChunk): this {
+    this._joins.push(this._buildJoin("INNER", table, condition));
     return this;
   }
 
-  leftJoin(table: Table<any, any>, condition: SQLChunk): this {
-    this._joins.push(sql`LEFT JOIN ${rawSql(getTableConfig(table).qualifiedName)} ON ${condition}`);
+  leftJoin(table: any, condition: SQLChunk): this {
+    this._joins.push(this._buildJoin("LEFT", table, condition));
     return this;
   }
 
-  rightJoin(table: Table<any, any>, condition: SQLChunk): this {
-    this._joins.push(sql`RIGHT JOIN ${rawSql(getTableConfig(table).qualifiedName)} ON ${condition}`);
+  rightJoin(table: any, condition: SQLChunk): this {
+    this._joins.push(this._buildJoin("RIGHT", table, condition));
     return this;
   }
 
-  fullJoin(table: Table<any, any>, condition: SQLChunk): this {
-    this._joins.push(sql`FULL JOIN ${rawSql(getTableConfig(table).qualifiedName)} ON ${condition}`);
+  fullJoin(table: any, condition: SQLChunk): this {
+    this._joins.push(this._buildJoin("FULL", table, condition));
     return this;
   }
 
@@ -181,6 +235,9 @@ export class SelectBuilder<
     let cols = "";
     const params: unknown[] = [];
 
+    const isCte = "alias" in this._table && "query" in this._table;
+    const qName = isCte ? `"${(this._table as any).alias}"` : getTableConfig(this._table as any).qualifiedName;
+    
     if (this._selection) {
       cols = Object.entries(this._selection)
         .map(([alias, col]) => {
@@ -198,24 +255,48 @@ export class SelectBuilder<
         })
         .join(", ");
     } else if (this._select && this._select.length > 0) {
-      const qName = getTableConfig(this._table).qualifiedName;
       cols = this._select
         .map((c) => {
           if (typeof c === "string") {
-            return `${qName}."${getTableConfig(this._table).columns[c]?.name ?? c}" AS "${c}"`;
+            const colName = isCte ? c : (getTableConfig(this._table as any).columns[c]?.name ?? c);
+            return `${qName}."${colName}" AS "${c}"`;
           }
           return `${c.tableName ? c.tableName + '.' : ''}"${c.name}" AS "${(c as any).alias || c.name}"`;
         })
         .join(", ");
     } else {
-      const qName = getTableConfig(this._table).qualifiedName;
-      const colsKeys = Object.keys(getTableConfig(this._table).columns);
-      if (colsKeys.length === 0) {
+      if (isCte) {
         cols = "*";
       } else {
-        cols = colsKeys
-          .map((c) => `${qName}."${getTableConfig(this._table).columns[c]!.name}" AS "${c}"`)
-          .join(", ");
+        const hasJoinedTables = this._joins.some(j => j.table);
+        if (hasJoinedTables) {
+          this._isNestedOutput = true;
+          const rootCfg = getTableConfig(this._table as any);
+          const tablesToSelect = [{ alias: rootCfg.name, config: rootCfg }];
+          
+          for (const join of this._joins) {
+            if (join.table) {
+              const cfg = getTableConfig(join.table as any);
+              tablesToSelect.push({ alias: cfg.name, config: cfg });
+            }
+          }
+
+          cols = `json_build_object(${tablesToSelect.map(t => {
+            const innerFields = Object.keys(t.config.columns).map(c => {
+               return `'${c}', "${t.config.name}"."${t.config.columns[c]!.name}"`;
+            }).join(', ');
+            return `'${t.alias}', json_build_object(${innerFields})`;
+          }).join(', ')}) AS _nested_data`;
+        } else {
+          const colsKeys = Object.keys(getTableConfig(this._table as any).columns);
+          if (colsKeys.length === 0) {
+            cols = "*";
+          } else {
+            cols = colsKeys
+              .map((c) => `${qName}."${getTableConfig(this._table as any).columns[c]!.name}" AS "${c}"`)
+              .join(", ");
+          }
+        }
       }
     }
 
@@ -231,10 +312,10 @@ export class SelectBuilder<
       prefix = `WITH ${cteStrs.join(", ")} `;
     }
 
-    let query = `SELECT ${cols} FROM ${getTableConfig(this._table).qualifiedName}`;
+    let query = `SELECT ${cols} FROM ${qName}`;
 
     if (this._joins.length > 0) {
-      const joinChunks = this._joins.map((j) => (typeof j === "string" ? rawSql(j) : j));
+      const joinChunks = this._joins.map((j) => j.chunk);
       const combinedJoins = sqlJoin(joinChunks, " ");
       const offset = params.length;
       query += " " + combinedJoins.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
@@ -256,7 +337,7 @@ export class SelectBuilder<
         " GROUP BY " +
         this._groupBy.map((c) => {
           if (typeof c === "string") {
-            const dbCol = getTableConfig(this._table).columns[c]?.name ?? c;
+            const dbCol = isCte ? c : (getTableConfig(this._table as any).columns[c]?.name ?? c);
             return `${qName}."${dbCol}"`;
           } else if ("sql" in c && "params" in c) {
             const offset = params.length;
@@ -283,7 +364,7 @@ export class SelectBuilder<
         " ORDER BY " +
         this._orderBy.map((o) => {
           if (typeof o.column === "string") {
-            const dbCol = getTableConfig(this._table).columns[o.column]?.name ?? o.column;
+            const dbCol = isCte ? o.column : (getTableConfig(this._table as any).columns[o.column]?.name ?? o.column);
             return `${qName}."${dbCol}" ${o.dir.toUpperCase()}`;
           } else if ("sql" in o.column && "params" in o.column) {
             const offset = params.length;

@@ -1,9 +1,9 @@
 import { describe, it, expect } from "bun:test";
-import { table, getTableConfig } from "../index.js";
+import { pgTable, getTableConfig } from "../index.js";
 import { uuid, text, varchar, boolean, timestamptz } from "../index.js";
 
 // `table` now defaults to snake_case — camelCase keys map to snake_case columns automatically
-const users = table("users", {
+const users = pgTable("users", {
   id:        uuid({ primaryKey: true }),
   email:     varchar({ length: 255, notNull: true, unique: true }),
   username:  text({ notNull: true }),
@@ -21,7 +21,7 @@ describe("table", () => {
   });
 
   it("qualified name with schema includes schema prefix", () => {
-    const t = table("orders", { id: uuid({ primaryKey: true }) }, { schema: "billing" });
+    const t = pgTable("orders", { id: uuid({ primaryKey: true }) }, { schema: "billing" });
     expect(getTableConfig(t).qualifiedName).toBe('"billing"."orders"');
   });
 
@@ -39,7 +39,7 @@ describe("table", () => {
   });
 
   it("stores indexes from options", () => {
-    const posts = table(
+    const posts = pgTable(
       "posts",
       { id: uuid({ primaryKey: true }), slug: text({ notNull: true }) },
       { indexes: [{ columns: ["slug"], unique: true }] }
@@ -49,7 +49,7 @@ describe("table", () => {
   });
 
   it("automatically converts camelCase JS keys to snake_case DB columns", () => {
-    const orders = table("orders", {
+    const orders = pgTable("orders", {
       id: uuid(),
       userEmailAddress: varchar({ length: 255 }),
       createdAt: timestamptz(),
@@ -64,9 +64,9 @@ describe("table", () => {
 
 import { camelCase } from "../index.js";
 
-describe("camelCase.table", () => {
+describe("camelCase.pgTable", () => {
   it("keeps camelCase JS keys as-is for DB columns", () => {
-    const items = camelCase.table("items", {
+    const items = camelCase.pgTable("items", {
       id: uuid(),
       itemName: varchar({ length: 255 }),
     });

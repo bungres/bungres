@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { and, boolean, bungres, eq, gt, ilike, inArray, integer, isNotNull, isNull, sql, table, text, timestamptz, uuid, varchar } from "../../index.js";
+import { and, boolean, bungres, eq, gt, ilike, inArray, integer, isNotNull, isNull, sql, pgTable, text, timestamptz, uuid, varchar } from "../../index.js";
 
 const DB_URL = Bun.env.DATABASE_URL;
 
@@ -13,7 +13,7 @@ if (!DB_URL) {
 // clash with any real tables in the bunvel database
 // ---------------------------------------------------------------------------
 
-const users = table("_bungres_test_users", {
+const users = pgTable("_bungres_test_users", {
   id: uuid("id", { primaryKey: true }),
   email: varchar("email", { length: 255, notNull: true, unique: true }),
   name: text("name"),
@@ -22,7 +22,7 @@ const users = table("_bungres_test_users", {
   createdAt: timestamptz("created_at", { notNull: true, defaultRaw: "NOW()" }),
 });
 
-const posts = table("_bungres_test_posts", {
+const posts = pgTable("_bungres_test_posts", {
   id: uuid("id", { primaryKey: true }),
   authorId: uuid("author_id", { notNull: true, references: { table: "_bungres_test_users", column: "id", onDelete: "cascade" } }),
   title: varchar("title", { length: 500, notNull: true }),

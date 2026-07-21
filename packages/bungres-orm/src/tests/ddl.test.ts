@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { generateCreateTable, generateDropTable, generateAddColumn, generateDropColumn, generateCreateEnum, generateDropEnum, generateCreateView, generateDropView } from "../ddl.js";
-import { pgEnum, pgView, pgMaterializedView, SelectBuilder, table, text, boolean, getTableConfig, customType, varchar } from "../index.js";
+import { pgEnum, pgView, pgMaterializedView, SelectBuilder, pgTable, text, boolean, getTableConfig, customType, varchar } from "../index.js";
 import type { TableConfig, QueryExecutor } from "../index.js";
 
 const usersConfig: TableConfig = {
@@ -80,7 +80,7 @@ describe("generateCreateTable", () => {
 
   it("respects ifNotExists=false", () => {
     const config = getTableConfig(
-      table("users", { id: text("id") })
+      pgTable("users", { id: text("id") })
     ) as TableConfig;
     const sql = generateCreateTable(config, false);
     expect(sql).toContain("CREATE TABLE \"users\" (");
@@ -88,7 +88,7 @@ describe("generateCreateTable", () => {
 
   it("generates GENERATED ALWAYS AS (...) STORED", () => {
     const config = getTableConfig(
-      table("users", { 
+      pgTable("users", { 
         firstName: text("first_name"),
         lastName: text("last_name"),
         fullName: text("full_name").generatedAlwaysAs("first_name || ' ' || last_name")
@@ -101,7 +101,7 @@ describe("generateCreateTable", () => {
   it("handles dynamic array types and custom types", () => {
     const citext = customType("citext");
     const config = getTableConfig(
-      table("users", { 
+      pgTable("users", { 
         emails: citext("emails").array(),
         titles: varchar("titles", { length: 50 }).array()
       })
@@ -188,7 +188,7 @@ const dummyExecutor: QueryExecutor = {
   executeSingle: async () => null,
 };
 
-const usersTable = table("users", {
+const usersTable = pgTable("users", {
   id: text("id"),
   verified: boolean("verified")
 });

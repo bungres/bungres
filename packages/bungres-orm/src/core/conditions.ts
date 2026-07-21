@@ -58,18 +58,26 @@ export const isNull = (column: string | ColumnConfig | SQLChunk): SQLChunk =>
 export const isNotNull = (column: string | ColumnConfig | SQLChunk): SQLChunk =>
   rawSql(`${colName(column)} IS NOT NULL`);
 
-export const inArray = (column: string | ColumnConfig, values: unknown[]): SQLChunk => {
-  if (values.length === 0) return rawSql("FALSE");
-  const params = values;
-  const placeholders = params.map((_, i) => `$${i + 1}`).join(", ");
-  return { sql: `${colName(column)} = ANY(ARRAY[${placeholders}])`, params };
+export const inArray = (column: string | ColumnConfig, values: unknown[] | { toSQL(): SQLChunk }): SQLChunk => {
+  if (typeof values === "object" && values !== null && "toSQL" in values) {
+    return sql`${rawSql(colName(column))} IN (${values.toSQL()})`;
+  }
+  const arr = values as unknown[];
+  if (arr.length === 0) return rawSql("FALSE");
+  const params = arr;
+  const placeholders = arr.map((_, i) => `$${i + 1}`).join(", ");
+  return { sql: `${colName(column)} IN (${placeholders})`, params };
 };
 
-export const notInArray = (column: string | ColumnConfig, values: unknown[]): SQLChunk => {
-  if (values.length === 0) return rawSql("TRUE");
-  const params = values;
-  const placeholders = params.map((_, i) => `$${i + 1}`).join(", ");
-  return { sql: `${colName(column)} != ALL(ARRAY[${placeholders}])`, params };
+export const notInArray = (column: string | ColumnConfig, values: unknown[] | { toSQL(): SQLChunk }): SQLChunk => {
+  if (typeof values === "object" && values !== null && "toSQL" in values) {
+    return sql`${rawSql(colName(column))} NOT IN (${values.toSQL()})`;
+  }
+  const arr = values as unknown[];
+  if (arr.length === 0) return rawSql("TRUE");
+  const params = arr;
+  const placeholders = arr.map((_, i) => `$${i + 1}`).join(", ");
+  return { sql: `${colName(column)} NOT IN (${placeholders})`, params };
 };
 
 export const between = (column: string | ColumnConfig | SQLChunk, min: unknown, max: unknown): SQLChunk =>
@@ -168,10 +176,10 @@ export function parseOrderByObject(tableConfig: TableConfig, orderByObj: OrderBy
 // ---------------------------------------------------------------------------
 
 export const containsJson = (column: string | ColumnConfig | SQLChunk, value: unknown): SQLChunk =>
-  sql`${rawSql(colName(column))} @> ${JSON.stringify(value)}::jsonb`;
+  sql`${rawSql(colName(column))} @> ${value}::jsonb`;
 
 export const containedInJson = (column: string | ColumnConfig | SQLChunk, value: unknown): SQLChunk =>
-  sql`${rawSql(colName(column))} <@ ${JSON.stringify(value)}::jsonb`;
+  sql`${rawSql(colName(column))} <@ ${value}::jsonb`;
 
 export const hasKey = (column: string | ColumnConfig | SQLChunk, key: string): SQLChunk =>
   sql`${rawSql(colName(column))} ? ${key}`;

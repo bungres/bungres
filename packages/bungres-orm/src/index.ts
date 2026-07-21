@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 // Schema definition
-export { camelCase, getTableConfig, noCasing, snakeCase, table, pgTable, TableConfigSymbol } from "./schema/table.js";
+export { alias, camelCase, getTableConfig, noCasing, snakeCase, pgTable, TableConfigSymbol } from "./schema/table.js";
 export type { Table } from "./schema/table.js";
 
 // Views

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { table } from "../index.js";
+import { pgTable } from "../index.js";
 import { uuid, text, varchar, boolean, integer, timestamptz } from "../index.js";
 import {
   SelectBuilder, InsertBuilder, UpdateBuilder, DeleteBuilder,
@@ -19,7 +19,7 @@ const dummyExecutor: QueryExecutor = {
 
 // ── Shared test table ───────────────────────────────────────────────────────
 
-const users = table("users", {
+const users = pgTable("users", {
   id:       uuid("id", { primaryKey: true }),
   email:    varchar("email", { length: 255, notNull: true, unique: true }),
   name:     text("name"),
@@ -224,9 +224,9 @@ describe("Condition helpers", () => {
     expect(isNotNull("deleted_at").sql).toContain("IS NOT NULL");
   });
 
-  it("inArray produces ANY(ARRAY[...])", () => {
+  it("inArray produces IN (...)", () => {
     const { sql, params } = inArray("status", ["active", "pending"]);
-    expect(sql).toContain("ANY(ARRAY[");
+    expect(sql).toContain("IN ($1, $2)");
     expect(params).toEqual(["active", "pending"]);
   });
 
@@ -259,7 +259,7 @@ describe("JSONB Condition helpers", () => {
     expect(sql).toContain("@>");
     expect(sql).toContain("::jsonb");
     expect(params).toHaveLength(1);
-    expect(params[0]).toBe('{"role":"admin"}');
+    expect(params[0]).toEqual({ role: "admin" });
   });
 
   it("hasKey produces ?", () => {
