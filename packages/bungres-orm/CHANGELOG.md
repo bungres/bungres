@@ -1,5 +1,12 @@
 # @bungres/orm
 
+## 1.1.1
+
+### Patch Changes
+
+- 0d1e1ee: - Update `generateCreateView` in DDL helpers to support legacy snapshots and direct `view.sql` structures.
+  - Export `inlineParams` utility from `@bungres/orm` index.
+
 ## 1.1.0
 
 ### Minor Changes
