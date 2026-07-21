@@ -55,7 +55,7 @@ export type { FindManyArgs, FindManyResult, SchemaConfig, WithConfig } from "./t
 // DDL helpers (used by @bungres/kit, also exported for advanced users)
 export {
   generateAddColumn, generateAddConstraint, generateCreateTable, generateDropColumn, generateDropConstraint, generateDropTable,
-  generateCreateEnum, generateDropEnum, generateCreateView, generateDropView
+  generateCreateEnum, generateDropEnum, generateCreateView, generateDropView, inlineParams
 } from "./ddl.js";
 
 // Types

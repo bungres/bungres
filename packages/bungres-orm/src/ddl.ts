@@ -213,9 +213,16 @@ export function inlineParams(chunk: { sql: string; params: unknown[] }): string 
 }
 
 /** Generate CREATE VIEW statement */
-export function generateCreateView(view: ViewConfig): string {
+export function generateCreateView(view: any): string {
   const kind = view.materialized ? "MATERIALIZED VIEW" : "VIEW";
-  const inlineSql = inlineParams(view.query.toSQL());
+  let inlineSql = "";
+  if (view.sql) {
+    inlineSql = view.sql;
+  } else if (view.query && typeof view.query.toSQL === "function") {
+    inlineSql = inlineParams(view.query.toSQL());
+  } else {
+    inlineSql = "SELECT * FROM (VALUES ('LEGACY_SNAPSHOT_MISSING_SQL')) AS t(c)";
+  }
   return `CREATE ${kind} "${view.name}" AS ${inlineSql};`;
 }
 
