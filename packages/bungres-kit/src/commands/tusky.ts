@@ -7,6 +7,10 @@ import { loadSchemas } from "../schema-loader.js";
 
 // ---------------------------------------------------------------------------
 // tusky — boot up a basic REPL connected to the database
+//
+// ⚠️ SECURITY WARNING: This tool uses eval() to execute arbitrary code.
+// ONLY use in development environments. Never run in production.
+// See packages/bungres-kit/README.md for security considerations.
 // ---------------------------------------------------------------------------
 
 export async function runTusky(config: ResolvedConfig): Promise<void> {

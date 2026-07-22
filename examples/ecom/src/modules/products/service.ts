@@ -1,7 +1,7 @@
 import { desc, eq, ilike } from "@bungres/orm";
+import type { UnwrapSchema } from "elysia";
 import { db } from "../../db/client";
 import { products } from "../../db/schema";
-import type { UnwrapSchema } from "elysia";
 import type { ProductModel } from "./model";
 
 export abstract class ProductService {
@@ -49,7 +49,7 @@ export abstract class ProductService {
   }
 
   static async delete(id: string) {
-    await db.execute(db.delete(products).where(eq(products.id, id)));
+    await db.delete(products).where(eq(products.id, id));
     return { success: true, id };
   }
 }

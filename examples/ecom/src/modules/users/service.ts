@@ -25,7 +25,7 @@ export abstract class UserService {
       avgOrderValue: avg(orders.total)
     })
       .from(users)
-      .innerJoin(orders, eq(users.id, orders.userId))
+      .innerJoin(orders, eq(users.id, orders.customerId))
       .groupBy(users.id, users.name)
       .having(gte(sum(orders.total), 500)) // Filter for users who have spent 500 or more
       .orderBy(sum(orders.total), "desc")
@@ -48,7 +48,7 @@ export abstract class UserService {
   }
 
   static async delete(id: string) {
-    await db.execute(db.delete(users).where(eq(users.id, id)));
+    await db.delete(users).where(eq(users.id, id));
     return { success: true, id };
   }
 

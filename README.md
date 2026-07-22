@@ -1,17 +1,17 @@
 # Bungres
 
-Type-safe Postgres ORM + CLI toolkit for [Bun](https://bun.sh), using Bun's native `Bun.sql` — no external database driver needed.
+Type-safe Postgres ORM + CLI toolkit for [Bun](https://bun.sh), using Bun's native `Bun.SQL` — no external database driver needed.
 
-| Package | Description |
-|---|---|
-| `@bungres/orm` | Core ORM — schema definition, query builder, DB client |
+| Package        | Description                                               |
+| -------------- | --------------------------------------------------------- |
+| `@bungres/orm` | Core ORM — schema definition, query builder, DB client    |
 | `@bungres/kit` | CLI toolkit — generate, migrate, push, pull, status, drop |
 
 ---
 
 ## Requirements
 
-- **Bun ≥ 1.3** (uses `Bun.sql` natively under the hood)
+- **Bun ≥ 1.3** (uses `Bun.SQL` natively under the hood)
 - **Postgres ≥ 16**
 
 ---
@@ -41,20 +41,33 @@ bun run bungres migrate
 ### Defining a schema
 
 ```ts
-import { table, uuid, varchar, text, boolean, timestamptz, unique, index } from "@bungres/orm";
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  boolean,
+  timestamptz,
+  unique,
+  index,
+} from "@bungres/orm";
 
-export const users = table("users", {
-  id: uuid({ primaryKey: true }),
-  email: varchar({ length: 255, notNull: true }),
-  username: varchar({ length: 80, notNull: true }),
-  fullName: text(),
-  verified: boolean({ notNull: true, default: false }),
-  createdAt: timestamptz({ notNull: true, defaultRaw: "NOW()" }),
-}, (t) => [
-  unique().on(t.email),
-  unique().on(t.username),
-  index().on(t.createdAt)
-]);
+export const users = pgTable(
+  "users",
+  {
+    id: uuid({ primaryKey: true }),
+    email: varchar({ length: 255, notNull: true }),
+    username: varchar({ length: 80, notNull: true }),
+    fullName: text(),
+    verified: boolean({ notNull: true, default: false }),
+    createdAt: timestamptz({ notNull: true, defaultRaw: "NOW()" }),
+  },
+  (t) => [
+    unique().on(t.email),
+    unique().on(t.username),
+    index().on(t.createdAt),
+  ],
+);
 ```
 
 ### Creating a DB client
@@ -75,33 +88,38 @@ const user = await db.select().from(users).where(eq(users.id, userId)).single();
 
 // FIND FIRST / FIND MANY (Alternative Syntax)
 const userByEmail = await db.users.findFirst({
-  where: eq(users.email, "alice@example.com")
+  where: eq(users.email, "alice@example.com"),
 });
 
 // INSERT
-const newUser = await db.insert(users)
+const newUser = await db
+  .insert(users)
   .values({ email: "alice@example.com", username: "alice" })
   .returning()
   .single();
 
 // UPDATE
-const updated = await db.update(users)
+const updated = await db
+  .update(users)
   .set({ verified: true })
   .where(eq(users.id, userId))
   .returning()
   .single();
 
 // DELETE
-await db.execute(db.delete(users).where(eq(users.id, userId)));
+await db.delete(users).where(eq(users.id, userId));
 ```
 
 ### Transactions
 
 ```ts
 const result = await db.transaction(async (tx) => {
-  const post = await tx.execute(tx.insert(posts).values(data).returning());
-  await tx.execute(tx.update(users).set({ postCount: n + 1 }).where(eq("id", authorId)));
-  return post[0];
+  const post = await tx.insert(posts).values(data).returning().single();
+  await tx
+    .update(users)
+    .set({ postCount: n + 1 })
+    .where(eq("id", authorId));
+  return post;
 });
 ```
 
@@ -112,7 +130,7 @@ const result = await db.transaction(async (tx) => {
 import { sql } from "@bungres/orm";
 
 const chunk = sql`SELECT * FROM "users" WHERE email = ${email}`;
-const rows  = await db.execute(chunk);
+const rows = await db.execute(chunk);
 
 // Raw string (for DDL or trusted queries)
 const rows = await db.raw(`SELECT COUNT(*) FROM "users"`);
@@ -121,14 +139,29 @@ const rows = await db.raw(`SELECT COUNT(*) FROM "users"`);
 ### Condition helpers
 
 ```ts
-import { eq, ne, gt, gte, lt, lte, like, ilike, isNull, isNotNull, inArray, and, or, not } from "@bungres/orm";
+import {
+  eq,
+  ne,
+  gt,
+  gte,
+  lt,
+  lte,
+  like,
+  ilike,
+  isNull,
+  isNotNull,
+  inArray,
+  and,
+  or,
+  not,
+} from "@bungres/orm";
 
 db.select(posts).where(
   and(
     eq("published", true),
-    or(ilike("title", "%bun%"), ilike("body", "%bun%"))
-  )
-)
+    or(ilike("title", "%bun%"), ilike("body", "%bun%")),
+  ),
+);
 ```
 
 ### Type inference
@@ -136,8 +169,8 @@ db.select(posts).where(
 ```ts
 import type { InferTable, InferInsert } from "@bungres/orm";
 
-type User    = InferTable<typeof users>;   // full row
-type NewUser = InferInsert<typeof users>;  // insert shape (PKs/defaults optional)
+type User = InferTable<typeof users>; // full row
+type NewUser = InferInsert<typeof users>; // insert shape (PKs/defaults optional)
 ```
 
 ## Version 1.0 Features 🌟
@@ -147,10 +180,9 @@ type NewUser = InferInsert<typeof users>;  // insert shape (PKs/defaults optiona
 Automatically convert camelCase JS keys to snake_case DB columns without manually typing names!
 
 ```ts
-import { table } from "@bungres/orm";
-import { uuid, varchar, text } from "@bungres/orm";
+import { pgTable, uuid, varchar, text } from "@bungres/orm";
 
-export const users = table("users", {
+export const users = pgTable("users", {
   id: uuid({ primaryKey: true }),
   fullName: text(), // Automatically becomes `full_name`!
 });
@@ -161,7 +193,9 @@ export const users = table("users", {
 Easily alias columns in your selects!
 
 ```ts
-const rows = await db.select(users.id, users.fullName.as("userName")).from(users);
+const rows = await db
+  .select(users.id, users.fullName.as("userName"))
+  .from(users);
 ```
 
 ### 3. SQL Commenter
@@ -180,8 +214,8 @@ Bungres automatically detects junction tables based on foreign keys!
 // Easily pull many-to-many relationships!
 const result = await db.users.findMany({
   with: {
-    groups: true // automatically resolved through user_groups junction!
-  }
+    groups: true, // automatically resolved through user_groups junction!
+  },
 });
 ```
 
@@ -205,20 +239,20 @@ export default defineConfig({
 
 ### Commands
 
-| Command | Description |
-|---|---|
-| `bungres init` | Initialize bungres project with config file and db folder structure |
-| `bungres generate` | Write a timestamped `.sql` migration file from your schema |
-| `bungres migrate` | Run pending `.sql` files, track applied in `__bungres_migrations` |
-| `bungres push` | Apply schema directly to DB — no files (dev/prototyping) |
-| `bungres pull` | Introspect the DB and generate TypeScript schema |
-| `bungres status` | Show applied vs pending migrations |
-| `bungres fresh` | Drop all tables and re-run all migrations from scratch |
-| `bungres refresh` | Truncate all tables to quickly reset data without dropping schema |
-| `bungres seed` | Execute the seed script to populate the database |
-| `bungres studio` | Start a local web interface to browse database data |
-| `bungres tusky` | Boot up a Node REPL connected to the database with schema loaded |
-| `bungres drop` | Drop all tables defined in the schema (prompts for confirmation) |
+| Command            | Description                                                         |
+| ------------------ | ------------------------------------------------------------------- |
+| `bungres init`     | Initialize bungres project with config file and db folder structure |
+| `bungres generate` | Write a timestamped `.sql` migration file from your schema          |
+| `bungres migrate`  | Run pending `.sql` files, track applied in `__bungres_migrations`   |
+| `bungres push`     | Apply schema directly to DB — no files (dev/prototyping)            |
+| `bungres pull`     | Introspect the DB and generate TypeScript schema                    |
+| `bungres status`   | Show applied vs pending migrations                                  |
+| `bungres fresh`    | Drop all tables and re-run all migrations from scratch              |
+| `bungres refresh`  | Truncate all tables to quickly reset data without dropping schema   |
+| `bungres seed`     | Execute the seed script to populate the database                    |
+| `bungres studio`   | Start a local web interface to browse database data                 |
+| `bungres tusky`    | Boot up a Node REPL connected to the database with schema loaded    |
+| `bungres drop`     | Drop all tables defined in the schema (prompts for confirmation)    |
 
 ```bash
 bungres init
@@ -262,9 +296,42 @@ bungres/
 │               ├── migrate.ts
 │               ├── pull.ts
 │               ├── status.ts
-│               └── drop.ts
+│               ├── drop.ts
+│               ├── studio.ts
+│               └── tusky.ts
 ├── examples/
-│   └── blog/               # Full example — users, posts, comments
+│   └── ecom/               # Full e-commerce example
 ├── bungres.config.ts         # Root-level config template
 └── package.json            # Bun workspaces monorepo root
+```
+
+## Security Considerations
+
+### ⚠️ REPL Tool (tusky) Security Warning
+
+The `bungres tusky` command provides an interactive REPL (Read-Eval-Print Loop) for development and debugging purposes. Since `@bungres/kit` is installed as a dev dependency, this tool is intended for development use only.
+
+**Security Risks:**
+
+- Uses `eval()` to execute arbitrary JavaScript/TypeScript code
+- Has direct access to your database connection
+- Can execute any SQL query through the database connection
+- Runs with the same permissions as your database user
+
+**Safe Usage Guidelines:**
+
+- Only run `tusky` in local development environments
+- Never expose the REPL to external networks or public access
+- Use database users with limited permissions for development
+- Avoid running in production or staging environments
+- Be cautious when executing code from untrusted sources
+
+**Recommended Development Setup:**
+
+```bash
+# Use a dedicated development database
+export DATABASE_URL="postgres://dev_user:dev_pass@localhost:5432/dev_db"
+
+# Run tusky only in development
+bun run bungres tusky
 ```

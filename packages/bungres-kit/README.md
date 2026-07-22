@@ -4,7 +4,7 @@ CLI toolkit for [`@bungres/orm`](https://www.npmjs.com/package/@bungres/orm) —
 
 ## Requirements
 
-- **Bun ≥ 1.3** (uses `Bun.sql` which is built-in)
+- **Bun ≥ 1.3** (uses `Bun.SQL` which is built-in)
 - **Postgres ≥ 16**
 - Built to work alongside `@bungres/orm`.
 
@@ -38,21 +38,21 @@ Run the CLI using Bun:
 bun run bungres --help
 ```
 
-| Command | Description |
-|---|---|
-| `bungres init` | Initialize bungres project with config file and db folder structure |
-| `bungres generate` | Write a single timestamped `.sql` migration file with UP/DOWN sections |
-| `bungres migrate` | Run pending `.sql` UP sections, track applied in `__bungres_migrations` |
-| `bungres rollback` | Automatically revert the last applied migration using its DOWN section |
-| `bungres push` | Apply schema directly to DB — no files (great for dev/prototyping) |
-| `bungres pull` | Introspect the DB and generate TypeScript schema |
-| `bungres status` | Show applied vs pending migrations |
-| `bungres fresh` | Drop all tables and re-run all migrations from scratch |
-| `bungres refresh` | Truncate all tables to quickly reset data without dropping schema |
-| `bungres seed` | Execute the seed script, or run the Auto-Seeder using `@faker-js/faker` |
-| `bungres studio` | Start a local web interface to browse database data |
-| `bungres tusky` | Boot up a Node REPL connected to the database with schema loaded |
-| `bungres drop` | Drop all tables, enums, and views defined in the schema (prompts for confirmation) |
+| Command            | Description                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| `bungres init`     | Initialize bungres project with config file and db folder structure                |
+| `bungres generate` | Write a single timestamped `.sql` migration file with UP/DOWN sections             |
+| `bungres migrate`  | Run pending `.sql` UP sections, track applied in `__bungres_migrations`            |
+| `bungres rollback` | Automatically revert the last applied migration using its DOWN section             |
+| `bungres push`     | Apply schema directly to DB — no files (great for dev/prototyping)                 |
+| `bungres pull`     | Introspect the DB and generate TypeScript schema                                   |
+| `bungres status`   | Show applied vs pending migrations                                                 |
+| `bungres fresh`    | Drop all tables and re-run all migrations from scratch                             |
+| `bungres refresh`  | Truncate all tables to quickly reset data without dropping schema                  |
+| `bungres seed`     | Execute the seed script, or run the Auto-Seeder using `@faker-js/faker`            |
+| `bungres studio`   | Start a local web interface to browse database data                                |
+| `bungres tusky`    | Boot up a Node REPL connected to the database with schema loaded                   |
+| `bungres drop`     | Drop all tables, enums, and views defined in the schema (prompts for confirmation) |
 
 ### Usage Examples
 
@@ -82,4 +82,5 @@ bun run bungres drop --force   # skip confirmation
 - **Auto-Seeder**: Run `bungres seed` without a custom script to automatically generate mock data for your database using `@faker-js/faker`, resolving foreign key dependencies automatically!
 
 ## License
+
 MIT
