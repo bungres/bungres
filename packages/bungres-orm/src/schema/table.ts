@@ -9,7 +9,7 @@ export const TableConfigSymbol = Symbol.for("BungresTableConfig");
 
 export interface TableConfigImpl<TName extends string, TColumns> {
   name: TName;
-  schema: string | undefined;
+  schema?: string;
   columns: TColumns;
   primaryKeys: string[];
   indexes: IndexConfig[];
@@ -128,7 +128,7 @@ function createTableFactory(casing: "none" | "snake" | "camel") {
     const tableObj = {
       [TableConfigSymbol]: {
         name,
-        schema,
+        ...(schema ? { schema } : {}),
         columns: columnConfigs,
         indexes,
         checks,

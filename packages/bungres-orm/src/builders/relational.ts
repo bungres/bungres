@@ -306,7 +306,7 @@ export class RelationalQueryBuilder<
       const offset = params.length;
       let whereChunk: any = args.where;
       if (args.where && !args.where.sql) {
-        whereChunk = parseWhereObject(tableConfig, args.where);
+        whereChunk = parseWhereObject(tableConfig, args.where, alias);
       }
       
       if (whereChunk && whereChunk.sql) {
@@ -323,7 +323,7 @@ export class RelationalQueryBuilder<
         fromSql += ` ORDER BY ` + args.orderBy.sql.replace(/\$(\d+)/g, (_: string, n: string) => `$${parseInt(n) + offset}`);
         params.push(...args.orderBy.params);
       } else {
-        const chunks = parseOrderByObject(tableConfig, args.orderBy);
+        const chunks = parseOrderByObject(tableConfig, args.orderBy, alias);
         if (chunks.length > 0) {
             fromSql += ` ORDER BY ` + chunks.map(c => {
                 const offset = params.length;

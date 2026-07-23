@@ -12,6 +12,7 @@ export type ColumnDataType =
   | "smallint"
   | "serial"
   | "bigserial"
+  | "smallserial"
   | "boolean"
   | "real"
   | "double precision"
@@ -41,6 +42,9 @@ export type ColumnDataType =
   | "integer[]"
   | "varchar[]"
   | "uuid[]"
+  | "boolean[]"
+  | "json[]"
+  | "jsonb[]"
   | (string & {});
 
 /** Column config stored internally */
@@ -132,6 +136,7 @@ type InferBaseType<C extends ColumnConfig<any, any, any, any>> = C extends { _en
       | "smallint"
       | "serial"
       | "bigserial"
+      | "smallserial"
       | "real"
       | "double precision"
       | "numeric"
@@ -149,6 +154,10 @@ type InferBaseType<C extends ColumnConfig<any, any, any, any>> = C extends { _en
   ? string[]
   : C["dataType"] extends "integer[]"
   ? number[]
+  : C["dataType"] extends "boolean[]"
+  ? boolean[]
+  : C["dataType"] extends "json[]" | "jsonb[]"
+  ? unknown[]
   : unknown;
 
 export type InferColumnType<C extends ColumnConfig<any, any, any, any>> = IsNullable<C> extends true

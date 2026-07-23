@@ -45,7 +45,8 @@ export type ExtractManyToManyRelations<TSchema extends SchemaConfig, TTableName 
   {
     [Junction in keyof TSchema]: {
       [ColName in keyof GetColumns<TSchema[Junction]> as GetTableRef<GetColumns<TSchema[Junction]>[ColName]> extends TTableName
-      ? (GetBackRelName<GetColumns<TSchema[Junction]>[ColName]> extends string ? GetBackRelName<GetColumns<TSchema[Junction]>[ColName]> : (GetOtherFK<TSchema, Junction, ColName> extends string ? GetOtherFK<TSchema, Junction, ColName> : never))
+      ? ([GetOtherFK<TSchema, Junction, ColName>] extends [never] ? never :
+        (GetBackRelName<GetColumns<TSchema[Junction]>[ColName]> extends string ? GetBackRelName<GetColumns<TSchema[Junction]>[ColName]> : GetOtherFK<TSchema, Junction, ColName>))
       : never]: { type: "manyToMany"; targetTable: GetOtherFK<TSchema, Junction, ColName> }
     };
   }[keyof TSchema]

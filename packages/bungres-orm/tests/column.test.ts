@@ -1,8 +1,16 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import {
-  text, varchar, integer, uuid, serial, boolean,
-  timestamptz, jsonb,
-} from "../index.js";
+  boolean,
+  json,
+  jsonb,
+  serial,
+  smallserial,
+  text,
+  timestamptz,
+  uuid,
+  varchar,
+  customType
+} from "../src/index.js";
 
 describe("Column Builder Functions", () => {
   it("creates a basic text column", () => {
@@ -54,6 +62,12 @@ describe("Column Builder Functions", () => {
     expect(col.dataType).toBe("serial");
   });
 
+  it("smallserial column is notNull by default", () => {
+    const col = smallserial("id");
+    expect(col.notNull).toBe(true);
+    expect(col.dataType).toBe("smallserial");
+  });
+
   it("uuid() does not set a default without primaryKey", () => {
     const col = uuid("id");
     expect(col.defaultFn).toBeUndefined();
@@ -77,6 +91,12 @@ describe("Column Builder Functions", () => {
   it("supports the .array() modifier", () => {
     const col = text("tags").array();
     expect(col.dataType).toBe("text[]");
+
+    const boolArr = boolean("flags").array();
+    expect(boolArr.dataType).toBe("boolean[]");
+
+    const jsonArr = json("data").array();
+    expect(jsonArr.dataType).toBe("json[]");
   });
 
   it("supports .generatedAlwaysAs()", () => {
@@ -85,8 +105,6 @@ describe("Column Builder Functions", () => {
   });
 
   it("supports customType()", () => {
-    // Need to import customType, but we can just use it if we import it or we can require it
-    const { customType } = require("../index.js");
     const citext = customType("citext");
     const col = citext("email_citext");
     expect(col.dataType).toBe("citext");

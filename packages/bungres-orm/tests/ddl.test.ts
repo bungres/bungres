@@ -1,14 +1,14 @@
-import { describe, it, expect } from "bun:test";
-import { generateCreateTable, generateDropTable, generateAddColumn, generateDropColumn, generateCreateEnum, generateDropEnum, generateCreateView, generateDropView } from "../ddl.js";
-import { pgEnum, pgView, pgMaterializedView, SelectBuilder, pgTable, text, boolean, getTableConfig, customType, varchar } from "../index.js";
-import type { TableConfig, QueryExecutor } from "../index.js";
+import { describe, expect, it } from "bun:test";
+import { generateAddColumn, generateCreateEnum, generateCreateTable, generateCreateView, generateDropColumn, generateDropEnum, generateDropTable, generateDropView } from "../src/ddl.js";
+import type { QueryExecutor, TableConfig } from "../src/index.js";
+import { boolean, customType, getTableConfig, jsonb, pgEnum, pgMaterializedView, pgTable, pgView, SelectBuilder, text, timestamptz, varchar } from "../src/index.js";
 
 const usersConfig: TableConfig = {
   name: "users",
   columns: {
-    id:        { name: "id", dataType: "uuid", notNull: true, primaryKey: true, unique: false, defaultFn: "gen_random_uuid()" },
-    email:     { name: "email", dataType: "varchar", notNull: true, primaryKey: false, unique: true },
-    verified:  { name: "verified", dataType: "boolean", notNull: true, primaryKey: false, unique: false, defaultValue: false },
+    id: { name: "id", dataType: "uuid", notNull: true, primaryKey: true, unique: false, defaultFn: "gen_random_uuid()" },
+    email: { name: "email", dataType: "varchar", notNull: true, primaryKey: false, unique: true },
+    verified: { name: "verified", dataType: "boolean", notNull: true, primaryKey: false, unique: false, defaultValue: false },
     createdAt: { name: "created_at", dataType: "timestamptz", notNull: true, primaryKey: false, unique: false, defaultFn: "NOW()" },
   },
 };
@@ -17,10 +17,12 @@ const postsConfig: TableConfig = {
   name: "posts",
   schema: "blog",
   columns: {
-    id:       { name: "id", dataType: "serial", notNull: true, primaryKey: true, unique: false },
-    authorId: { name: "author_id", dataType: "uuid", notNull: true, primaryKey: false, unique: false,
-                references: { table: "users", column: "id", onDelete: "cascade" } },
-    title:    { name: "title", dataType: "varchar", notNull: true, primaryKey: false, unique: false },
+    id: { name: "id", dataType: "serial", notNull: true, primaryKey: true, unique: false },
+    authorId: {
+      name: "author_id", dataType: "uuid", notNull: true, primaryKey: false, unique: false,
+      references: { table: "users", column: "id", onDelete: "cascade" }
+    },
+    title: { name: "title", dataType: "varchar", notNull: true, primaryKey: false, unique: false },
   },
   indexes: [
     { name: "idx_posts_author", columns: ["author_id"], using: "btree" },
@@ -60,6 +62,22 @@ describe("generateCreateTable", () => {
     expect(ddl).toContain("DEFAULT FALSE");
   });
 
+  it("handles Date and Array default values", () => {
+    const config = getTableConfig(
+      pgTable("test", {
+        col1: timestamptz("col1", { default: new Date("2024-01-01T00:00:00.000Z") }),
+        col2: varchar("col2", { default: ["a", "b", "c'd"] }).array(),
+        col3: jsonb("col3", { default: { key: "val" } }),
+        col4: jsonb("col4", { default: ["json", "array"] })
+      })
+    ) as TableConfig;
+    const sql = generateCreateTable(config);
+    expect(sql).toContain("DEFAULT '2024-01-01T00:00:00.000Z'");
+    expect(sql).toContain("DEFAULT '{\"a\",\"b\",\"c''d\"}'");
+    expect(sql).toContain("DEFAULT '{\"key\":\"val\"}'");
+    expect(sql).toContain("DEFAULT '[\"json\",\"array\"]'");
+  });
+
   it("uses schema-qualified name when schema is set", () => {
     const ddl = generateCreateTable(postsConfig);
     expect(ddl).toContain('"blog"."posts"');
@@ -88,7 +106,7 @@ describe("generateCreateTable", () => {
 
   it("generates GENERATED ALWAYS AS (...) STORED", () => {
     const config = getTableConfig(
-      pgTable("users", { 
+      pgTable("users", {
         firstName: text("first_name"),
         lastName: text("last_name"),
         fullName: text("full_name").generatedAlwaysAs("first_name || ' ' || last_name")
@@ -101,7 +119,7 @@ describe("generateCreateTable", () => {
   it("handles dynamic array types and custom types", () => {
     const citext = customType("citext");
     const config = getTableConfig(
-      pgTable("users", { 
+      pgTable("users", {
         emails: citext("emails").array(),
         titles: varchar("titles", { length: 50 }).array()
       })
@@ -167,7 +185,7 @@ describe("Enum DDL", () => {
 
   it("generateCreateTable > uses the enum name for the column type", () => {
     const statusEnum = pgEnum("status", ["active", "archived"]);
-    
+
     const config = {
       name: "users",
       columns: {
@@ -197,7 +215,7 @@ describe("Views DDL", () => {
   it("generateCreateView > generates CREATE VIEW with inlined params", () => {
     const qb = new SelectBuilder(usersTable, dummyExecutor).select("id").where({ verified: true });
     const view = pgView("active_users", qb);
-    
+
     const sql = generateCreateView(view);
     expect(sql).toBe('CREATE VIEW "active_users" AS SELECT "users"."id" AS "id" FROM "users" WHERE "users"."verified" = TRUE;');
   });
@@ -205,7 +223,7 @@ describe("Views DDL", () => {
   it("generateCreateView > generates CREATE MATERIALIZED VIEW", () => {
     const qb = new SelectBuilder(usersTable, dummyExecutor).select("id").where({ verified: false });
     const view = pgMaterializedView("inactive_users", qb);
-    
+
     const sql = generateCreateView(view);
     expect(sql).toBe('CREATE MATERIALIZED VIEW "inactive_users" AS SELECT "users"."id" AS "id" FROM "users" WHERE "users"."verified" = FALSE;');
   });

@@ -9,6 +9,46 @@ export interface SQLChunk<T = unknown> {
 }
 
 /**
+ * Safely offsets parameter indices (e.g., $1 -> $5) in a SQL string.
+ * Ignores $N inside single quotes (') and double quotes (").
+ */
+export function shiftParams(sql: string, paramsLength: number, offset: number): string {
+  if (paramsLength === 0) return sql;
+  
+  let result = "";
+  let inString = false;
+  let inIdent = false;
+  let i = 0;
+  while (i < sql.length) {
+    if (sql[i] === "'" && !inIdent) {
+      inString = !inString;
+      result += sql[i];
+      i++;
+    } else if (sql[i] === '"' && !inString) {
+      inIdent = !inIdent;
+      result += sql[i];
+      i++;
+    } else if (!inString && !inIdent && sql[i] === '$') {
+      const match = sql.slice(i).match(/^\$(\d+)/);
+      if (match) {
+        const num = parseInt(match[1]!, 10);
+        if (num >= 1 && num <= paramsLength) {
+          result += `$${num + offset}`;
+          i += match[0].length;
+          continue;
+        }
+      }
+      result += sql[i];
+      i++;
+    } else {
+      result += sql[i];
+      i++;
+    }
+  }
+  return result;
+}
+
+/**
  * Tagged template literal for safe parameterized SQL.
  *
  * Usage:
@@ -27,7 +67,7 @@ export function sql<T = unknown>(strings: TemplateStringsArray, ...values: unkno
       if (isSQLChunk(val)) {
         // Shift the param indices of the embedded chunk
         const offset = params.length;
-        query += val.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
+        query += shiftParams(val.sql, val.params.length, offset);
         params.push(...val.params);
       } else {
         params.push(val);
@@ -57,7 +97,7 @@ export function sqlJoin(chunks: SQLChunk<any>[], separator = ", "): SQLChunk<any
 
   for (const chunk of chunks) {
     const offset = params.length;
-    parts.push(chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`));
+    parts.push(shiftParams(chunk.sql, chunk.params.length, offset));
     params.push(...chunk.params);
   }
 

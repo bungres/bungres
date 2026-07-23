@@ -1,5 +1,5 @@
-import { describe, it, expect } from "bun:test";
-import { BungresTransaction } from "../core/db.js";
+import { describe, expect, it } from "bun:test";
+import { BungresTransaction } from "../src/core/db.js";
 
 describe("BungresTransaction > nested transactions", () => {
   it("uses SAVEPOINT and RELEASE SAVEPOINT on success", async () => {
@@ -40,7 +40,7 @@ describe("BungresTransaction > nested transactions", () => {
         await inner.raw("SELECT 2");
         throw new Error("fail");
       });
-    } catch (e) {}
+    } catch (e) { }
 
     expect(executed).toEqual([
       "SAVEPOINT sp_1",

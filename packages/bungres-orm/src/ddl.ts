@@ -149,6 +149,18 @@ function formatDefaultValue(value: unknown, dataType: ColumnConfig["dataType"]):
   }
   if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
   if (typeof value === "number") return String(value);
+  if (value instanceof Date) return `'${value.toISOString()}'`;
+  if (Array.isArray(value)) {
+    if (dataType === "json" || dataType === "jsonb") {
+      return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+    }
+    const pgArray = '{' + value.map(item => {
+      if (item === null || item === undefined) return 'NULL';
+      if (typeof item === 'string') return '"' + item.replace(/"/g, '\\"') + '"';
+      return typeof item === 'object' ? '"' + JSON.stringify(item).replace(/"/g, '\\"').replace(/'/g, "''") + '"' : String(item);
+    }).join(',') + '}';
+    return `'${pgArray.replace(/'/g, "''")}'`;
+  }
   return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
 }
 

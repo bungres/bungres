@@ -1,5 +1,5 @@
-import { describe, it, expect } from "bun:test";
-import { sql, rawSql, sqlJoin } from "../index.js";
+import { describe, expect, it } from "bun:test";
+import { rawSql, sql, sqlJoin } from "../src/index.js";
 
 describe("sql tagged template", () => {
   it("builds a simple parameterized query", () => {
@@ -41,6 +41,13 @@ describe("sql tagged template", () => {
     const joined = sqlJoin([a, b], " AND ");
     expect(joined.sql).toBe("a = $1 AND b = $2 AND c = $3");
     expect(joined.params).toEqual([1, 2, 3]);
+  });
+
+  it("ignores $N inside single or double quotes when merging chunks", () => {
+    const inner = sql`val = ${100}`;
+    const chunk = sql`SELECT * FROM users WHERE col1 = '$1' AND col2 = "$2" AND ${inner}`;
+    expect(chunk.sql).toBe(`SELECT * FROM users WHERE col1 = '$1' AND col2 = "$2" AND val = $1`);
+    expect(chunk.params).toEqual([100]);
   });
 });
 

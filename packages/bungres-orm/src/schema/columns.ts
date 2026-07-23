@@ -121,6 +121,11 @@ export const bigserial = <const N extends boolean = true, const P extends boolea
   return buildColumn("bigserial", typeof nameOrOpts === "string" ? nameOrOpts : { ...options, notNull: true as any }, { ...options, notNull: true as any }) as any;
 };
 
+export const smallserial = <const N extends boolean = true, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<"smallserial", true, P, R> => {
+  let options = typeof nameOrOpts === "string" ? opts : nameOrOpts;
+  return buildColumn("smallserial", typeof nameOrOpts === "string" ? nameOrOpts : { ...options, notNull: true as any }, { ...options, notNull: true as any }) as any;
+};
+
 export const boolean = col("boolean");
 export const real = col("real");
 export const doublePrecision = col("double precision");

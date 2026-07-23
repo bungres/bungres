@@ -102,29 +102,31 @@ export const asc = (column: string | ColumnConfig): SQLChunk =>
 export const desc = (column: string | ColumnConfig): SQLChunk =>
   sql`${rawSql(colName(column))} DESC`;
 
-export function parseWhereObject(tableConfig: TableConfig, whereObj: WhereObject<any>): SQLChunk {
+export function parseWhereObject(tableConfig: TableConfig, whereObj: WhereObject<any>, alias?: string): SQLChunk {
   const conditions: SQLChunk[] = [];
   
   for (const [key, val] of Object.entries(whereObj)) {
     if (val === undefined) continue;
     
     if (key === "OR") {
-      const orConditions = (val as WhereObject<any>[]).map(o => parseWhereObject(tableConfig, o));
+      const orConditions = (val as WhereObject<any>[]).map(o => parseWhereObject(tableConfig, o, alias));
       if (orConditions.length > 0) conditions.push(or(...orConditions));
       continue;
     }
     if (key === "AND") {
-      const andConditions = (val as WhereObject<any>[]).map(o => parseWhereObject(tableConfig, o));
+      const andConditions = (val as WhereObject<any>[]).map(o => parseWhereObject(tableConfig, o, alias));
       if (andConditions.length > 0) conditions.push(and(...andConditions));
       continue;
     }
     if (key === "NOT") {
-      conditions.push(not(parseWhereObject(tableConfig, val as WhereObject<any>)));
+      conditions.push(not(parseWhereObject(tableConfig, val as WhereObject<any>, alias)));
       continue;
     }
 
     const colConfig = tableConfig.columns[key];
-    const columnArg = colConfig ?? key;
+    const columnArg: any = colConfig 
+      ? (alias ? { ...colConfig, tableName: alias } : colConfig) 
+      : (alias ? { name: key, tableName: alias } : key);
 
     if (val !== null && typeof val === "object" && !Array.isArray(val) && !(val instanceof Date) && !(val instanceof Uint8Array)) {
       const opVal = val as any;
@@ -157,13 +159,15 @@ export function parseWhereObject(tableConfig: TableConfig, whereObj: WhereObject
   return and(...conditions);
 }
 
-export function parseOrderByObject(tableConfig: TableConfig, orderByObj: OrderByObject<any>): SQLChunk[] {
+export function parseOrderByObject(tableConfig: TableConfig, orderByObj: OrderByObject<any>, alias?: string): SQLChunk[] {
   const parts: SQLChunk[] = [];
   
   for (const [key, dir] of Object.entries(orderByObj)) {
     if (dir === undefined) continue;
     const colConfig = tableConfig.columns[key];
-    const columnArg = colConfig ?? key;
+    const columnArg: any = colConfig 
+      ? (alias ? { ...colConfig, tableName: alias } : colConfig) 
+      : (alias ? { name: key, tableName: alias } : key);
     if (dir === "asc") parts.push(asc(columnArg));
     else if (dir === "desc") parts.push(desc(columnArg));
   }

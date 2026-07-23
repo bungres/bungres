@@ -122,12 +122,7 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
           if (colType === "json" || colType === "jsonb") {
             params.push(val);
           } else if (Array.isArray(val)) {
-            const pgArray = '{' + val.map(item => {
-              if (item === null || item === undefined) return 'NULL';
-              if (typeof item === 'string') return '"' + item.replace(/"/g, '\\"') + '"';
-              return typeof item === 'object' ? '"' + JSON.stringify(item).replace(/"/g, '\\"') + '"' : String(item);
-            }).join(',') + '}';
-            params.push(pgArray);
+            params.push(val);
           } else {
             params.push(JSON.stringify(val));
           }
@@ -180,12 +175,7 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
           if (colType === "json" || colType === "jsonb") {
             params.push(value);
           } else if (Array.isArray(value)) {
-            const pgArray = '{' + value.map(item => {
-              if (item === null || item === undefined) return 'NULL';
-              if (typeof item === 'string') return '"' + item.replace(/"/g, '\\"') + '"';
-              return typeof item === 'object' ? '"' + JSON.stringify(item).replace(/"/g, '\\"') + '"' : String(item);
-            }).join(',') + '}';
-            params.push(pgArray);
+            params.push(value);
           } else {
             params.push(JSON.stringify(value));
           }

@@ -1,16 +1,8 @@
-import { describe, it, expect } from "bun:test";
-import { pgTable } from "../index.js";
-import { uuid, text, varchar, boolean, integer, timestamptz } from "../index.js";
+import { describe, expect, it } from "bun:test";
 import {
-  SelectBuilder, InsertBuilder, UpdateBuilder, DeleteBuilder,
-  eq, ne, gt, gte, lt, lte, like, ilike,
-  isNull, isNotNull, inArray, and, or, not,
-  containsJson, containedInJson, hasKey, hasAnyKeys, hasAllKeys, jsonExtract, jsonExtractText,
-  arrayContains, arrayContained, arrayOverlaps,
-  toTsquery, plainToTsquery, toTsvector, tsMatch,
-  withCte, count, over,
-  type QueryExecutor
-} from "../index.js";
+  and, arrayContained, arrayContains, arrayOverlaps, avg, boolean, containsJson, count, DeleteBuilder,
+  eq, gt, gte, hasAnyKeys, hasKey, ilike, inArray, InsertBuilder, integer, isNotNull, isNull, jsonExtractText, like, lt, lte, max, min, ne, not, or, over, pgTable, plainToTsquery, SelectBuilder, sum, text, timestamptz, toTsquery, toTsvector, tsMatch, UpdateBuilder, uuid, varchar, withCte, type QueryExecutor
+} from "../src/index.js";
 
 const dummyExecutor: QueryExecutor = {
   execute: async () => [],
@@ -20,10 +12,10 @@ const dummyExecutor: QueryExecutor = {
 // ── Shared test table ───────────────────────────────────────────────────────
 
 const users = pgTable("users", {
-  id:       uuid("id", { primaryKey: true }),
-  email:    varchar("email", { length: 255, notNull: true, unique: true }),
-  name:     text("name"),
-  age:      integer("age"),
+  id: uuid("id", { primaryKey: true }),
+  email: varchar("email", { length: 255, notNull: true, unique: true }),
+  name: text("name"),
+  age: integer("age"),
   verified: boolean("verified", { notNull: true, default: false }),
   createdAt: timestamptz("created_at", { notNull: true, defaultRaw: "NOW()" }),
 });
@@ -139,6 +131,17 @@ describe("InsertBuilder", () => {
     expect(params).toContain("b@example.com");
   });
 
+  it("inserts array values directly as parameters", () => {
+    const testTable = pgTable("test", {
+      tags: text("tags").array()
+    });
+    const { sql, params } = new InsertBuilder(testTable, dummyExecutor)
+      .values({ tags: ["a", "b", "c"] })
+      .toSQL();
+    expect(sql).toBe('INSERT INTO "test" ("tags") VALUES ($1)');
+    expect(params).toEqual([["a", "b", "c"]]);
+  });
+
   it("throws when no values provided", () => {
     expect(() => new InsertBuilder(users, dummyExecutor).toSQL()).toThrow("no values provided");
   });
@@ -164,6 +167,17 @@ describe("UpdateBuilder", () => {
       .returning("id", "email")
       .toSQL();
     expect(sql).toContain('RETURNING "id" AS "id", "email" AS "email"');
+  });
+
+  it("updates array values directly as parameters", () => {
+    const testTable = pgTable("test", {
+      tags: text("tags").array()
+    });
+    const { sql, params } = new UpdateBuilder(testTable, dummyExecutor)
+      .set({ tags: ["updated", "tags"] })
+      .toSQL();
+    expect(sql).toBe('UPDATE "test" SET "tags" = $1');
+    expect(params).toEqual([["updated", "tags"]]);
   });
 
   it("throws when set() is empty", () => {
@@ -287,12 +301,12 @@ describe("JSONB Condition helpers", () => {
 describe("CTE and Set Operations", () => {
   it("SelectBuilder > generates query with CTE", () => {
     const activeUsers = withCte("active_users", new SelectBuilder(users, dummyExecutor).where(eq("verified", true)));
-    
+
     const { sql, params } = new SelectBuilder(users, dummyExecutor)
       .with(activeUsers)
       .select("id")
       .toSQL();
-      
+
     expect(sql).toContain('WITH "active_users" AS (SELECT "users"."id" AS "id", "users"."email" AS "email", "users"."name" AS "name", "users"."age" AS "age", "users"."verified" AS "verified", "users"."created_at" AS "createdAt" FROM "users" WHERE "verified" = $1)');
     expect(sql).toContain('SELECT "users"."id" AS "id" FROM "users"');
     expect(params).toEqual([true]);
@@ -301,7 +315,7 @@ describe("CTE and Set Operations", () => {
   it("SelectBuilder > generates query with UNION", () => {
     const q1 = new SelectBuilder(users, dummyExecutor).select("id").where(eq("name", "Alice"));
     const q2 = new SelectBuilder(users, dummyExecutor).select("id").where(eq("name", "Bob"));
-    
+
     const { sql, params } = q1.union(q2).toSQL();
     expect(sql).toContain('UNION SELECT "users"."id" AS "id" FROM "users" WHERE "name" = $2');
     expect(params).toEqual(["Alice", "Bob"]);
@@ -334,6 +348,35 @@ describe("Window Functions", () => {
       orderBy: [{ column: users.createdAt, dir: "desc" }]
     });
     expect(sql).toBe('COUNT(*) OVER (PARTITION BY "users"."verified" ORDER BY "users"."created_at" DESC)');
+  });
+});
+
+// ── Aggregations ──────────────────────────────────────────────────────────────
+
+describe("Aggregations", () => {
+  it("count() > generates COUNT(*)", () => {
+    const { sql } = count();
+    expect(sql).toBe("COUNT(*)");
+  });
+
+  it("sum() > generates SUM(col)", () => {
+    const { sql } = sum(users.age);
+    expect(sql).toBe('SUM("users"."age")');
+  });
+
+  it("avg() > generates AVG(col)", () => {
+    const { sql } = avg(users.age);
+    expect(sql).toBe('AVG("users"."age")');
+  });
+
+  it("min() > generates MIN(col)", () => {
+    const { sql } = min(users.age);
+    expect(sql).toBe('MIN("users"."age")');
+  });
+
+  it("max() > generates MAX(col)", () => {
+    const { sql } = max(users.age);
+    expect(sql).toBe('MAX("users"."age")');
   });
 });
 

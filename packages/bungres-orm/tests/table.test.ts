@@ -1,13 +1,12 @@
-import { describe, it, expect } from "bun:test";
-import { pgTable, getTableConfig } from "../index.js";
-import { uuid, text, varchar, boolean, timestamptz } from "../index.js";
+import { describe, expect, it } from "bun:test";
+import { boolean, getTableConfig, pgTable, text, timestamptz, uuid, varchar } from "../src/index.js";
 
 // `table` now defaults to snake_case — camelCase keys map to snake_case columns automatically
 const users = pgTable("users", {
-  id:        uuid({ primaryKey: true }),
-  email:     varchar({ length: 255, notNull: true, unique: true }),
-  username:  text({ notNull: true }),
-  verified:  boolean({ notNull: true, default: false }),
+  id: uuid({ primaryKey: true }),
+  email: varchar({ length: 255, notNull: true, unique: true }),
+  username: text({ notNull: true }),
+  verified: boolean({ notNull: true, default: false }),
   createdAt: timestamptz({ notNull: true, defaultRaw: "NOW()" }),
 });
 
@@ -62,7 +61,7 @@ describe("table", () => {
   });
 });
 
-import { camelCase } from "../index.js";
+import { camelCase } from "../src/index.js";
 
 describe("camelCase.pgTable", () => {
   it("keeps camelCase JS keys as-is for DB columns", () => {
