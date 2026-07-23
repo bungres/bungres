@@ -1,4 +1,5 @@
 import { join, resolve } from "node:path";
+import { existsSync, statSync } from "node:fs";
 import type { ResolvedConfig } from "../config.js";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
@@ -11,14 +12,29 @@ export async function runRollback(config: ResolvedConfig): Promise<void> {
   p.intro(pc.bgCyan(pc.black(" @bungres/kit rollback ")));
 
   const migrationsDir = resolve(config.out);
+
+  let activeSpinner = p.spinner();
+  activeSpinner.start("Checking applied migrations...");
+
+  if (!existsSync(migrationsDir)) {
+    activeSpinner.stop("No migration directory found.");
+    p.log.warn(pc.yellow(`Migration directory does not exist: ${migrationsDir}`));
+    p.outro("Done.");
+    return;
+  }
+
+  if (!statSync(migrationsDir).isDirectory()) {
+    activeSpinner.stop("Failed.");
+    p.log.error(pc.red(`Migration path exists but is not a directory: ${migrationsDir}`));
+    p.outro("Failed.");
+    return;
+  }
+
   const sql = new Bun.SQL(config.dbUrl);
 
   const table = config.migrationsTable;
   const schema = config.migrationsSchema;
   const qualifiedTable = `"${schema}"."${table}"`;
-
-  let activeSpinner = p.spinner();
-  activeSpinner.start("Checking applied migrations...");
 
   try {
     // Fetch last applied migration
@@ -32,6 +48,15 @@ export async function runRollback(config: ResolvedConfig): Promise<void> {
     }
 
     const lastMigration = (applied[0] as { name: string }).name;
+    const filePath = join(migrationsDir, lastMigration);
+
+    if (!existsSync(filePath)) {
+      activeSpinner.stop("Migration file missing.");
+      p.log.error(pc.red(`The database tracks '${lastMigration}' as applied, but the file does not exist in ${migrationsDir}.`));
+      p.outro("Failed.");
+      return;
+    }
+
     activeSpinner.stop(`Found migration to rollback: ${pc.cyan(lastMigration)}`);
 
     const shouldRollback = await p.confirm({
@@ -47,7 +72,15 @@ export async function runRollback(config: ResolvedConfig): Promise<void> {
     activeSpinner = p.spinner();
     activeSpinner.start(`Rolling back ${lastMigration}...`);
 
-    const content = await Bun.file(join(migrationsDir, lastMigration)).text();
+    let content = "";
+    try {
+      content = await Bun.file(filePath).text();
+    } catch (err: any) {
+      activeSpinner.stop("Failed.");
+      p.log.error(pc.red(`Failed to read migration file ${lastMigration}: ${err.message}`));
+      p.outro("Failed.");
+      return;
+    }
 
     // Extract only the DOWN section
     let downContent = "";

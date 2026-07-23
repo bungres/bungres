@@ -1,7 +1,8 @@
-import { resolve } from "node:path";
-import type { ResolvedConfig } from "../config.js";
 import * as p from "@clack/prompts";
+import { existsSync, statSync } from "node:fs";
+import { resolve } from "node:path";
 import pc from "picocolors";
+import type { ResolvedConfig } from "../config.js";
 
 // ---------------------------------------------------------------------------
 // status — show which migrations have been applied vs. pending
@@ -11,14 +12,30 @@ export async function runStatus(config: ResolvedConfig): Promise<void> {
   p.intro(pc.bgCyan(pc.black(" @bungres/kit status ")));
 
   const migrationsDir = resolve(config.out);
+
+  const s = p.spinner();
+  s.start("Checking migration status...");
+
+  if (!existsSync(migrationsDir)) {
+    s.stop("No migration directory found.");
+    p.log.warn(pc.yellow(`Migration directory does not exist: ${migrationsDir}`));
+    p.log.info(`Run ${pc.green("bungres generate")} first.`);
+    p.outro("Done.");
+    return;
+  }
+
+  if (!statSync(migrationsDir).isDirectory()) {
+    s.stop("Failed.");
+    p.log.error(pc.red(`Migration path exists but is not a directory: ${migrationsDir}`));
+    p.outro("Failed.");
+    return;
+  }
+
   const sql = new Bun.SQL(config.dbUrl);
 
   const table = config.migrationsTable;
   const schema = config.migrationsSchema;
   const qualifiedTable = `"${schema}"."${table}"`;
-
-  const s = p.spinner();
-  s.start("Checking migration status...");
 
   try {
     // Check if migrations table exists

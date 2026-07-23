@@ -1,5 +1,5 @@
 import type { QueryExecutor } from "../core/query.js";
-import type { SQLChunk } from "../core/sql.js";
+import { type SQLChunk, toPgArray } from "../core/sql.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferInsert, InferTable } from "../types/index.js";
 import type { CTEBuilder } from "./cte.js";
@@ -122,7 +122,7 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
           if (colType === "json" || colType === "jsonb") {
             params.push(val);
           } else if (Array.isArray(val)) {
-            params.push(val);
+            params.push(toPgArray(val));
           } else {
             params.push(JSON.stringify(val));
           }
@@ -175,7 +175,7 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
           if (colType === "json" || colType === "jsonb") {
             params.push(value);
           } else if (Array.isArray(value)) {
-            params.push(value);
+            params.push(toPgArray(value));
           } else {
             params.push(JSON.stringify(value));
           }

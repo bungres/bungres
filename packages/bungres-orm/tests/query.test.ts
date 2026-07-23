@@ -139,7 +139,7 @@ describe("InsertBuilder", () => {
       .values({ tags: ["a", "b", "c"] })
       .toSQL();
     expect(sql).toBe('INSERT INTO "test" ("tags") VALUES ($1)');
-    expect(params).toEqual([["a", "b", "c"]]);
+    expect(params).toEqual(['{"a","b","c"}']);
   });
 
   it("throws when no values provided", () => {
@@ -177,7 +177,7 @@ describe("UpdateBuilder", () => {
       .set({ tags: ["updated", "tags"] })
       .toSQL();
     expect(sql).toBe('UPDATE "test" SET "tags" = $1');
-    expect(params).toEqual([["updated", "tags"]]);
+    expect(params).toEqual(['{"updated","tags"}']);
   });
 
   it("throws when set() is empty", () => {

@@ -109,6 +109,18 @@ export function rawSql<T = unknown>(query: string): SQLChunk<T> {
   return { sql: query, params: [] };
 }
 
+/** Format a JavaScript array into a Postgres array literal string: {"elem1","elem2"} */
+export function toPgArray(val: unknown[]): string {
+  const formatted = val.map((item) => {
+    if (item === null || item === undefined) return "NULL";
+    if (typeof item === "number" || typeof item === "boolean") return String(item);
+    if (Array.isArray(item)) return toPgArray(item);
+    const str = String(item).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    return `"${str}"`;
+  });
+  return `{${formatted.join(",")}}`;
+}
+
 /** Resolve a column reference to its qualified SQL name */
 export function colName(c: string | { name: string; tableName?: string } | SQLChunk): string {
   if (typeof c === "string") return `"${c}"`;

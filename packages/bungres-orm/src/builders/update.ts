@@ -1,6 +1,5 @@
 import type { QueryExecutor, WhereCondition } from "../core/query.js";
-import type { SQLChunk } from "../core/sql.js";
-import { sqlJoin } from "../core/sql.js";
+import { type SQLChunk, sqlJoin, toPgArray } from "../core/sql.js";
 import { parseWhereObject } from "../core/conditions.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferTable } from "../types/index.js";
@@ -93,7 +92,7 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
         if (colType === "json" || colType === "jsonb") {
           params.push(value);
         } else if (Array.isArray(value)) {
-          params.push(value);
+          params.push(toPgArray(value));
         } else {
           params.push(JSON.stringify(value));
         }

@@ -1,5 +1,5 @@
 import { join, resolve } from "node:path";
-import { readdirSync } from "node:fs";
+import { readdirSync, existsSync, statSync } from "node:fs";
 import { generateCreateTable, generateCreateView, inlineParams } from "@bungres/orm";
 import type { TableConfig } from "@bungres/orm";
 import type { ResolvedConfig } from "../config.js";
@@ -34,6 +34,14 @@ export async function runGenerate(
   s.stop(`Loaded ${schemas.length} schemas.`);
 
   const migrationsDir = resolve(config.out);
+
+  if (existsSync(migrationsDir) && !statSync(migrationsDir).isDirectory()) {
+    s.stop("Failed.");
+    p.log.error(pc.red(`Migration path exists but is not a directory: ${migrationsDir}`));
+    p.outro("Failed.");
+    return;
+  }
+
   const metaDir = join(migrationsDir, "meta");
   await Bun.$`mkdir -p ${migrationsDir}`.quiet();
   await Bun.$`mkdir -p ${metaDir}`.quiet();

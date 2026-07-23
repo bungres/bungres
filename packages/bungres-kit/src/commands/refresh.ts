@@ -1,4 +1,5 @@
 import { join, resolve } from "node:path";
+import { existsSync, statSync } from "node:fs";
 import type { ResolvedConfig } from "../config.js";
 import { runMigrate } from "./migrate.js";
 import * as p from "@clack/prompts";
@@ -12,14 +13,29 @@ export async function runRefresh(config: ResolvedConfig): Promise<void> {
   p.intro(pc.bgCyan(pc.black(" @bungres/kit refresh ")));
 
   const migrationsDir = resolve(config.out);
+
+  let s = p.spinner();
+  s.start("Checking applied migrations...");
+
+  if (!existsSync(migrationsDir)) {
+    s.stop("No migration directory found.");
+    p.log.warn(pc.yellow(`Migration directory does not exist: ${migrationsDir}`));
+    p.outro("Done.");
+    return;
+  }
+
+  if (!statSync(migrationsDir).isDirectory()) {
+    s.stop("Failed.");
+    p.log.error(pc.red(`Migration path exists but is not a directory: ${migrationsDir}`));
+    p.outro("Failed.");
+    return;
+  }
+
   const sql = new Bun.SQL(config.dbUrl);
 
   const table = config.migrationsTable;
   const schema = config.migrationsSchema;
   const qualifiedTable = `"${schema}"."${table}"`;
-
-  let s = p.spinner();
-  s.start("Checking applied migrations...");
 
   try {
     // Check if migrations table exists
@@ -44,6 +60,18 @@ export async function runRefresh(config: ResolvedConfig): Promise<void> {
       s.stop("No migrations to rollback.");
       p.log.info(pc.yellow("Database is empty."));
     } else {
+      const missingFiles = applied.filter((row) => !existsSync(join(migrationsDir, row.name)));
+      if (missingFiles.length > 0) {
+        s.stop("Migration files missing.");
+        p.log.error(pc.red(`The database tracks ${applied.length} migration(s), but ${missingFiles.length} file(s) are missing from ${migrationsDir}:`));
+        for (const f of missingFiles) {
+          p.log.error(pc.red(`  - ${f.name}`));
+        }
+        p.log.info("Cannot refresh without local migration files.");
+        p.outro("Failed.");
+        return;
+      }
+
       s.stop(`Found ${applied.length} migrations to rollback.`);
 
       const shouldRollback = await p.confirm({

@@ -1,4 +1,5 @@
 import { join, resolve } from "node:path";
+import { existsSync, statSync } from "node:fs";
 import type { ResolvedConfig } from "../config.js";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
@@ -11,6 +12,25 @@ export async function runMigrate(config: ResolvedConfig): Promise<void> {
   p.intro(pc.bgCyan(pc.black(" @bungres/kit migrate ")));
 
   const migrationsDir = resolve(config.out);
+
+  let s = p.spinner();
+  s.start("Checking pending migrations...");
+
+  if (!existsSync(migrationsDir)) {
+    s.stop("No files found.");
+    p.log.warn(pc.yellow(`Migration directory does not exist: ${migrationsDir}`));
+    p.log.info(`Run ${pc.green("bungres generate")} first.`);
+    p.outro("Done.");
+    return;
+  }
+
+  if (!statSync(migrationsDir).isDirectory()) {
+    s.stop("Failed.");
+    p.log.error(pc.red(`Migration path exists but is not a directory: ${migrationsDir}`));
+    p.outro("Failed.");
+    return;
+  }
+
   const sql = new Bun.SQL(config.dbUrl);
 
   const table = config.migrationsTable;
@@ -25,9 +45,6 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
   name        TEXT NOT NULL UNIQUE,
   applied_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );`.trim();
-
-  let s = p.spinner();
-  s.start("Checking pending migrations...");
 
   try {
     // Ensure schema and tracking table exist
@@ -69,7 +86,23 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
       s = p.spinner();
       s.start(`Applying ${file}...`);
       
-      const content = await Bun.file(join(migrationsDir, file)).text();
+      const filePath = join(migrationsDir, file);
+      if (!existsSync(filePath)) {
+        s.stop("Failed.");
+        p.log.error(pc.red(`Migration file not found: ${filePath}`));
+        p.outro("Failed.");
+        return;
+      }
+
+      let content = "";
+      try {
+        content = await Bun.file(filePath).text();
+      } catch (err: any) {
+        s.stop("Failed.");
+        p.log.error(pc.red(`Failed to read migration file ${file}: ${err.message}`));
+        p.outro("Failed.");
+        return;
+      }
 
       // Extract only the UP section if delimiters exist
       let upContent = content;
