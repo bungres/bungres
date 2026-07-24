@@ -109,7 +109,7 @@ export async function runPush(
       p.log.warn(pc.yellow("These changes will be immediately executed against the database!"));
     }
 
-    if (!opts.force) {
+    if (!opts.force && !(opts as any).yes && !Bun.env.CI) {
       const confirm = await p.confirm({
         message: "Are you sure you want to push these changes?",
         initialValue: true
@@ -128,7 +128,17 @@ export async function runPush(
       if (config.verbose) {
         p.log.info(pc.gray(`-- ${stmt}`));
       }
-      await sql.unsafe(stmt);
+      try {
+        await sql.unsafe(stmt);
+      } catch (err: any) {
+        if (stmt.toUpperCase().startsWith("CREATE TYPE") && (err.message?.includes("already exists") || err.code === "42710")) {
+          if (config.verbose) {
+            p.log.info(pc.gray(`Type already exists, continuing: ${err.message}`));
+          }
+        } else {
+          throw err;
+        }
+      }
     }
 
     // Save new snapshot

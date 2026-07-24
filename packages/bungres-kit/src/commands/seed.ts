@@ -45,16 +45,13 @@ export async function runSeed(config: ResolvedConfig): Promise<void> {
   // Fallback: Auto-seeder
   p.log.info(pc.blue("No custom seed script found. Initiating Auto-Seeder..."));
 
-  let faker: any;
+  let faker: any = null;
   try {
     // @ts-ignore - faker might not be installed in the user's project
     const fakerModule = await import("@faker-js/faker");
     faker = fakerModule.faker;
   } catch (err) {
-    p.log.error(pc.red("Auto-seeder requires @faker-js/faker."));
-    p.log.message(`Please install it: ${pc.green("bun add -d @faker-js/faker")}`);
-    p.outro("Failed.");
-    return;
+    p.log.info(pc.gray("Using built-in lightweight mock generator (@faker-js/faker not found)."));
   }
 
   let s = p.spinner();
@@ -87,7 +84,7 @@ export async function runSeed(config: ResolvedConfig): Promise<void> {
 
       for (let i = 0; i < rowsToInsert; i++) {
         const row: Record<string, any> = {};
-        for (const [colName, col] of Object.entries(table.columns)) {
+        for (const [colName, col] of Object.entries(table.columns as Record<string, any>)) {
           // Resolve FK
           if (col.references) {
             const parentTable = col.references.table;
@@ -100,14 +97,8 @@ export async function runSeed(config: ResolvedConfig): Promise<void> {
             }
           }
 
-          // Generate fake data based on type
-          if (col.dataType === "uuid") row[col.name] = faker.string.uuid();
-          else if (col.dataType === "varchar" || col.dataType === "text") row[col.name] = faker.lorem.word();
-          else if (col.dataType === "integer") row[col.name] = faker.number.int({ min: 1, max: 1000 });
-          else if (col.dataType === "boolean") row[col.name] = faker.datatype.boolean();
-          else if (col.dataType === "timestamptz" || col.dataType === "timestamp") row[col.name] = faker.date.recent().toISOString();
-          else if (col.dataType === "jsonb" || col.dataType === "json") row[col.name] = JSON.stringify({ key: faker.lorem.word() });
-          else row[col.name] = null; // Fallback
+          // Generate mock data based on type
+          row[col.name] = generateMockValue(col, i, faker);
         }
         rows.push(row);
       }
@@ -139,4 +130,24 @@ export async function runSeed(config: ResolvedConfig): Promise<void> {
   } finally {
     await sql.end();
   }
+}
+
+function generateMockValue(col: any, index: number, faker?: any): any {
+  if (faker) {
+    if (col.dataType === "uuid") return faker.string.uuid();
+    if (col.dataType === "varchar" || col.dataType === "text") return faker.lorem.word();
+    if (col.dataType === "integer" || col.dataType === "bigint" || col.dataType === "smallint") return faker.number.int({ min: 1, max: 1000 });
+    if (col.dataType === "boolean") return faker.datatype.boolean();
+    if (col.dataType === "timestamptz" || col.dataType === "timestamp" || col.dataType === "date") return faker.date.recent().toISOString();
+    if (col.dataType === "jsonb" || col.dataType === "json") return JSON.stringify({ key: faker.lorem.word() });
+  }
+
+  // Built-in lightweight fallback
+  if (col.dataType === "uuid") return crypto.randomUUID();
+  if (col.dataType === "varchar" || col.dataType === "text") return `${col.name}_${index + 1}`;
+  if (col.dataType === "integer" || col.dataType === "bigint" || col.dataType === "smallint") return index + 1;
+  if (col.dataType === "boolean") return index % 2 === 0;
+  if (col.dataType === "timestamptz" || col.dataType === "timestamp" || col.dataType === "date") return new Date().toISOString();
+  if (col.dataType === "jsonb" || col.dataType === "json") return JSON.stringify({ index, sample: true });
+  return null;
 }

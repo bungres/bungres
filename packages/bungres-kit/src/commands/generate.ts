@@ -17,7 +17,8 @@ import pc from "picocolors";
 
 export async function runGenerate(
   config: ResolvedConfig,
-  name?: string
+  name?: string,
+  opts: { yes?: boolean } = {}
 ): Promise<void> {
   p.intro(pc.bgCyan(pc.black(" @bungres/kit generate ")));
   const s = p.spinner();
@@ -191,14 +192,16 @@ export async function runGenerate(
     for (const w of warnings) p.log.warn(pc.red(`  ! ${w}`));
   }
 
-  const shouldGenerate = await p.confirm({
-    message: "Generate this migration?",
-    initialValue: true
-  });
+  if (!opts.yes && !Bun.env.CI) {
+    const shouldGenerate = await p.confirm({
+      message: "Generate this migration?",
+      initialValue: true
+    });
 
-  if (p.isCancel(shouldGenerate) || !shouldGenerate) {
-    p.outro(pc.gray("Generation cancelled."));
-    return;
+    if (p.isCancel(shouldGenerate) || !shouldGenerate) {
+      p.outro(pc.gray("Generation cancelled."));
+      return;
+    }
   }
 
   s.start("Writing files...");

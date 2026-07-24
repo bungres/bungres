@@ -1,6 +1,7 @@
 import { join, resolve } from "node:path";
 import { existsSync, statSync } from "node:fs";
 import type { ResolvedConfig } from "../config.js";
+import { splitSqlStatements } from "../sql-splitter.js";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 
@@ -119,14 +120,33 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
         const statements = config.breakpoints
           ? upContent
               .split(/-->statement-breakpoint/g)
-              .flatMap((chunk) => chunk.split(";").map((s) => s.trim()).filter(Boolean))
-          : upContent
-              .split(";")
-              .map((s) => s.trim())
-              .filter(Boolean);
+              .flatMap((chunk) => splitSqlStatements(chunk))
+          : splitSqlStatements(upContent);
 
         for (const stmt of statements) {
-          await txSql.unsafe(stmt + ";");
+          const clean = stmt.replace(/--.*$/gm, "").trim();
+          if (!clean) continue;
+
+          const isIdempotentDdl = /CREATE\s+(TYPE|TABLE|(UNIQUE\s+)?INDEX|(MATERIALIZED\s+)?VIEW)\b/i.test(clean);
+          if (isIdempotentDdl) {
+            try {
+              await txSql.unsafe("SAVEPOINT bungres_sp;");
+              await txSql.unsafe(stmt + ";");
+              await txSql.unsafe("RELEASE SAVEPOINT bungres_sp;");
+            } catch (err: any) {
+              await txSql.unsafe("ROLLBACK TO SAVEPOINT bungres_sp;");
+              const msg = (err.message || "").toLowerCase();
+              if (msg.includes("already exists") || ["42710", "42P07", "42712"].includes(err.code)) {
+                if (config.verbose) {
+                  p.log.info(pc.gray(`Object already exists, continuing: ${err.message}`));
+                }
+              } else {
+                throw err;
+              }
+            }
+          } else {
+            await txSql.unsafe(stmt + ";");
+          }
         }
 
         await txSql.unsafe(

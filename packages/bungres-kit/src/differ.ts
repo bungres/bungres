@@ -50,15 +50,18 @@ export function diffSchemas(
     }
   }
 
-  // Note: Modifying an enum (e.g. ADD VALUE) is complex in Postgres,
-  // we could just warn the user or attempt a DROP/CREATE if it's safe (it's usually not if used in a table).
-  // For now, if the values change, we'll log a warning.
+  // Enum modification (adding new enum values)
   for (const enumName of nextEnumNames) {
     if (prevEnumNames.has(enumName)) {
       const p = prevEnums[enumName]!;
       const n = nextEnums[enumName]!;
-      if (JSON.stringify(p.enumValues) !== JSON.stringify(n.enumValues)) {
-        warnings.push(`Enum '${n.enumName}' values have changed. Bungres Kit currently requires manual migration for ALTER TYPE ... ADD VALUE.`);
+      const prevVals = new Set(p.enumValues);
+      for (const val of n.enumValues) {
+        if (!prevVals.has(val)) {
+          const escapedVal = val.replace(/'/g, "''");
+          statements.push(`ALTER TYPE "${n.enumName}" ADD VALUE IF NOT EXISTS '${escapedVal}';`);
+          summary.push(`ALTER TYPE ${n.enumName} ADD VALUE '${val}'`);
+        }
       }
     }
   }

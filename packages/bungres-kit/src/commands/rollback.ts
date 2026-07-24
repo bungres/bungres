@@ -1,6 +1,7 @@
 import { join, resolve } from "node:path";
 import { existsSync, statSync } from "node:fs";
 import type { ResolvedConfig } from "../config.js";
+import { splitSqlStatements } from "../sql-splitter.js";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 
@@ -107,11 +108,8 @@ export async function runRollback(config: ResolvedConfig): Promise<void> {
         const statements = config.breakpoints
           ? downContent
               .split(/-->statement-breakpoint/g)
-              .flatMap((chunk) => chunk.split(";").map((s) => s.trim()).filter(Boolean))
-          : downContent
-              .split(";")
-              .map((s) => s.trim())
-              .filter(Boolean);
+              .flatMap((chunk) => splitSqlStatements(chunk))
+          : splitSqlStatements(downContent);
 
         for (const stmt of statements) {
           await txSql.unsafe(stmt + ";");

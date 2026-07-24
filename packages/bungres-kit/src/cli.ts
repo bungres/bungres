@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 
 import pc from "picocolors";
+import { runCheck } from "./commands/check.js";
 import { runDrop } from "./commands/drop.js";
 import { runFresh } from "./commands/fresh.js";
 import { runGenerate } from "./commands/generate.js";
@@ -33,6 +34,7 @@ ${pc.yellow("Usage:")}
 
 ${pc.yellow("Commands:")}
   init          Initialize bungres project with config file and db folder structure
+  check         Check for ungenerated schema changes or pending DB migrations (CI tool)
   generate      Generate SQL migration files from your schema definitions
   migrate       Run pending migration files against the database
   rollback      Revert the last applied migration
@@ -47,18 +49,20 @@ ${pc.yellow("Commands:")}
   drop          Drop all tables defined in the schema (dev only)
 
 ${pc.yellow("Options:")}
-  --config      Path to config file (default: bungres.config.ts)
-  --verbose     Enable verbose SQL logging
-  --force       Skip confirmation prompts (use with drop)
+  -c, --config  Path to config file (default: bungres.config.ts)
+  -v, --verbose Enable verbose SQL logging
+  -y, --yes     Bypass confirmation prompts (non-interactive mode)
+  -f, --force   Skip confirmation prompts (use with drop)
   --version     Show version
-  --help        Show this help
+  -h, --help    Show this help
 
 ${pc.yellow("Examples:")}
   bungres init
-  bungres generate
+  bungres check
+  bungres generate --yes
   bungres migrate
   bungres rollback
-  bungres push
+  bungres push --yes
   bungres pull
   bungres status
   bungres fresh
@@ -66,7 +70,7 @@ ${pc.yellow("Examples:")}
   bungres seed
   bungres studio
   bungres tusky
-  bungres drop --force
+  bungres drop -f
 `.trim();
 
 async function main() {
@@ -101,9 +105,17 @@ async function main() {
     await ensureDatabase(config.dbUrl);
   }
 
+  const isForceOrYes = !!(flags.force || flags.yes);
+
   switch (command) {
+    case "check": {
+      const ok = await runCheck(config, { checkDb: true });
+      process.exit(ok ? 0 : 1);
+      break;
+    }
+
     case "generate":
-      await runGenerate(config, flags.name as string | undefined);
+      await runGenerate(config, flags.name as string | undefined, { yes: isForceOrYes });
       break;
 
     case "migrate":
@@ -115,7 +127,7 @@ async function main() {
       break;
 
     case "push":
-      await runPush(config, { force: !!flags.force });
+      await runPush(config, { force: isForceOrYes });
       break;
 
     case "pull":
@@ -127,7 +139,7 @@ async function main() {
       break;
 
     case "drop":
-      await runDrop(config, { force: !!flags.force });
+      await runDrop(config, { force: isForceOrYes });
       break;
 
     case "fresh":
@@ -157,25 +169,44 @@ async function main() {
   }
 }
 
-function parseFlags(args: string[]): Record<string, boolean | string> {
+export function parseFlags(args: string[]): Record<string, boolean | string> {
   const flags: Record<string, boolean | string> = {};
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg?.startsWith("--")) {
+    if (!arg) continue;
+    if (arg.startsWith("--")) {
       const key = arg.slice(2);
       const next = args[i + 1];
-      if (next && !next.startsWith("--")) {
+      if (next && !next.startsWith("-")) {
         flags[key] = next;
         i++;
       } else {
         flags[key] = true;
+      }
+    } else if (arg.startsWith("-")) {
+      const key = arg.slice(1);
+      let fullKey = key;
+      if (key === "y") fullKey = "yes";
+      else if (key === "v") fullKey = "verbose";
+      else if (key === "c") fullKey = "config";
+      else if (key === "f") fullKey = "force";
+      else if (key === "h") fullKey = "help";
+
+      const next = args[i + 1];
+      if (next && !next.startsWith("-") && (fullKey === "config" || fullKey === "name")) {
+        flags[fullKey] = next;
+        i++;
+      } else {
+        flags[fullKey] = true;
       }
     }
   }
   return flags;
 }
 
-main().catch((err) => {
-  console.error("@bungres/kit error:", err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error("@bungres/kit error:", err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
+}

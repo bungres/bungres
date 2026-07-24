@@ -1,5 +1,18 @@
 # @bungres/kit
 
+## Unreleased
+
+### Minor Changes & Enhancements
+
+- **New `bungres check` Command**: Added a non-destructive CI/CD schema drift and pending database migration verification tool. Returns exit code `0` if schema and DB are in sync, or `1` if drift/pending migrations are detected.
+- **Smart Lexer SQL Splitter**: Implemented a quote-aware and comment-aware SQL statement splitter (`splitSqlStatements`) to safely parse SQL text without breaking on semicolons inside string literals, defaults, JSON objects, dollar quotes (`$$`), or SQL comments.
+- **Idempotent DDL Transaction Savepoints**: Wrapped DDL creation statements (`CREATE TYPE`, `CREATE TABLE`, `CREATE INDEX`, `CREATE MATERIALIZED VIEW`) in PostgreSQL `SAVEPOINT bungres_sp` inside `migrate` and `push`. Pre-existing type or table conflicts (`42710`, `42P07`, `42712`) roll back to savepoint and gracefully continue without aborting transaction blocks.
+- **Non-Interactive & CLI Short Flags**: Added `-y` / `--yes`, `-v` / `--verbose`, `-c` / `--config`, `-f` / `--force`, `-h` / `--help` flag parsing and automatic `CI` environment variable detection to bypass interactive `@clack/prompts` confirmation prompts.
+- **Enum Alteration Support**: Added support for generating `ALTER TYPE "<enum_name>" ADD VALUE IF NOT EXISTS '<value>';` statements when enum definitions expand in schema files.
+- **Built-in Mock Generator Fallback**: Enhanced `bungres seed` auto-seeder to include a lightweight built-in mock generator fallback when `@faker-js/faker` is not installed.
+- **Expanded Programmatic API**: Exported `runCheck`, `runRollback`, `runFresh`, `runRefresh`, `runSeed`, `runStudio`, `runTusky`, `runInit`, `splitSqlStatements`, `diffSchemas`, and `introspectDb` from `@bungres/kit` main entrypoint.
+- **Comprehensive Test Suite**: Added 17 unit tests covering schema differ, CLI flag parsing, CI check verification, and SQL statement splitting.
+
 ## 1.1.2
 
 ### Patch Changes
