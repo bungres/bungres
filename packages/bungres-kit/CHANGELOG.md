@@ -1,21 +1,5 @@
 # @bungres/kit
 
-## Unreleased
-
-### Minor Changes & Enhancements
-
-- **New `bungres check` Command**: Added a non-destructive CI/CD schema drift and pending database migration verification tool. Returns exit code `0` if schema and DB are in sync, or `1` if drift/pending migrations are detected.
-- **Smart Lexer SQL Splitter**: Implemented a quote-aware and comment-aware SQL statement splitter (`splitSqlStatements`) to safely parse SQL text without breaking on semicolons inside string literals, defaults, JSON objects, dollar quotes (`$$`), or SQL comments.
-- **Idempotent DDL Transaction Savepoints**: Wrapped DDL creation statements (`CREATE TYPE`, `CREATE TABLE`, `CREATE INDEX`, `CREATE MATERIALIZED VIEW`) in PostgreSQL `SAVEPOINT bungres_sp` inside `migrate` and `push`. Pre-existing type or table conflicts (`42710`, `42P07`, `42712`) roll back to savepoint and gracefully continue without aborting transaction blocks.
-- **Non-Interactive & CLI Short Flags**: Added `-y` / `--yes`, `-v` / `--verbose`, `-c` / `--config`, `-f` / `--force`, `-h` / `--help` flag parsing and automatic `CI` environment variable detection to bypass interactive `@clack/prompts` confirmation prompts.
-- **Enum Alteration Support**: Added support for generating `ALTER TYPE "<enum_name>" ADD VALUE IF NOT EXISTS '<value>';` statements when enum definitions expand in schema files.
-- **Built-in Mock Generator & Auto-Seeder Enhancements**: Upgraded `bungres seed` auto-seeder with support for PostgreSQL enum column types (`col.enumConfig`), array literal formatting (`{"a","b"}`), self-referential foreign keys, junction table composite key deduplication, semantic mock generators (email, slug, SKU, URL), column length constraints (`varchar(N)`), and accurate applied migration count logging in `bungres status`.
-- **3-File Migration Directory Architecture (`up.sql`, `down.sql`, `snapshot.json`)**: Replaced flat `.sql` migration files and central `meta/` directory with a dedicated migration folder structure. Each migration is generated inside its own timestamped directory containing `up.sql` (pure executable UP DDL), `down.sql` (pure executable DOWN DDL), and `snapshot.json` (AST schema snapshot at migration time).
-- **Bungres Fluent Blueprint Seeder API (`defineSeed`)**: Introduced a first-class high-performance seeder engine (`defineSeed`, `TableBlueprint`, `seed.fake`, `seed.rel`) featuring fluent chainable blueprints (`seed.table().count().columns()`), weighted value distribution (`seed.fake.values()`), automatic topological DAG ordering, sub-second multi-row bulk vectorization, and automatic junction table composite key deduplication.
-- **Clean CLI Seeder Output**: Bypassed active terminal spinners during custom seed script execution to prevent stdout line intermixing.
-- **Expanded Programmatic API**: Exported `loadMigrationFolders`, `loadLatestSnapshotFromFolders`, `defineSeed`, `TableBlueprint`, `createFakeGenerator`, `executeSeedDefinition`, `runCheck`, `runRollback`, `runFresh`, `runRefresh`, `runSeed`, `runStudio`, `runTusky`, `runInit`, `splitSqlStatements`, `diffSchemas`, and `introspectDb` from `@bungres/kit` main entrypoint.
-- **Comprehensive Test Suite**: Added 22 unit tests covering schema differ, CLI flag parsing, CI check verification, SQL statement splitting, `defineSeed` blueprint execution, and 3-file migration folder discovery/generation.
-
 ## 1.1.2
 
 ### Patch Changes
