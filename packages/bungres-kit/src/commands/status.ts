@@ -76,11 +76,13 @@ export async function runStatus(config: ResolvedConfig): Promise<void> {
     s.stop("Status check complete.");
 
     p.log.message(pc.bold("Migration status:"));
+    let appliedCount = 0;
     let pendingCount = 0;
 
     for (const file of files) {
       const isApplied = appliedSet.has(file);
       if (isApplied) {
+        appliedCount++;
         p.log.success(`${pc.green("✓ applied ")} ${file}`);
       } else {
         pendingCount++;
@@ -88,7 +90,16 @@ export async function runStatus(config: ResolvedConfig): Promise<void> {
       }
     }
 
-    p.log.info(`${pc.green(appliedSet.size.toString())} applied, ${pc.yellow(pendingCount.toString())} pending.`);
+    const fileSet = new Set(files);
+    const missingLocal = [...appliedSet].filter((name) => !fileSet.has(name));
+    if (missingLocal.length > 0) {
+      p.log.warn(pc.yellow(`▲ Database has ${missingLocal.length} applied record(s) missing local migration files:`));
+      for (const m of missingLocal) {
+        p.log.warn(pc.yellow(`  - ${m}`));
+      }
+    }
+
+    p.log.info(`${pc.green(appliedCount.toString())} applied, ${pc.yellow(pendingCount.toString())} pending.`);
     p.outro("Done.");
   } catch (err: any) {
     s.stop("Failed.");
