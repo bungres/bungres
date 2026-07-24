@@ -1,281 +1,208 @@
+import { defineSeed } from "@bungres/kit";
 import { db } from "./client";
-import { 
-  categories, orderLines, orders, products, reviews, stores, users, 
-  tags, productTags, auditLogs, brands 
-} from "./schema";
-import { faker } from "@faker-js/faker";
+import * as schema from "./schema";
 
-function generateLargeJson(size: number = 50) {
-  const result: any = {
-    history: [],
-    metadata: { generatedAt: new Date().toISOString(), version: "1.0.0", environment: "production" },
-    flags: {},
-    tags: []
-  };
-  for (let i = 0; i < size; i++) {
-    result.history.push({
-      action: `action_${i}`,
-      timestamp: new Date(Date.now() - i * 1000000).toISOString(),
-      userId: Bun.randomUUIDv7(),
-      changes: {
-        fieldA: `old_value_${i}`,
-        fieldB: `new_value_${i}`,
-        nested: { key: `val_${i}`, metrics: [i, i * 2, i * 3, i * 4, i * 5] }
-      },
-      audit: { ip: "192.168.1.1", userAgent: "Mozilla/5.0", location: "US" }
+const CATEGORIES = [
+  { name: "Electronics & Gadgets", slug: "electronics-gadgets" },
+  { name: "Clothing & Apparel", slug: "clothing-apparel" },
+  { name: "Home & Kitchen", slug: "home-kitchen" },
+  { name: "Books & Stationery", slug: "books-stationery" },
+  { name: "Beauty & Personal Care", slug: "beauty-personal-care" },
+  { name: "Sports & Outdoors", slug: "sports-outdoors" },
+  { name: "Toys & Games", slug: "toys-games" },
+  { name: "Automotive & Tools", slug: "automotive-tools" },
+  { name: "Jewelry & Watches", slug: "jewelry-watches" },
+  { name: "Health & Wellness", slug: "health-wellness" },
+];
+
+const BRANDS = [
+  "Apple", "Samsung", "Sony", "Nike", "Adidas",
+  "Logitech", "Bose", "Dyson", "Puma", "Anker",
+  "LG", "Dell", "HP", "Asus", "Canon",
+  "Panasonic", "Lenovo", "Philips", "JBL", "Seagate"
+];
+
+const PRODUCT_TITLES = [
+  "Wireless Noise-Canceling Headphones",
+  "Ergonomic Mechanical RGB Gaming Keyboard",
+  "Ultra-Wide 34-Inch 4K Curved Monitor",
+  "Insulated Stainless Steel Water Bottle 1L",
+  "Organic Dark Roast Espresso Coffee Beans 1kg",
+  "Lightweight Breathable Running Shoes",
+  "Waterproof Smartwatch Fitness Tracker",
+  "Digital Air Fryer XL 5.5L Convection Oven",
+  "Professional Mirrorless Digital Camera Kit",
+  "High-Speed Tri-Band Wi-Fi 6 Router",
+  "Genuine Leather RFID Blocking Slim Wallet",
+  "Portable Rugged Bluetooth Speaker",
+  "Electric Height-Adjustable Standing Desk",
+  "Contour Memory Foam Orthopedic Pillow",
+  "Damascus Steel Japanese Chef Knife Set"
+];
+
+const REVIEWS = [
+  { title: "Exceptional build quality!", comment: "Exceeded my expectations. The build quality is top-notch and battery life easily lasts two days." },
+  { title: "Fantastic value for money", comment: "Works exactly as advertised. Fast delivery and well-protected packaging." },
+  { title: "Great product, quick shipping", comment: "Super convenient and easy to set up out of the box. Highly satisfied." },
+  { title: "Highly recommended for daily use", comment: "I have been using this daily for two weeks now and have zero complaints." },
+  { title: "Sleek design & premium feel", comment: "Looks sleek on my desk and feels very premium. Definitely worth the price." }
+];
+
+const TAGS = [
+  { name: "Bestseller", slug: "bestseller", color: "#ef4444" },
+  { name: "New Arrival", slug: "new-arrival", color: "#3b82f6" },
+  { name: "On Sale", slug: "on-sale", color: "#10b981" },
+  { name: "Top Rated", slug: "top-rated", color: "#f59e0b" },
+  { name: "Free Shipping", slug: "free-shipping", color: "#8b5cf6" },
+  { name: "Eco Friendly", slug: "eco-friendly", color: "#06b6d4" },
+  { name: "Limited Edition", slug: "limited-edition", color: "#ec4899" },
+  { name: "Trending", slug: "trending", color: "#6366f1" },
+];
+
+const AUDIT_ACTIONS = [
+  { action: "user.login", msg: "User authenticated successfully from registered device" },
+  { action: "order.created", msg: "New customer order placed and sent to fulfillment center" },
+  { action: "payment.processed", msg: "Credit card payment authorized via Stripe Gateway" },
+  { action: "product.updated", msg: "Inventory stock counts updated after bulk restock" },
+  { action: "user.password_reset", msg: "Password reset token generated and dispatched via email" },
+];
+
+const seedDef = defineSeed(db, schema, (seed) => {
+  // Truncate all tables before seeding
+  seed.truncate();
+
+  // 1. Users blueprint
+  seed.table("users")
+    .count(100)
+    .columns({
+      email: seed.fake.email(),
+      name: seed.fake.fullName(),
+      role: seed.fake.values(["admin", "moderator", "user", "guest"], [5, 10, 80, 5]),
+      isActive: seed.fake.boolean({ truePercentage: 90 }),
+      bio: seed.fake.values([
+        "Tech enthusiast, coffee lover, and software developer.",
+        "Passionate gamer and hardware optimizer.",
+        "E-commerce shopper and gadget reviewer.",
+        "Design enthusiast and creative photographer."
+      ]),
     });
-    result.flags[`flag_${i}`] = Math.random() > 0.5;
-    result.tags.push(`tag_long_random_string_that_takes_up_space_${Bun.randomUUIDv7()}_${i}`);
-  }
-  return result;
-}
 
-async function main() {
-  console.log("Starting E-commerce database seeder...");
-
-  // Clean data
-  console.log("Cleaning old data...");
-  await db.raw("TRUNCATE product_tags, tags, order_lines, orders, reviews, products, brands, categories, stores, audit_logs, users CASCADE;");
-
-  console.log("Inserting users...");
-  const userIds: string[] = [];
-  const userBatch = [];
-  const roles = ["admin", "moderator", "user", "guest"];
-  for (let i = 0; i < 500; i++) {
-    const id = Bun.randomUUIDv7();
-    userIds.push(id);
-    userBatch.push({
-      id,
-      name: faker.person.fullName(),
-      email: faker.internet.email(),
-      role: roles[Math.floor(Math.random() * roles.length)],
-      birthDate: faker.date.birthdate().toISOString().split('T')[0],
-      bio: faker.person.bio(),
-      preferences: { theme: Math.random() > 0.5 ? "dark" : "light", notifications: true, language: "en-US", currency: "USD" },
+  // 2. Categories blueprint
+  seed.table("categories")
+    .count(CATEGORIES.length)
+    .columns({
+      name: seed.fake.custom((i) => CATEGORIES[i % CATEGORIES.length]!.name),
+      slug: seed.fake.custom((i) => CATEGORIES[i % CATEGORIES.length]!.slug),
+      description: seed.fake.custom((i) => `Browse top-rated products in ${CATEGORIES[i % CATEGORIES.length]!.name}.`),
     });
-  }
-  await db.insert(users).values(userBatch);
 
-  console.log("Inserting categories...");
-  const categoryIds: string[] = [];
-  const catBatch = [];
-  for (let i = 0; i < 20; i++) {
-    const id = Bun.randomUUIDv7();
-    categoryIds.push(id);
-    const catName = faker.commerce.department();
-    catBatch.push({
-      id,
-      name: catName,
-      slug: faker.helpers.slugify(catName).toLowerCase() + `-${i}`,
-      description: faker.commerce.productDescription(),
-      metadata: { seoTitle: `${catName} - Shop Now`, keywords: [catName, "shop", "online"] },
+  // 3. Brands blueprint
+  seed.table("brands")
+    .count(BRANDS.length)
+    .columns({
+      name: seed.fake.custom((i) => BRANDS[i % BRANDS.length]!),
+      slug: seed.fake.custom((i) => BRANDS[i % BRANDS.length]!.toLowerCase().replace(/\s+/g, "-")),
+      description: seed.fake.custom((i) => `Official store for ${BRANDS[i % BRANDS.length]!} premium products.`),
+      logoUrl: seed.fake.custom((i) => `https://images.unsplash.com/photo-${1500000000000 + i}?w=200&h=200&fit=crop`),
     });
-  }
-  await db.insert(categories).values(catBatch);
 
-  console.log("Inserting brands...");
-  const brandIds: string[] = [];
-  const brandBatch = [];
-  for (let i = 0; i < 30; i++) {
-    const id = Bun.randomUUIDv7();
-    brandIds.push(id);
-    const brandName = faker.company.name();
-    brandBatch.push({
-      id,
-      name: brandName,
-      slug: faker.helpers.slugify(brandName).toLowerCase() + `-${i}`,
-      description: faker.company.catchPhrase(),
-      logoUrl: faker.image.url(),
-      websiteUrl: faker.internet.url(),
+  // 4. Stores blueprint
+  seed.table("stores")
+    .count(30)
+    .columns({
+      name: seed.fake.custom((i) => `${BRANDS[i % BRANDS.length]!} Official Flagship Store ${i + 1}`),
+      rating: seed.fake.number({ min: 4.0, max: 5.0, precision: 1 }),
+      description: seed.fake.custom((i) => `Authorized flagship seller of ${BRANDS[i % BRANDS.length]!} electronics & lifestyle gear.`),
     });
-  }
-  await db.insert(brands).values(brandBatch);
 
-  console.log("Inserting stores...");
-  const storeIds: string[] = [];
-  const storeBatch = [];
-  for (let i = 0; i < 100; i++) {
-    const id = Bun.randomUUIDv7();
-    storeIds.push(id);
-    storeBatch.push({
-      id,
-      ownerId: userIds[i % userIds.length]!,
-      name: faker.company.name(),
-      description: faker.company.catchPhrase(),
-      rating: parseFloat(faker.number.float({ min: 1, max: 5, fractionDigits: 1 }).toString()),
-      location: { city: faker.location.city(), country: faker.location.country() },
-      businessHours: { open: "09:00", close: "17:00" },
+  // 5. Products blueprint
+  seed.table("products")
+    .count(250)
+    .columns({
+      name: seed.fake.custom((i) => `${BRANDS[i % BRANDS.length]!} ${PRODUCT_TITLES[i % PRODUCT_TITLES.length]!}`),
+      sku: seed.fake.custom((i) => `SKU-${BRANDS[i % BRANDS.length]!.slice(0, 3).toUpperCase()}-${1000 + i}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`),
+      price: seed.fake.number({ min: 19.99, max: 899.99, precision: 2 }),
+      compareAtPrice: seed.fake.number({ min: 29.99, max: 1199.99, precision: 2 }),
+      costPrice: seed.fake.number({ min: 10.00, max: 400.00, precision: 2 }),
+      stock: seed.fake.number({ min: 5, max: 250 }),
+      condition: seed.fake.values(["new", "used", "refurbished", "damaged"], [80, 10, 8, 2]),
+      images: seed.fake.custom((i) => [
+        `https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&auto=format&fit=crop`,
+        `https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop`
+      ]),
     });
-  }
-  await db.insert(stores).values(storeBatch);
 
-  console.log("Inserting products...");
-  const productIds: string[] = [];
-  const productBatch = [];
-  const conditions = ["new", "used", "refurbished", "damaged"];
-  for (let i = 0; i < 5000; i++) {
-    const id = Bun.randomUUIDv7();
-    productIds.push(id);
-    const price = parseFloat((Math.random() * 1000).toFixed(2));
-    productBatch.push({
-      id,
-      storeId: storeIds[i % storeIds.length]!,
-      categoryId: categoryIds[i % categoryIds.length]!,
-      brandId: brandIds[i % brandIds.length]!,
-      sku: `SKU-${Bun.randomUUIDv7().substring(24).toUpperCase()}-${i}`,
-      name: faker.commerce.productName(),
-      description: faker.commerce.productDescription(),
-      price,
-      compareAtPrice: parseFloat((price * 1.2).toFixed(2)),
-      costPrice: parseFloat((price * 0.6).toFixed(2)),
-      condition: conditions[Math.floor(Math.random() * conditions.length)],
-      stock: Math.floor(Math.random() * 100),
-      weight: parseFloat((Math.random() * 10).toFixed(2)),
-      dimensions: { w: 10 + Math.random() * 10, h: 20 + Math.random() * 20, d: 5 + Math.random() * 5, unit: "cm" },
-      images: [faker.image.url(), faker.image.url()],
-      tags: ["premium", "bestseller", "featured"],
-      attributes: generateLargeJson(20), // Insert large JSON payload here
+  // 6. Reviews blueprint
+  seed.table("reviews")
+    .count(300)
+    .columns({
+      title: seed.fake.custom((i) => REVIEWS[i % REVIEWS.length]!.title),
+      comment: seed.fake.custom((i) => REVIEWS[i % REVIEWS.length]!.comment),
+      rating: seed.fake.values([5, 4, 3, 2, 1], [60, 25, 10, 3, 2]),
+      isVerifiedPurchase: seed.fake.boolean({ truePercentage: 85 }),
     });
-  }
-  for (let i = 0; i < productBatch.length; i += 1000) {
-    await db.insert(products).values(productBatch.slice(i, i + 1000));
-  }
 
-  console.log("Inserting reviews...");
-  const reviewBatch = [];
-  for (let i = 0; i < 10000; i++) {
-    reviewBatch.push({
-      id: Bun.randomUUIDv7(),
-      productId: productIds[i % productIds.length]!,
-      userId: userIds[(i + 1) % userIds.length]!,
-      rating: Math.floor(Math.random() * 5) + 1,
-      title: faker.word.words(3),
-      comment: faker.lorem.sentences(2),
-      pros: ["fast", "reliable"],
-      cons: ["expensive"],
-      isVerifiedPurchase: Math.random() > 0.5,
-      helpfulCount: Math.floor(Math.random() * 50),
-    });
-  }
-  for (let i = 0; i < reviewBatch.length; i += 1000) {
-    await db.insert(reviews).values(reviewBatch.slice(i, i + 1000));
-  }
-
-  console.log("Inserting orders and order lines...");
-  const orderBatch = [];
-  const orderLineBatch = [];
-  const statuses = ["pending", "processing", "shipped", "delivered", "cancelled", "refunded"];
-  for (let i = 0; i < 2000; i++) {
-    const orderId = Bun.randomUUIDv7();
-    const customerId = userIds[i % userIds.length]!;
-    const totalAmt = parseFloat((Math.random() * 500).toFixed(2));
-    const tax = parseFloat((totalAmt * 0.1).toFixed(2));
-    const shipping = 10.00;
-    const finalTotal = parseFloat((totalAmt + tax + shipping).toFixed(2));
-
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-
-    orderBatch.push({
-      id: orderId,
-      customerId,
-      subtotal: totalAmt,
-      tax,
-      shipping,
-      discount: 0,
-      total: finalTotal,
-      status: status,
+  // 7. Orders blueprint
+  seed.table("orders")
+    .count(150)
+    .columns({
+      status: seed.fake.values(["pending", "processing", "shipped", "delivered", "cancelled"], [10, 20, 25, 40, 5]),
+      subtotal: seed.fake.number({ min: 29.99, max: 599.99, precision: 2 }),
+      tax: seed.fake.number({ min: 2.50, max: 50.00, precision: 2 }),
+      shipping: 9.99,
+      total: seed.fake.number({ min: 42.48, max: 659.98, precision: 2 }),
       currency: "USD",
-      notes: `Please deliver quickly for order ${i}. Handle with care.`,
-      shippingAddress: generateLargeJson(2), 
-      billingAddress: { line1: "123 Main St", city: "SF", zip: "94105", country: "US" },
+      notes: seed.fake.values([
+        "Please deliver during business hours.",
+        "Leave at front porch if nobody answers.",
+        "Handle with care (Fragile items inside).",
+        "Call customer prior to delivery."
+      ]),
     });
 
-    const numItems = Math.floor(Math.random() * 5) + 1;
-    for (let j = 0; j < numItems; j++) {
-      const qty = Math.floor(Math.random() * 3) + 1;
-      const unitPr = parseFloat((totalAmt / numItems).toFixed(2));
-      const pIdx = (i + j) % productIds.length;
-      orderLineBatch.push({
-        id: Bun.randomUUIDv7(),
-        orderId: orderId,
-        productId: productIds[pIdx]!,
-        quantity: qty,
-        unitPrice: unitPr,
-        totalPrice: parseFloat((qty * unitPr).toFixed(2)),
-        productName: `Product ${pIdx}`,
-        productSku: `SKU-${pIdx}`,
-      });
-    }
-  }
-
-  for (let i = 0; i < orderBatch.length; i += 1000) {
-    await db.insert(orders).values(orderBatch.slice(i, i + 1000));
-  }
-  for (let i = 0; i < orderLineBatch.length; i += 1000) {
-    await db.insert(orderLines).values(orderLineBatch.slice(i, i + 1000));
-  }
-
-  console.log("Inserting tags...");
-  const tagIds: string[] = [];
-  const tagBatch = [];
-  for (let i = 0; i < 50; i++) {
-    const id = Bun.randomUUIDv7();
-    tagIds.push(id);
-    tagBatch.push({
-      id,
-      name: `Tag ${i}`,
-      slug: `tag-${i}`,
-      color: "#ff0000",
-      description: `Tag description ${i}`,
+  // 8. Order Lines blueprint
+  seed.table("order_lines")
+    .count(350)
+    .columns({
+      quantity: seed.fake.number({ min: 1, max: 3 }),
+      unitPrice: seed.fake.number({ min: 19.99, max: 299.99, precision: 2 }),
+      totalPrice: seed.fake.number({ min: 19.99, max: 899.97, precision: 2 }),
+      productName: seed.fake.custom((i) => PRODUCT_TITLES[i % PRODUCT_TITLES.length]!),
     });
-  }
-  await db.insert(tags).values(tagBatch);
 
-  console.log("Inserting product tags...");
-  const productTagBatch = [];
-  for (let i = 0; i < productIds.length; i++) {
-    const numTags = Math.floor(Math.random() * 4);
-    for (let j = 0; j < numTags; j++) {
-      productTagBatch.push({
-        id: Bun.randomUUIDv7(),
-        productId: productIds[i]!,
-        tagId: tagIds[(i + j) % tagIds.length]!,
-      });
-    }
-  }
-  for (let i = 0; i < productTagBatch.length; i += 1000) {
-    await db.insert(productTags).values(productTagBatch.slice(i, i + 1000));
-  }
-
-  console.log("Inserting audit logs...");
-  const logBatch = [];
-  const levels = ["debug", "info", "warn", "error", "fatal"];
-  for (let i = 0; i < 50; i++) {
-    logBatch.push({
-      id: Bun.randomUUIDv7(),
-      level: levels[Math.floor(Math.random() * levels.length)],
-      action: "order.created",
-      message: `System event ${i}`,
-      userId: userIds[i % userIds.length],
-      targetResource: "orders",
-      targetId: Bun.randomUUIDv7(),
-      ipAddress: "192.168.1.1",
-      userAgent: "Mozilla/5.0",
-      meta: { service: "order-service", eventId: i },
+  // 9. Tags blueprint
+  seed.table("tags")
+    .count(TAGS.length)
+    .columns({
+      name: seed.fake.custom((i) => TAGS[i % TAGS.length]!.name),
+      slug: seed.fake.custom((i) => TAGS[i % TAGS.length]!.slug),
+      color: seed.fake.custom((i) => TAGS[i % TAGS.length]!.color),
+      description: seed.fake.custom((i) => `Products tagged as ${TAGS[i % TAGS.length]!.name}`),
     });
-  }
-  await db.insert(auditLogs).values(logBatch);
 
-  console.log("Refreshing materialized views...");
-  await db.raw("REFRESH MATERIALIZED VIEW daily_sales_mv;");
-  await db.raw("REFRESH MATERIALIZED VIEW top_selling_products_mv;");
+  // 10. Product Tags junction blueprint
+  seed.table("product_tags")
+    .count(250);
 
-  console.log("✅ Seeding completed! Database is primed for testing.");
-}
-
-main().catch(err => {
-  console.error("Seeding failed", err);
-  process.exit(1);
-}).finally(() => {
-  process.exit(0);
+  // 11. Audit Logs blueprint
+  seed.table("audit_logs")
+    .count(100)
+    .columns({
+      level: seed.fake.values(["info", "warn", "error", "debug"], [70, 15, 10, 5]),
+      action: seed.fake.custom((i) => AUDIT_ACTIONS[i % AUDIT_ACTIONS.length]!.action),
+      message: seed.fake.custom((i) => AUDIT_ACTIONS[i % AUDIT_ACTIONS.length]!.msg),
+      ipAddress: seed.fake.values(["192.168.1.100", "10.0.0.15", "172.16.0.42"]),
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    });
 });
+
+export default seedDef;
+
+if (import.meta.main) {
+  seedDef.execute().then(() => {
+    process.exit(0);
+  }).catch((err: any) => {
+    console.error("Seeding error:", err);
+    process.exit(1);
+  });
+}

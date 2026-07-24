@@ -21,6 +21,9 @@ export type { TableInfo } from "./commands/pull.js";
 
 export { splitSqlStatements } from "./sql-splitter.js";
 
+export { defineSeed, TableBlueprint, createFakeGenerator, executeSeedDefinition } from "./seeder.js";
+export type { SeedDefinition, SeedHelpers, FakeGenerator, RelGenerator } from "./seeder.js";
+
 // Commands
 export { runCheck } from "./commands/check.js";
 export { runGenerate } from "./commands/generate.js";
