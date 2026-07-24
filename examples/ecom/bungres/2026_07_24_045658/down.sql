@@ -1,0 +1,17 @@
+DROP MATERIALIZED VIEW IF EXISTS "top_selling_products_mv";
+DROP MATERIALIZED VIEW IF EXISTS "daily_sales_mv";
+DROP TABLE IF EXISTS "reviews";
+DROP TABLE IF EXISTS "product_tags";
+DROP TABLE IF EXISTS "tags";
+DROP TABLE IF EXISTS "order_lines";
+DROP TABLE IF EXISTS "products";
+DROP TABLE IF EXISTS "stores";
+DROP TABLE IF EXISTS "orders";
+DROP TABLE IF EXISTS "categories";
+DROP TABLE IF EXISTS "brands";
+DROP TABLE IF EXISTS "audit_logs";
+DROP TABLE IF EXISTS "users";
+DROP TYPE IF EXISTS "user_role";
+DROP TYPE IF EXISTS "product_condition";
+DROP TYPE IF EXISTS "order_status";
+DROP TYPE IF EXISTS "audit_log_level";

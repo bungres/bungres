@@ -49,14 +49,14 @@ const REVIEWS = [
 ];
 
 const TAGS = [
-  { name: "Bestseller", slug: "bestseller", color: "#ef4444" },
-  { name: "New Arrival", slug: "new-arrival", color: "#3b82f6" },
-  { name: "On Sale", slug: "on-sale", color: "#10b981" },
-  { name: "Top Rated", slug: "top-rated", color: "#f59e0b" },
-  { name: "Free Shipping", slug: "free-shipping", color: "#8b5cf6" },
-  { name: "Eco Friendly", slug: "eco-friendly", color: "#06b6d4" },
-  { name: "Limited Edition", slug: "limited-edition", color: "#ec4899" },
-  { name: "Trending", slug: "trending", color: "#6366f1" },
+  { name: "Bestseller", slug: "bestseller" },
+  { name: "New Arrival", slug: "new-arrival" },
+  { name: "On Sale", slug: "on-sale" },
+  { name: "Top Rated", slug: "top-rated" },
+  { name: "Free Shipping", slug: "free-shipping" },
+  { name: "Eco Friendly", slug: "eco-friendly" },
+  { name: "Limited Edition", slug: "limited-edition" },
+  { name: "Trending", slug: "trending" },
 ];
 
 const AUDIT_ACTIONS = [
@@ -176,8 +176,6 @@ const seedDef = defineSeed(db, schema, (seed) => {
     .columns({
       name: seed.fake.custom((i) => TAGS[i % TAGS.length]!.name),
       slug: seed.fake.custom((i) => TAGS[i % TAGS.length]!.slug),
-      color: seed.fake.custom((i) => TAGS[i % TAGS.length]!.color),
-      description: seed.fake.custom((i) => `Products tagged as ${TAGS[i % TAGS.length]!.name}`),
     });
 
   // 10. Product Tags junction blueprint

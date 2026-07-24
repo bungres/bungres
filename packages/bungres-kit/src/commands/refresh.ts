@@ -1,13 +1,14 @@
-import { join, resolve } from "node:path";
 import { existsSync, statSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ResolvedConfig } from "../config.js";
 import { splitSqlStatements } from "../sql-splitter.js";
+import { loadMigrationFolders } from "../migration-loader.js";
 import { runMigrate } from "./migrate.js";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 
 // ---------------------------------------------------------------------------
-// refresh — truncate all tables to reset data without dropping schema
+// refresh — rollback all applied migrations (down.sql) and re-apply (up.sql)
 // ---------------------------------------------------------------------------
 
 export async function runRefresh(config: ResolvedConfig): Promise<void> {
@@ -61,10 +62,13 @@ export async function runRefresh(config: ResolvedConfig): Promise<void> {
       s.stop("No migrations to rollback.");
       p.log.info(pc.yellow("Database is empty."));
     } else {
-      const missingFiles = applied.filter((row) => !existsSync(join(migrationsDir, row.name)));
+      const folders = await loadMigrationFolders(migrationsDir);
+      const folderMap = new Map(folders.map((f) => [f.name, f]));
+      const missingFiles = applied.filter((row) => !folderMap.has(row.name));
+
       if (missingFiles.length > 0) {
         s.stop("Migration files missing.");
-        p.log.error(pc.red(`The database tracks ${applied.length} migration(s), but ${missingFiles.length} file(s) are missing from ${migrationsDir}:`));
+        p.log.error(pc.red(`The database tracks ${applied.length} migration(s), but ${missingFiles.length} directory/file(s) are missing from ${migrationsDir}:`));
         for (const f of missingFiles) {
           p.log.error(pc.red(`  - ${f.name}`));
         }
@@ -87,27 +91,12 @@ export async function runRefresh(config: ResolvedConfig): Promise<void> {
 
       for (const row of applied) {
         const migrationName = row.name;
+        const folder = folderMap.get(migrationName)!;
+
         s = p.spinner();
         s.start(`Rolling back ${migrationName}...`);
 
-        let content = "";
-        try {
-          content = await Bun.file(join(migrationsDir, migrationName)).text();
-        } catch (e) {
-           s.stop("Failed.");
-           p.log.error(pc.red(`Failed to read migration file ${migrationName}. Cannot refresh.`));
-           return;
-        }
-
-        let downContent = "";
-        const downMatch = content.match(/-- ==== DOWN ====([\s\S]*)/i);
-        if (downMatch) {
-          downContent = downMatch[1]!.trim();
-        } else {
-          s.stop("Failed.");
-          p.log.error(pc.red(`No '-- ==== DOWN ====' section found in ${migrationName}. Cannot rollback safely.`));
-          return;
-        }
+        const downContent = folder.downContent;
 
         await sql.transaction(async (txSql: InstanceType<typeof Bun.SQL>) => {
           if (downContent) {

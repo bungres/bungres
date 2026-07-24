@@ -202,15 +202,6 @@
           "length": 255,
           "tableName": "\"brands\""
         },
-        "websiteUrl": {
-          "name": "website_url",
-          "dataType": "varchar",
-          "notNull": false,
-          "primaryKey": false,
-          "unique": false,
-          "length": 255,
-          "tableName": "\"brands\""
-        },
         "isActive": {
           "name": "is_active",
           "dataType": "boolean",
@@ -318,14 +309,6 @@
           "primaryKey": false,
           "unique": false,
           "defaultValue": 0,
-          "tableName": "\"categories\""
-        },
-        "metadata": {
-          "name": "metadata",
-          "dataType": "jsonb",
-          "notNull": false,
-          "primaryKey": false,
-          "unique": false,
           "tableName": "\"categories\""
         },
         "createdAt": {
@@ -1339,14 +1322,6 @@
           "length": 7,
           "tableName": "\"tags\""
         },
-        "description": {
-          "name": "description",
-          "dataType": "text",
-          "notNull": false,
-          "primaryKey": false,
-          "unique": false,
-          "tableName": "\"tags\""
-        },
         "isActive": {
           "name": "is_active",
           "dataType": "boolean",
@@ -1584,13 +1559,13 @@
   "views": {
     "daily_sales_mv": {
       "name": "daily_sales_mv",
-      "query": {},
-      "materialized": true
+      "materialized": true,
+      "sql": "\n    SELECT\n      DATE_TRUNC('day', created_at) as sale_date,\n      COUNT(id) as total_orders,\n      SUM(total) as total_revenue,\n      SUM(discount) as total_discounts\n    FROM orders\n    WHERE status != 'cancelled'\n    GROUP BY DATE_TRUNC('day', created_at)\n  "
     },
     "top_selling_products_mv": {
       "name": "top_selling_products_mv",
-      "query": {},
-      "materialized": true
+      "materialized": true,
+      "sql": "\n    SELECT\n      p.id as product_id,\n      p.name as product_name,\n      COUNT(ol.id) as times_ordered,\n      SUM(ol.quantity) as total_quantity_sold,\n      SUM(ol.total_price) as total_revenue\n    FROM order_lines ol\n    JOIN products p ON ol.product_id = p.id\n    JOIN orders o ON ol.order_id = o.id\n    WHERE o.status != 'cancelled'\n    GROUP BY p.id, p.name\n  "
     }
   }
 }

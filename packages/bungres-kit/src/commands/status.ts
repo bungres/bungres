@@ -3,6 +3,7 @@ import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import pc from "picocolors";
 import type { ResolvedConfig } from "../config.js";
+import { loadMigrationFolders } from "../migration-loader.js";
 
 // ---------------------------------------------------------------------------
 // status — show which migrations have been applied vs. pending
@@ -49,17 +50,12 @@ export async function runStatus(config: ResolvedConfig): Promise<void> {
 
     const trackingExists = tableCheck[0]?.exists ?? false;
 
-    // Discover migration files
-    const glob = new Bun.Glob("*.sql");
-    const files: string[] = [];
-    for await (const file of glob.scan({ cwd: migrationsDir, absolute: false })) {
-      files.push(file);
-    }
-    files.sort();
+    // Discover migration folders
+    const folders = await loadMigrationFolders(migrationsDir);
 
-    if (files.length === 0) {
-      s.stop("No files found.");
-      p.log.warn(pc.yellow("No migration files found."));
+    if (folders.length === 0) {
+      s.stop("No migrations found.");
+      p.log.warn(pc.yellow("No migration directories found."));
       p.log.info(`Run ${pc.green("bungres generate")} first.`);
       p.outro("Done.");
       return;
@@ -79,21 +75,21 @@ export async function runStatus(config: ResolvedConfig): Promise<void> {
     let appliedCount = 0;
     let pendingCount = 0;
 
-    for (const file of files) {
-      const isApplied = appliedSet.has(file);
+    for (const folder of folders) {
+      const isApplied = appliedSet.has(folder.name);
       if (isApplied) {
         appliedCount++;
-        p.log.success(`${pc.green("✓ applied ")} ${file}`);
+        p.log.success(`${pc.green("✓ applied ")} ${folder.name}`);
       } else {
         pendingCount++;
-        p.log.warn(`${pc.yellow("✗ pending ")} ${file}`);
+        p.log.warn(`${pc.yellow("✗ pending ")} ${folder.name}`);
       }
     }
 
-    const fileSet = new Set(files);
-    const missingLocal = [...appliedSet].filter((name) => !fileSet.has(name));
+    const folderSet = new Set(folders.map((f) => f.name));
+    const missingLocal = [...appliedSet].filter((name) => !folderSet.has(name));
     if (missingLocal.length > 0) {
-      p.log.warn(pc.yellow(`▲ Database has ${missingLocal.length} applied record(s) missing local migration files:`));
+      p.log.warn(pc.yellow(`▲ Database has ${missingLocal.length} applied record(s) missing local migration directories:`));
       for (const m of missingLocal) {
         p.log.warn(pc.yellow(`  - ${m}`));
       }

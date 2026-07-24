@@ -1,12 +1,13 @@
-import { join, resolve } from "node:path";
 import { existsSync, statSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ResolvedConfig } from "../config.js";
 import { splitSqlStatements } from "../sql-splitter.js";
+import { loadMigrationFolders } from "../migration-loader.js";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 
 // ---------------------------------------------------------------------------
-// migrate — run pending .sql files, track applied in the migrations table
+// migrate — run pending migration directories (up.sql), track in DB
 // ---------------------------------------------------------------------------
 
 export async function runMigrate(config: ResolvedConfig): Promise<void> {
@@ -52,17 +53,12 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
     await sql.unsafe(createSchema);
     await sql.unsafe(createMigrationsTable);
 
-    // Discover migration files in order
-    const glob = new Bun.Glob("*.sql");
-    const files: string[] = [];
-    for await (const file of glob.scan({ cwd: migrationsDir, absolute: false })) {
-      files.push(file);
-    }
-    files.sort(); // 0001_ < 0002_ etc.
+    // Discover migration folders
+    const folders = await loadMigrationFolders(migrationsDir);
 
-    if (files.length === 0) {
-      s.stop("No files found.");
-      p.log.warn(pc.yellow(`No migration files found in ${migrationsDir}`));
+    if (folders.length === 0) {
+      s.stop("No migrations found.");
+      p.log.warn(pc.yellow(`No migration directories found in ${migrationsDir}`));
       p.log.info(`Run ${pc.green("bungres generate")} first.`);
       p.outro("Done.");
       return;
@@ -72,7 +68,7 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
     const applied = await sql.unsafe(`SELECT name FROM ${qualifiedTable}`);
     const appliedSet = new Set((applied as { name: string }[]).map((r) => r.name));
 
-    const pending = files.filter((f) => !appliedSet.has(f));
+    const pending = folders.filter((f) => !appliedSet.has(f.name));
 
     if (pending.length === 0) {
       s.stop("Up to date.");
@@ -83,37 +79,14 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
 
     s.stop(`Found ${pending.length} pending migration(s).`);
 
-    for (const file of pending) {
+    for (const folder of pending) {
       s = p.spinner();
-      s.start(`Applying ${file}...`);
-      
-      const filePath = join(migrationsDir, file);
-      if (!existsSync(filePath)) {
-        s.stop("Failed.");
-        p.log.error(pc.red(`Migration file not found: ${filePath}`));
-        p.outro("Failed.");
-        return;
-      }
+      s.start(`Applying ${folder.name}...`);
 
-      let content = "";
-      try {
-        content = await Bun.file(filePath).text();
-      } catch (err: any) {
-        s.stop("Failed.");
-        p.log.error(pc.red(`Failed to read migration file ${file}: ${err.message}`));
-        p.outro("Failed.");
-        return;
-      }
-
-      // Extract only the UP section if delimiters exist
-      let upContent = content;
-      const upMatch = content.match(/-- ==== UP ====([\s\S]*?)(?:-- ==== DOWN ====|$)/i);
-      if (upMatch) {
-        upContent = upMatch[1]!.trim();
-      }
+      const upContent = folder.upContent;
 
       if (config.verbose) {
-        p.log.info(pc.gray(`-- ${file} --\n${upContent}\n`));
+        p.log.info(pc.gray(`-- ${folder.name}/up.sql --\n${upContent}\n`));
       }
 
       await sql.transaction(async (txSql: InstanceType<typeof Bun.SQL>) => {
@@ -151,11 +124,11 @@ CREATE TABLE IF NOT EXISTS ${qualifiedTable} (
 
         await txSql.unsafe(
           `INSERT INTO ${qualifiedTable} (name) VALUES ($1)`,
-          [file]
+          [folder.name]
         );
       });
 
-      s.stop(pc.green(`✓ Applied ${file}`));
+      s.stop(pc.green(`✓ Applied ${folder.name}`));
     }
 
     p.outro(pc.cyan("✨ All migrations applied successfully."));

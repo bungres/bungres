@@ -1,12 +1,13 @@
-import { join, resolve } from "node:path";
 import { existsSync, statSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ResolvedConfig } from "../config.js";
 import { splitSqlStatements } from "../sql-splitter.js";
+import { loadMigrationFolders } from "../migration-loader.js";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 
 // ---------------------------------------------------------------------------
-// rollback — revert the last applied migration
+// rollback — revert the last applied migration folder (down.sql)
 // ---------------------------------------------------------------------------
 
 export async function runRollback(config: ResolvedConfig): Promise<void> {
@@ -49,11 +50,12 @@ export async function runRollback(config: ResolvedConfig): Promise<void> {
     }
 
     const lastMigration = (applied[0] as { name: string }).name;
-    const filePath = join(migrationsDir, lastMigration);
+    const folders = await loadMigrationFolders(migrationsDir);
+    const folder = folders.find((f) => f.name === lastMigration);
 
-    if (!existsSync(filePath)) {
-      activeSpinner.stop("Migration file missing.");
-      p.log.error(pc.red(`The database tracks '${lastMigration}' as applied, but the file does not exist in ${migrationsDir}.`));
+    if (!folder) {
+      activeSpinner.stop("Migration directory missing.");
+      p.log.error(pc.red(`The database tracks '${lastMigration}' as applied, but the directory does not exist in ${migrationsDir}.`));
       p.outro("Failed.");
       return;
     }
@@ -73,34 +75,10 @@ export async function runRollback(config: ResolvedConfig): Promise<void> {
     activeSpinner = p.spinner();
     activeSpinner.start(`Rolling back ${lastMigration}...`);
 
-    let content = "";
-    try {
-      content = await Bun.file(filePath).text();
-    } catch (err: any) {
-      activeSpinner.stop("Failed.");
-      p.log.error(pc.red(`Failed to read migration file ${lastMigration}: ${err.message}`));
-      p.outro("Failed.");
-      return;
-    }
-
-    // Extract only the DOWN section
-    let downContent = "";
-    const downMatch = content.match(/-- ==== DOWN ====([\s\S]*)/i);
-    if (downMatch) {
-      downContent = downMatch[1]!.trim();
-    } else {
-      activeSpinner.stop("Failed.");
-      p.log.error(pc.red(`No '-- ==== DOWN ====' section found in ${lastMigration}. Cannot rollback safely.`));
-      p.outro("Failed.");
-      return;
-    }
-
-    if (!downContent) {
-        p.log.warn(pc.yellow(`Down section is empty in ${lastMigration}. Nothing to execute.`));
-    }
+    const downContent = folder.downContent;
 
     if (config.verbose) {
-      p.log.info(pc.gray(`-- ${lastMigration} (DOWN) --\n${downContent}\n`));
+      p.log.info(pc.gray(`-- ${lastMigration}/down.sql --\n${downContent}\n`));
     }
 
     await sql.transaction(async (txSql: InstanceType<typeof Bun.SQL>) => {

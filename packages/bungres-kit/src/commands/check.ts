@@ -1,8 +1,9 @@
-import { join, resolve } from "node:path";
-import { readdirSync, existsSync, statSync } from "node:fs";
+import { resolve } from "node:path";
+import { existsSync, statSync } from "node:fs";
 import type { ResolvedConfig } from "../config.js";
 import { loadSchemas } from "../schema-loader.js";
 import { diffSchemas, type SchemaSnapshot } from "../differ.js";
+import { loadLatestSnapshotFromFolders, loadMigrationFolders } from "../migration-loader.js";
 import { inlineParams } from "@bungres/orm";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
@@ -29,7 +30,6 @@ export async function runCheck(
   }
 
   const migrationsDir = resolve(config.out);
-  const metaDir = join(migrationsDir, "meta");
 
   // ── Build current snapshot from loaded schemas ────────────────────────────
   const currentSnapshot: SchemaSnapshot = { tables: {}, enums: {}, views: {} };
@@ -48,38 +48,9 @@ export async function runCheck(
   }
 
   // ── Load previous snapshot ────────────────────────────────────────────────
-  let prevSnapshot: SchemaSnapshot = { tables: {}, enums: {}, views: {} };
-  let hasSnapshot = false;
-
-  try {
-    if (existsSync(metaDir)) {
-      const files = readdirSync(metaDir).filter(f => f.endsWith("_snapshot.json")).sort();
-      if (files.length > 0) {
-        const latest = files[files.length - 1] as string;
-        const parsed = JSON.parse(await Bun.file(join(metaDir, latest)).text());
-        prevSnapshot = {
-          tables: parsed.tables || {},
-          enums: parsed.enums || {},
-          views: parsed.views || {}
-        };
-        hasSnapshot = true;
-      }
-    }
-    if (!hasSnapshot) {
-      const legacyFile = Bun.file(join(migrationsDir, ".snapshot.json"));
-      if (await legacyFile.exists()) {
-        const parsed = JSON.parse(await legacyFile.text());
-        prevSnapshot = {
-          tables: parsed.tables || {},
-          enums: parsed.enums || {},
-          views: parsed.views || {}
-        };
-        hasSnapshot = true;
-      }
-    }
-  } catch (e) {
-    // Ignore reading error
-  }
+  const latestFolderSnapshot = await loadLatestSnapshotFromFolders(migrationsDir);
+  const prevSnapshot: SchemaSnapshot = latestFolderSnapshot || { tables: {}, enums: {}, views: {} };
+  const hasSnapshot = !!latestFolderSnapshot;
 
   const diff = diffSchemas(prevSnapshot, currentSnapshot);
   let isClean = true;
@@ -120,12 +91,7 @@ export async function runCheck(
       const trackingExists = tableCheck[0]?.exists ?? false;
 
       if (existsSync(migrationsDir) && statSync(migrationsDir).isDirectory()) {
-        const glob = new Bun.Glob("*.sql");
-        const files: string[] = [];
-        for await (const file of glob.scan({ cwd: migrationsDir, absolute: false })) {
-          files.push(file);
-        }
-        files.sort();
+        const folders = await loadMigrationFolders(migrationsDir);
 
         let appliedSet = new Set<string>();
         if (trackingExists) {
@@ -133,11 +99,11 @@ export async function runCheck(
           appliedSet = new Set(applied.map((r) => r.name));
         }
 
-        const pending = files.filter(f => !appliedSet.has(f));
+        const pending = folders.filter((f) => !appliedSet.has(f.name));
         if (pending.length > 0) {
           p.log.error(pc.red(`✖ Database is missing ${pending.length} migration(s):`));
           for (const f of pending) {
-            p.log.error(pc.yellow(`  - ${f}`));
+            p.log.error(pc.yellow(`  - ${f.name}`));
           }
           p.log.info(`Run ${pc.green("bungres migrate")} to apply pending migrations.`);
           isClean = false;

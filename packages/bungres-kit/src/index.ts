@@ -20,6 +20,8 @@ export { introspectDb } from "./commands/pull.js";
 export type { TableInfo } from "./commands/pull.js";
 
 export { splitSqlStatements } from "./sql-splitter.js";
+export { loadMigrationFolders, loadLatestSnapshotFromFolders } from "./migration-loader.js";
+export type { MigrationFolder } from "./migration-loader.js";
 
 export { defineSeed, TableBlueprint, createFakeGenerator, executeSeedDefinition } from "./seeder.js";
 export type { SeedDefinition, SeedHelpers, FakeGenerator, RelGenerator } from "./seeder.js";
