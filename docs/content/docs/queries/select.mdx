@@ -1,0 +1,136 @@
+---
+title: Select Queries
+description: Query data with type safety using select, joins, filtering, pagination, CTEs, and single result execution.
+icon: Search
+---
+
+# Select Query Builder
+
+The `SelectBuilder` provides a type-safe interface for fetching rows from PostgreSQL tables.
+
+---
+
+## Basic Selection
+
+Select all columns or specify a partial list of columns:
+
+```ts
+import { users } from "./db/schema";
+
+// 1. Select all columns
+const allUsers = await db
+  .select()
+  .from(users);
+
+// 2. Select specific columns
+const userSummaries = await db
+  .select(users.id, users.email, users.fullName)
+  .from(users);
+```
+
+---
+
+## Filtering (`.where()`)
+
+Filter query results using expression helpers:
+
+```ts
+import { eq, and, gt } from "@bungres/orm";
+import { users } from "./db/schema";
+
+const activeAdults = await db
+  .select()
+  .from(users)
+  .where(
+    and(
+      eq(users.active, true),
+      gt(users.age, 18)
+    )
+  );
+```
+
+---
+
+## Single Result (`.single()`)
+
+To return a single record instead of an array (or `null` if not found), append `.single()`:
+
+```ts
+const user = await db
+  .select()
+  .from(users)
+  .where(eq(users.id, userId))
+  .single();
+
+// user: User | null
+```
+
+---
+
+## Ordering, Pagination & Limits
+
+```ts
+import { desc, asc } from "@bungres/orm";
+
+const recentUsers = await db
+  .select()
+  .from(users)
+  .orderBy(desc(users.createdAt))
+  .limit(10)
+  .offset(20);
+```
+
+---
+
+## Grouping & Having
+
+```ts
+import { count, gte } from "@bungres/orm";
+import { posts } from "./db/schema";
+
+const authorPostCounts = await db
+  .select(posts.authorId, count(posts.id).as("totalPosts"))
+  .from(posts)
+  .groupBy(posts.authorId)
+  .having(gte(count(posts.id), 5));
+```
+
+---
+
+## Joins
+
+Perform Inner Joins, Left Joins, Right Joins, and Full Joins:
+
+```ts
+import { posts, users } from "./db/schema";
+import { eq } from "@bungres/orm";
+
+const postsWithAuthors = await db
+  .select(
+    posts.id,
+    posts.title,
+    users.username.as("authorUsername")
+  )
+  .from(posts)
+  .innerJoin(users, eq(posts.authorId, users.id));
+```
+
+---
+
+## Common Table Expressions (CTEs / `withCte`)
+
+Construct modular subqueries using Common Table Expressions:
+
+```ts
+import { withCte, gte } from "@bungres/orm";
+import { users } from "./db/schema";
+
+const activeUserCte = withCte("active_users", (db) => 
+  db.select(users.id, users.email).from(users).where(eq(users.active, true))
+);
+
+const results = await db
+  .with(activeUserCte)
+  .select()
+  .from(activeUserCte);
+```

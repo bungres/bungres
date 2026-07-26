@@ -1,0 +1,92 @@
+---
+title: Tables & Schema
+description: Define PostgreSQL tables, schemas, constraints, and relationships in type-safe TypeScript.
+icon: LayoutGrid
+---
+
+# Tables & Schema Definition
+
+In `@bungres/orm`, PostgreSQL tables are defined using the `pgTable()` helper. Each table definition describes table name, columns, default values, inline constraints, and multi-column table builder constraints.
+
+---
+
+## Defining a Table
+
+The basic syntax for creating a table is:
+
+```ts
+import { pgTable, uuid, varchar, text, timestamptz } from "@bungres/orm";
+
+export const posts = pgTable("posts", {
+  id: uuid({ primaryKey: true }),
+  title: varchar({ length: 255, notNull: true }),
+  slug: varchar({ length: 255, notNull: true, unique: true }),
+  content: text(),
+  createdAt: timestamptz({ defaultRaw: "NOW()", notNull: true }),
+});
+```
+
+---
+
+## Modern Clean Object Syntax
+
+Unlike ORMs that rely on verbose method chaining (`.notNull().default(...)`), Bungres features a **modern object-based builder option syntax**. Every column function accepts column options as a single clean configuration object:
+
+```ts
+// Clean, declarative object options
+export const categories = pgTable("categories", {
+  id: uuid({ primaryKey: true }),
+  name: varchar({ length: 100, notNull: true, unique: true }),
+  description: text(),
+});
+```
+
+---
+
+## Multi-Column Constraints & Extra Builders
+
+To define composite primary keys, table-level indexes, unique constraints, foreign keys, or check constraints, pass a builder function as the 3rd argument to `pgTable`:
+
+```ts
+import { pgTable, uuid, varchar, timestamptz, unique, index, primaryKey } from "@bungres/orm";
+
+export const projectMembers = pgTable(
+  "project_members",
+  {
+    projectId: uuid({ notNull: true }),
+    userId: uuid({ notNull: true }),
+    role: varchar({ length: 50, notNull: true }),
+    joinedAt: timestamptz({ defaultRaw: "NOW()", notNull: true }),
+  },
+  (t) => [
+    // Composite Primary Key
+    primaryKey().on(t.projectId, t.userId),
+    
+    // Custom Index
+    index("idx_members_role").on(t.role),
+  ]
+);
+```
+
+---
+
+## Exporting & Organising Schemas
+
+You can define multiple tables in a single file or modularize them across multiple files in a schema folder:
+
+```ts title="src/db/schema/index.ts"
+export * from "./users";
+export * from "./posts";
+export * from "./categories";
+```
+
+In your `bungres.config.ts`, simply point to the root schema file:
+
+```ts title="bungres.config.ts"
+import { defineConfig } from "@bungres/kit";
+
+export default defineConfig({
+  schema: "./src/db/schema/index.ts",
+  out: "./bungres",
+});
+```

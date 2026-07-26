@@ -1,0 +1,133 @@
+---
+title: Indexes & Constraints
+description: Define primary keys, foreign keys, unique constraints, check conditions, and performance indexes.
+icon: ShieldCheck
+---
+
+# Indexes & Constraints
+
+Bungres provides top-level and table-level helpers for declaring relational integrity rules, foreign key constraints, indexes, and check validations.
+
+---
+
+## Primary Keys
+
+Primary keys can be assigned inline on a single column or declared as a multi-column primary key in the table builder callback:
+
+```ts
+import { pgTable, uuid, primaryKey } from "@bungres/orm";
+
+// 1. Single Column Inline Primary Key
+export const users = pgTable("users", {
+  id: uuid({ primaryKey: true }),
+});
+
+// 2. Composite Multi-Column Primary Key
+export const userRoles = pgTable(
+  "user_roles",
+  {
+    userId: uuid({ notNull: true }),
+    roleId: uuid({ notNull: true }),
+  },
+  (t) => [
+    primaryKey().on(t.userId, t.roleId),
+  ]
+);
+```
+
+---
+
+## Unique Constraints
+
+```ts
+import { pgTable, varchar, unique } from "@bungres/orm";
+
+// Inline unique column
+export const accounts = pgTable("accounts", {
+  username: varchar({ length: 50, unique: true, notNull: true }),
+});
+
+// Multi-column Unique Constraint
+export const organizationMembers = pgTable(
+  "organization_members",
+  {
+    orgId: varchar({ length: 50, notNull: true }),
+    email: varchar({ length: 255, notNull: true }),
+  },
+  (t) => [
+    unique("unique_org_email").on(t.orgId, t.email),
+  ]
+);
+```
+
+---
+
+## Foreign Key References
+
+Foreign keys establish relational references to other tables. Pass `references: () => targetColumn` in column options or use `foreignKey()` builder:
+
+```ts
+import { pgTable, uuid, text, foreignKey } from "@bungres/orm";
+import { users } from "./users";
+
+export const posts = pgTable("posts", {
+  id: uuid({ primaryKey: true }),
+  title: text({ notNull: true }),
+  // Inline foreign key reference with onDelete cascade
+  authorId: uuid({
+    notNull: true,
+    references: {
+      column: () => users.id,
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    },
+  }),
+});
+```
+
+---
+
+## Indexes
+
+Create single or composite indexes to speed up query execution:
+
+```ts
+import { pgTable, varchar, timestamptz, index } from "@bungres/orm";
+
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: varchar({ primaryKey: true }),
+    action: varchar({ length: 100, notNull: true }),
+    createdAt: timestamptz({ defaultRaw: "NOW()", notNull: true }),
+  },
+  (t) => [
+    // Standard index on createdAt
+    index("idx_audit_created_at").on(t.createdAt),
+    // Composite index on action + createdAt
+    index().on(t.action, t.createdAt),
+  ]
+);
+```
+
+---
+
+## Check Constraints
+
+Validate data values directly in PostgreSQL using SQL check expressions:
+
+```ts
+import { pgTable, integer, check } from "@bungres/orm";
+
+export const products = pgTable(
+  "products",
+  {
+    price: integer({ notNull: true }),
+    discount: integer({ default: 0 }),
+  },
+  (t) => [
+    check("check_positive_price", "price > 0"),
+    check("check_valid_discount", "discount >= 0 AND discount <= price"),
+  ]
+);
+```

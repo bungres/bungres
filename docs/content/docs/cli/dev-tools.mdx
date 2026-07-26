@@ -1,0 +1,59 @@
+---
+title: Dev Tools & REPL Safety
+description: Database browsing with Studio and interactive REPL debugging with Tusky security guidelines.
+icon: Wrench
+---
+
+# Developer Tools & REPL Security
+
+`@bungres/kit` includes interactive tools to accelerate development and debugging workflows.
+
+---
+
+## Bungres Studio (`bungres studio`)
+
+Launch a local web interface to browse database tables, view records, inspect schema metadata, and execute quick ad-hoc edits:
+
+```bash
+bun run bungres studio
+```
+
+Studio opens a web application in your browser (defaulting to `http://localhost:4983`), providing a clean visual dashboard for your PostgreSQL database.
+
+---
+
+## Interactive REPL (`bungres tusky`)
+
+`bungres tusky` boots up an interactive REPL (Read-Eval-Print Loop) environment pre-loaded with your database client (`db`) and all declared schema models:
+
+```bash
+bun run bungres tusky
+```
+
+Example REPL session:
+
+```ts
+> await db.users.findMany()
+[
+  { id: "123", email: "alice@example.com", username: "alice" }
+]
+```
+
+---
+
+## ⚠️ REPL Tool Security Warning
+
+> [!WARNING]
+> The `bungres tusky` REPL command evaluates interactive JavaScript/TypeScript input using dynamic code evaluation. Because `@bungres/kit` is installed as a development dependency, `tusky` is strictly intended for **local development and debugging only**.
+
+### Critical Security Risks
+
+1. **Arbitrary Code Execution**: Executes arbitrary TypeScript expressions with full process environment access.
+2. **Direct DB Privileges**: Inherits full read/write/delete permissions of the connected PostgreSQL user account.
+3. **No Environment Exposure**: Should never be run on production servers or exposed to network endpoints.
+
+### Safe Development Best Practices
+
+- Run `tusky` strictly in isolated local development environments.
+- Always connect `tusky` to dedicated local development or test databases.
+- Never expose ports or REPL interfaces to public networks or remote users.

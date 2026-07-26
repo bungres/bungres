@@ -1,0 +1,139 @@
+---
+title: Quick Start
+description: Get up and running with Bungres ORM and Bungres Kit CLI in under 5 minutes.
+icon: Zap
+---
+
+# Quick Start Guide
+
+This guide takes you through installing Bungres, defining your first database schema, querying data with total type safety, and managing database migrations.
+
+---
+
+## 1. Installation
+
+Install `@bungres/orm` and `@bungres/kit` in your Bun project:
+
+```bash
+bun add @bungres/orm
+bun add -d @bungres/kit
+```
+
+---
+
+## 2. Configure Environment
+
+Set your `DATABASE_URL` environment variable:
+
+```bash
+export DATABASE_URL="postgres://postgres:password@localhost:5432/mydb"
+```
+
+---
+
+## 3. Initialize Project Configuration
+
+Run `bungres init` to create a `bungres.config.ts` file in your project root:
+
+```bash
+bun run bungres init
+```
+
+This creates a default configuration:
+
+```ts title="bungres.config.ts"
+import { defineConfig } from "@bungres/kit";
+
+export default defineConfig({
+  schema: "./src/db/schema.ts",
+  out: "./bungres", // Migration files and generated outputs
+  dbCredentials: {
+    url: process.env.DATABASE_URL!,
+  },
+});
+```
+
+---
+
+## 4. Define Your Schema
+
+Create your database schema file at `src/db/schema.ts`:
+
+```ts title="src/db/schema.ts"
+import { pgTable, uuid, varchar, text, boolean, timestamptz, index } from "@bungres/orm";
+
+export const users = pgTable(
+  "users",
+  {
+    id: uuid({ primaryKey: true }),
+    email: varchar({ length: 255, notNull: true, unique: true }),
+    username: varchar({ length: 80, notNull: true, unique: true }),
+    fullName: text(),
+    active: boolean({ default: true, notNull: true }),
+    createdAt: timestamptz({ defaultRaw: "NOW()", notNull: true }),
+  },
+  (t) => [
+    index().on(t.createdAt),
+  ]
+);
+```
+
+---
+
+## 5. Apply Schema to Database
+
+For rapid prototyping during development, push your schema directly to PostgreSQL:
+
+```bash
+bun run bungres push
+```
+
+For production workflows, generate a timestamped `.sql` migration file and run it:
+
+```bash
+bun run bungres generate
+bun run bungres migrate
+```
+
+---
+
+## 6. Query Your Database
+
+Initialize the `bungres` client in `src/db/index.ts` and run queries:
+
+```ts title="src/index.ts"
+import { bungres, eq } from "@bungres/orm";
+import { users } from "./db/schema";
+
+const db = bungres(process.env.DATABASE_URL!);
+
+// Insert a new user
+const newUser = await db
+  .insert(users)
+  .values({
+    email: "alice@example.com",
+    username: "alice",
+    fullName: "Alice Vance",
+  })
+  .returning()
+  .single();
+
+console.log("Created User:", newUser);
+
+// Query user by email
+const found = await db
+  .select()
+  .from(users)
+  .where(eq(users.email, "alice@example.com"))
+  .single();
+
+console.log("Found User:", found);
+```
+
+---
+
+## Next Steps 🎯
+
+- Explore **[Schema Definition](/docs/schema/tables)** to learn about column builders, constraints, and indexes.
+- Read **[Query Builder Guide](/docs/queries/select)** to master complex selects, joins, CTEs, and updates.
+- Check out **[CLI Toolkit Reference](/docs/cli)** for migration controls, database introspection (`pull`), and Studio GUI.

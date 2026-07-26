@@ -1,0 +1,44 @@
+---
+title: Update Queries
+description: Update existing records conditionally with returning clauses and type checking.
+icon: Pencil
+---
+
+# Update Query Builder
+
+The `UpdateBuilder` lets you mutate existing rows in PostgreSQL safely.
+
+---
+
+## Basic Update
+
+```ts
+import { users } from "./db/schema";
+import { eq } from "@bungres/orm";
+
+const updatedUser = await db
+  .update(users)
+  .set({
+    fullName: "Alice Vance-Smith",
+    active: true,
+  })
+  .where(eq(users.id, userId))
+  .returning()
+  .single();
+```
+
+---
+
+## Updating Multiple Records
+
+Omit or modify the `.where()` clause to update multiple rows simultaneously:
+
+```ts
+import { eq } from "@bungres/orm";
+import { users } from "./db/schema";
+
+const updatedCount = await db
+  .update(users)
+  .set({ active: false })
+  .where(eq(users.verified, false));
+```

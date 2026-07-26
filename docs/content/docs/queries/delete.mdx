@@ -1,0 +1,39 @@
+---
+title: Delete Queries
+description: Delete records conditionally from database tables with optional returning values.
+icon: Trash2
+---
+
+# Delete Query Builder
+
+The `DeleteBuilder` lets you remove records from database tables.
+
+---
+
+## Basic Delete
+
+```ts
+import { users } from "./db/schema";
+import { eq } from "@bungres/orm";
+
+// Delete user by ID
+await db
+  .delete(users)
+  .where(eq(users.id, userId));
+```
+
+---
+
+## Delete with Returning
+
+Return deleted records to inspect or archive deleted data:
+
+```ts
+const deletedUser = await db
+  .delete(users)
+  .where(eq(users.id, userId))
+  .returning()
+  .single();
+
+console.log("Deleted record:", deletedUser);
+```

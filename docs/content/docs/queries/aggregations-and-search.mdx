@@ -1,0 +1,70 @@
+---
+title: Aggregations & Full-Text Search
+description: Perform count, sum, average, window functions, and full-text search vector matching.
+icon: TrendingUp
+---
+
+# Aggregations & Full-Text Search
+
+---
+
+## Aggregate Functions
+
+Bungres provides aggregate functions for SQL summary calculations:
+
+```ts
+import { count, sum, avg, min, max, over } from "@bungres/orm";
+import { orders } from "./db/schema";
+
+const summary = await db
+  .select(
+    count(orders.id).as("totalOrders"),
+    sum(orders.totalAmount).as("revenue"),
+    avg(orders.totalAmount).as("averageOrderValue"),
+    min(orders.totalAmount).as("minOrder"),
+    max(orders.totalAmount).as("maxOrder")
+  )
+  .from(orders);
+```
+
+---
+
+## Window Functions (`over()`)
+
+Add window partitions and ordering using `over()`:
+
+```ts
+import { count, over } from "@bungres/orm";
+import { employees } from "./db/schema";
+
+const results = await db
+  .select(
+    employees.name,
+    employees.departmentId,
+    over(count(employees.id), {
+      partitionBy: employees.departmentId,
+    }).as("deptCount")
+  )
+  .from(employees);
+```
+
+---
+
+## Full-Text Search
+
+Execute fast, indexed PostgreSQL full-text search queries using vector matching:
+
+```ts
+import { toTsvector, plainToTsquery, tsMatch } from "@bungres/orm";
+import { articles } from "./db/schema";
+
+const searchResults = await db
+  .select()
+  .from(articles)
+  .where(
+    tsMatch(
+      toTsvector("english", articles.content),
+      plainToTsquery("english", "high performance orm")
+    )
+  );
+```

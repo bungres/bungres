@@ -1,0 +1,59 @@
+---
+title: Introduction
+description: High-performance, type-safe Postgres ORM + CLI toolkit for Bun, powered natively by Bun.SQL.
+icon: BookOpen
+---
+
+# Bungres
+
+**Bungres** is a modern, light-speed, type-safe PostgreSQL ORM and CLI toolkit designed specifically for **Bun**. It builds directly on Bun's native `Bun.SQL` engine — eliminating third-party database drivers like `pg` or `postgres.js` to deliver maximum throughput, zero runtime overhead, and total type safety.
+
+```ts
+import { bungres, pgTable, uuid, varchar, text, boolean, eq } from "@bungres/orm";
+
+// 1. Define schema
+export const users = pgTable("users", {
+  id: uuid({ primaryKey: true }),
+  email: varchar({ length: 255, notNull: true, unique: true }),
+  fullName: text(),
+  verified: boolean({ default: false }),
+});
+
+// 2. Connect (uses native Bun.SQL under the hood)
+const db = bungres(process.env.DATABASE_URL!);
+
+// 3. Query with complete type safety
+const user = await db
+  .select()
+  .from(users)
+  .where(eq(users.email, "dev@bungres.io"))
+  .single();
+```
+
+---
+
+## Key Features 🚀
+
+- **⚡ Native `Bun.SQL` Integration**: Built natively for Bun. No intermediate bindings, no extra drivers, minimal memory overhead.
+- **🛡️ Full End-to-End Type Safety**: Schema column definitions automatically infer JavaScript/TypeScript types for selections, inserts, and updates.
+- **🐫 Automatic Casing API**: Seamlessly map camelCase JS property names (e.g. `fullName`) to snake_case Postgres columns (e.g. `full_name`) without redundant boilerplate.
+- **🏷️ Column Aliasing**: Easily alias selected columns with `.as("aliasName")`.
+- **💬 Built-in SQL Commenter**: Add contextual metadata comments directly into generated SQL queries using `.comment("...")` for enhanced query profiling and APM tracing.
+- **🔗 Zero-Boilerplate Many-to-Many Relations**: High-level relational query engine (`db.users.findMany(...)`) automatically detects junction tables based on foreign key definitions.
+- **🧰 Comprehensive CLI Toolkit (`@bungres/kit`)**: Generate timestamped SQL migrations, push schema changes, introspect existing databases (`pull`), inspect state (`status`), browse data with **Studio**, and debug with **Tusky REPL**.
+
+---
+
+## Workspace Packages 📦
+
+| Package | Version | Description |
+| :--- | :--- | :--- |
+| **`@bungres/orm`** | `1.2.1` | Core ORM — schema definition, query builder, conditions, transactions, relational queries |
+| **`@bungres/kit`** | `2.0.0` | CLI toolkit — migration generator, schema push/pull, Studio database browser, Tusky REPL |
+
+---
+
+## System Requirements ⚙️
+
+- **Bun**: `≥ 1.3` (requires native `Bun.SQL` support)
+- **PostgreSQL**: `≥ 16`

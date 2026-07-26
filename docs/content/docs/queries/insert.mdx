@@ -1,0 +1,80 @@
+---
+title: Insert Queries
+description: Insert single or multiple records with type safety, returning values, and upsert handling.
+icon: Plus
+---
+
+# Insert Query Builder
+
+The `InsertBuilder` manages single and batch record insertions, returning clauses, and conflict resolution (upserts).
+
+---
+
+## Single Record Insertion
+
+```ts
+import { users } from "./db/schema";
+
+const newUser = await db
+  .insert(users)
+  .values({
+    email: "carol@example.com",
+    username: "carol",
+    fullName: "Carol Danvers",
+  })
+  .returning()
+  .single();
+```
+
+---
+
+## Bulk Batch Insertion
+
+Pass an array of objects to insert multiple rows in a single batch query:
+
+```ts
+const createdUsers = await db
+  .insert(users)
+  .values([
+    { email: "dev1@bungres.io", username: "dev1" },
+    { email: "dev2@bungres.io", username: "dev2" },
+    { email: "dev3@bungres.io", username: "dev3" },
+  ])
+  .returning();
+```
+
+---
+
+## Upsert Handling (`onConflictDoUpdate` / `onConflictDoNothing`)
+
+Handle primary key or unique index conflicts effortlessly:
+
+### 1. Ignore Conflicts (`onConflictDoNothing`)
+
+```ts
+await db
+  .insert(users)
+  .values({ email: "alice@example.com", username: "alice" })
+  .onConflictDoNothing();
+```
+
+### 2. Update on Conflict (`onConflictDoUpdate`)
+
+```ts
+const user = await db
+  .insert(users)
+  .values({
+    email: "alice@example.com",
+    username: "alice_updated",
+    active: true,
+  })
+  .onConflictDoUpdate({
+    target: users.email,
+    set: {
+      username: "alice_updated",
+      active: true,
+    },
+  })
+  .returning()
+  .single();
+```

@@ -1,0 +1,92 @@
+---
+title: Conditions & Expression Operators
+description: Comprehensive reference for comparison, logic, string, set, and null condition helpers.
+icon: ListFilter
+---
+
+# Expression Operators & Conditions
+
+`@bungres/orm` exports a complete suite of type-safe condition functions used inside `.where()`, `.having()`, and join conditions.
+
+---
+
+## Comparison Operators
+
+| Helper | SQL Equivalent | Example Usage |
+| :--- | :--- | :--- |
+| `eq(col, val)` | `col = val` | `eq(users.id, 10)` |
+| `ne(col, val)` | `col <> val` | `ne(users.role, "banned")` |
+| `gt(col, val)` | `col > val` | `gt(users.age, 21)` |
+| `gte(col, val)` | `col >= val` | `gte(users.score, 100)` |
+| `lt(col, val)` | `col < val` | `lt(products.stock, 5)` |
+| `lte(col, val)` | `col <= val` | `lte(users.price, 50)` |
+
+```ts
+import { eq, ne, gt, gte, lt, lte } from "@bungres/orm";
+
+db.select().from(users).where(gt(users.score, 50));
+```
+
+---
+
+## Logical Operators
+
+Combine expressions using `and()`, `or()`, and `not()`:
+
+```ts
+import { and, or, not, eq, gt } from "@bungres/orm";
+
+db.select().from(users).where(
+  and(
+    eq(users.active, true),
+    or(
+      gt(users.score, 100),
+      eq(users.vip, true)
+    ),
+    not(eq(users.suspended, true))
+  )
+);
+```
+
+---
+
+## String Matching (`like` & `ilike`)
+
+```ts
+import { like, ilike } from "@bungres/orm";
+
+// Case-sensitive LIKE pattern
+db.select().from(users).where(like(users.email, "%@gmail.com"));
+
+// Case-insensitive ILIKE pattern
+db.select().from(users).where(ilike(users.fullName, "%alice%"));
+```
+
+---
+
+## Set & Array Inclusion (`inArray` & `notInArray`)
+
+```ts
+import { inArray, notInArray } from "@bungres/orm";
+
+// Check if value is in array of values
+db.select().from(users).where(inArray(users.role, ["admin", "moderator"]));
+
+// Exclude matching values
+db.select().from(users).where(notInArray(users.id, [1, 2, 3]));
+```
+
+---
+
+## Null Checks & Ranges
+
+```ts
+import { isNull, isNotNull, between } from "@bungres/orm";
+
+// Null / Not Null checks
+db.select().from(users).where(isNull(users.deletedAt));
+db.select().from(users).where(isNotNull(users.emailVerified));
+
+// Range validation
+db.select().from(users).where(between(users.age, 18, 65));
+```

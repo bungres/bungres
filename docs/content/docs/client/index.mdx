@@ -1,0 +1,69 @@
+---
+title: Database Client
+description: Initialize BungresDB connection client using Bun.SQL native connection pool.
+icon: Server
+---
+
+# Database Client & Connection
+
+The core entrypoint to executing queries in `@bungres/orm` is the `BungresDB` client instance created by the `bungres()` factory function.
+
+---
+
+## Client Initialization
+
+To connect to your PostgreSQL database, pass a PostgreSQL connection string or configuration object to `bungres()`:
+
+```ts
+import { bungres } from "@bungres/orm";
+
+// Initialize using connection string
+export const db = bungres(process.env.DATABASE_URL!);
+```
+
+---
+
+## Native `Bun.SQL` Under the Hood
+
+Bungres is built **exclusively for Bun**. When you call `bungres(connectionString)`, Bungres instantiates Bun's built-in `new Bun.SQL(connectionString)` client directly.
+
+### Advantages of `Bun.SQL`
+
+- **🚀 Ultra-Low Latency**: Directly uses Bun's fast native C++ database bindings without JavaScript driver wrapper overhead.
+- **⚡ Native Connection Pooling**: Managed connection pooling built into Bun runtime.
+- **📦 Zero External Dependencies**: No need to install `pg`, `pg-pool`, `postgres`, or native build toolchains (`node-gyp`).
+
+---
+
+## Connection Configuration Options
+
+You can pass configuration options directly when initializing `bungres`:
+
+```ts
+import { bungres } from "@bungres/orm";
+
+export const db = bungres({
+  url: process.env.DATABASE_URL!,
+  max: 20,              // Maximum number of connections in pool
+  idleTimeout: 30,      // Seconds before closing idle connections
+});
+```
+
+---
+
+## Multiple Database Connections
+
+If your architecture uses primary and replica databases (read/write splitting), create separate `BungresDB` instances:
+
+```ts
+import { bungres } from "@bungres/orm";
+
+export const dbPrimary = bungres(process.env.PRIMARY_DATABASE_URL!);
+export const dbReplica = bungres(process.env.REPLICA_DATABASE_URL!);
+
+// Writes go to Primary
+await dbPrimary.insert(users).values({ email: "user@domain.com" });
+
+// Reads go to Replica
+const allUsers = await dbReplica.select().from(users);
+```
