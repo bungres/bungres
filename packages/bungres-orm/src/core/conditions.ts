@@ -102,45 +102,45 @@ export const asc = (column: string | ColumnConfig): SQLChunk =>
 export const desc = (column: string | ColumnConfig): SQLChunk =>
   sql`${rawSql(colName(column))} DESC`;
 
-export function parseWhereObject(tableConfig: TableConfig, whereObj: WhereObject<any>, alias?: string): SQLChunk {
+export function parseWhereObject(tableConfig: TableConfig, whereObj: WhereObject<Record<string, ColumnConfig>>, alias?: string): SQLChunk {
   const conditions: SQLChunk[] = [];
   
   for (const [key, val] of Object.entries(whereObj)) {
     if (val === undefined) continue;
     
     if (key === "OR") {
-      const orConditions = (val as WhereObject<any>[]).map(o => parseWhereObject(tableConfig, o, alias));
+      const orConditions = (val as WhereObject<Record<string, ColumnConfig>>[]).map(o => parseWhereObject(tableConfig, o, alias));
       if (orConditions.length > 0) conditions.push(or(...orConditions));
       continue;
     }
     if (key === "AND") {
-      const andConditions = (val as WhereObject<any>[]).map(o => parseWhereObject(tableConfig, o, alias));
+      const andConditions = (val as WhereObject<Record<string, ColumnConfig>>[]).map(o => parseWhereObject(tableConfig, o, alias));
       if (andConditions.length > 0) conditions.push(and(...andConditions));
       continue;
     }
     if (key === "NOT") {
-      conditions.push(not(parseWhereObject(tableConfig, val as WhereObject<any>, alias)));
+      conditions.push(not(parseWhereObject(tableConfig, val as WhereObject<Record<string, ColumnConfig>>, alias)));
       continue;
     }
 
     const colConfig = tableConfig.columns[key];
-    const columnArg: any = colConfig 
+    const columnArg = (colConfig 
       ? (alias ? { ...colConfig, tableName: alias } : colConfig) 
-      : (alias ? { name: key, tableName: alias } : key);
+      : (alias ? { name: key, tableName: alias } : key)) as unknown as ColumnConfig;
 
     if (val !== null && typeof val === "object" && !Array.isArray(val) && !(val instanceof Date) && !(val instanceof Uint8Array)) {
-      const opVal = val as any;
+      const opVal = val as Record<string, unknown>;
       if (opVal.eq !== undefined) conditions.push(eq(columnArg, opVal.eq));
       if (opVal.ne !== undefined) conditions.push(ne(columnArg, opVal.ne));
       if (opVal.gt !== undefined) conditions.push(gt(columnArg, opVal.gt));
       if (opVal.gte !== undefined) conditions.push(gte(columnArg, opVal.gte));
       if (opVal.lt !== undefined) conditions.push(lt(columnArg, opVal.lt));
       if (opVal.lte !== undefined) conditions.push(lte(columnArg, opVal.lte));
-      if (opVal.in !== undefined) conditions.push(inArray(columnArg, opVal.in));
-      if (opVal.notIn !== undefined) conditions.push(notInArray(columnArg, opVal.notIn));
-      if (opVal.between !== undefined) conditions.push(between(columnArg, opVal.between[0], opVal.between[1]));
-      if (opVal.like !== undefined) conditions.push(like(columnArg, opVal.like));
-      if (opVal.ilike !== undefined) conditions.push(ilike(columnArg, opVal.ilike));
+      if (opVal.in !== undefined) conditions.push(inArray(columnArg, opVal.in as unknown[]));
+      if (opVal.notIn !== undefined) conditions.push(notInArray(columnArg, opVal.notIn as unknown[]));
+      if (opVal.between !== undefined) conditions.push(between(columnArg, (opVal.between as unknown[])[0], (opVal.between as unknown[])[1]));
+      if (opVal.like !== undefined) conditions.push(like(columnArg, opVal.like as string));
+      if (opVal.ilike !== undefined) conditions.push(ilike(columnArg, opVal.ilike as string));
       if (opVal.isNull) conditions.push(isNull(columnArg));
       if (opVal.isNotNull) conditions.push(isNotNull(columnArg));
     } else {
@@ -159,15 +159,15 @@ export function parseWhereObject(tableConfig: TableConfig, whereObj: WhereObject
   return and(...conditions);
 }
 
-export function parseOrderByObject(tableConfig: TableConfig, orderByObj: OrderByObject<any>, alias?: string): SQLChunk[] {
+export function parseOrderByObject(tableConfig: TableConfig, orderByObj: OrderByObject<Record<string, ColumnConfig>>, alias?: string): SQLChunk[] {
   const parts: SQLChunk[] = [];
   
   for (const [key, dir] of Object.entries(orderByObj)) {
     if (dir === undefined) continue;
     const colConfig = tableConfig.columns[key];
-    const columnArg: any = colConfig 
+    const columnArg = (colConfig 
       ? (alias ? { ...colConfig, tableName: alias } : colConfig) 
-      : (alias ? { name: key, tableName: alias } : key);
+      : (alias ? { name: key, tableName: alias } : key)) as unknown as ColumnConfig;
     if (dir === "asc") parts.push(asc(columnArg));
     else if (dir === "desc") parts.push(desc(columnArg));
   }

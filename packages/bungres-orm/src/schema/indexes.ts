@@ -3,7 +3,7 @@ import type { SQLChunk } from "../core/sql.js";
 import type { Table, TableConfigImpl } from "./table.js";
 
 export abstract class ConstraintBuilder {
-  abstract build(): any;
+  abstract build(): Record<string, unknown>;
 }
 
 export class IndexBuilder extends ConstraintBuilder {
@@ -80,7 +80,7 @@ export class PrimaryKeyBuilder extends ConstraintBuilder {
 
 export class ForeignKeyBuilder extends ConstraintBuilder {
   private _columns: ColumnConfig[] = [];
-  private _foreignTable?: Table<any, any>;
+  private _foreignTable?: Table<string, Record<string, ColumnConfig<any, any, any, any>>>;
   private _foreignColumns: ColumnConfig[] = [];
   private _onDelete?: "cascade" | "set null" | "set default" | "restrict" | "no action";
   private _onUpdate?: "cascade" | "set null" | "set default" | "restrict" | "no action";
@@ -94,7 +94,7 @@ export class ForeignKeyBuilder extends ConstraintBuilder {
     return this;
   }
 
-  references(table: Table<any, any>, ...columns: ColumnConfig[]): this {
+  references(table: Table<string, Record<string, ColumnConfig<any, any, any, any>>>, ...columns: ColumnConfig[]): this {
     this._foreignTable = table;
     this._foreignColumns = columns;
     return this;
@@ -112,7 +112,7 @@ export class ForeignKeyBuilder extends ConstraintBuilder {
 
   build() {
     const TableConfigSymbol = Symbol.for("BungresTableConfig");
-    const foreignTableName = this._foreignTable ? ((this._foreignTable as any)[TableConfigSymbol] as TableConfigImpl<any, any>).name : "";
+    const foreignTableName = this._foreignTable ? (this._foreignTable as unknown as Record<symbol, TableConfigImpl<string, Record<string, ColumnConfig<any, any, any, any>>>>)[TableConfigSymbol]!.name : "";
     return {
       type: "foreignKey",
       name: this.name,

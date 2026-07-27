@@ -1,5 +1,6 @@
 import type { ColumnConfig, IndexConfig, InferInsert, InferTable, ForeignKeyConfig } from "../types/index.js";
 import type { ConstraintBuilder } from "./indexes.js";
+import type { SQLChunk } from "../core/sql.js";
 
 // ---------------------------------------------------------------------------
 // TableBuilder — defines a table schema, returns a typed Table object
@@ -18,34 +19,34 @@ export interface TableConfigImpl<TName extends string, TColumns> {
   qualifiedName: string;
 }
 
-export function getTableConfig(table: Table<any, any>): TableConfigImpl<any, any> {
-  return (table as any)[TableConfigSymbol];
+export function getTableConfig<TName extends string, TColumns extends Record<string, ColumnConfig<any, any, any, any>>>(table: Table<TName, TColumns>): TableConfigImpl<TName, TColumns> {
+  return (table as unknown as Record<symbol, TableConfigImpl<TName, TColumns>>)[TableConfigSymbol]!;
 }
 
 export function alias<TTable extends Table<any, any>, TAlias extends string>(
   table: TTable,
   aliasName: TAlias
 ): TTable {
-  const cfg = getTableConfig(table);
-  const aliasedTable: any = { ...(table as any) };
+  const cfg = getTableConfig(table as any);
+  const aliasedTable = Object.assign({}, table) as unknown as Record<string | symbol, unknown>;
 
-  const newColumns: any = {};
+  const newColumns: Record<string, ColumnConfig<any, any, any, any>> = {};
   for (const [key, col] of Object.entries(cfg.columns)) {
-    const newCol = { ...(col as any), tableName: aliasName };
+    const newCol = { ...(col as ColumnConfig<any, any, any, any>), tableName: aliasName };
     newColumns[key] = newCol;
     aliasedTable[key] = newCol;
   }
 
-  const newConfig: TableConfigImpl<any, any> = {
+  const newConfig: TableConfigImpl<TAlias, any> = {
     ...cfg,
-    name: aliasName as any,
+    name: aliasName,
     qualifiedName: `"${cfg.name}" AS "${aliasName}"`,
     columns: newColumns,
   };
 
   aliasedTable[TableConfigSymbol] = newConfig;
 
-  return aliasedTable as TTable;
+  return aliasedTable as unknown as TTable;
 }
 
 export type Table<
@@ -114,10 +115,10 @@ function createTableFactory(casing: "none" | "snake" | "camel") {
         const builders = extra(columnConfigs);
         for (const builder of builders) {
           const config = builder.build();
-          if (config.type === "index") indexes.push(config);
-          else if (config.type === "check") checks.push(config.condition);
-          else if (config.type === "primaryKey") primaryKeys.push(...config.columns);
-          else if (config.type === "foreignKey") foreignKeys.push(config);
+          if (config.type === "index") indexes.push(config as unknown as IndexConfig);
+          else if (config.type === "check") checks.push(config.condition as string);
+          else if (config.type === "primaryKey") primaryKeys.push(...config.columns as string[]);
+          else if (config.type === "foreignKey") foreignKeys.push(config as unknown as ForeignKeyConfig);
         }
       } else {
         if (extra.indexes) indexes.push(...extra.indexes);
@@ -138,7 +139,7 @@ function createTableFactory(casing: "none" | "snake" | "camel") {
       }
     };
 
-    return Object.assign(tableObj, columnConfigs) as any;
+    return Object.assign(tableObj, columnConfigs) as unknown as Table<TName, TColumns>;
   };
 }
 

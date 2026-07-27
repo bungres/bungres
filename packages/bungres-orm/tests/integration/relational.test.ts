@@ -106,10 +106,8 @@ if (runTests) {
       });
 
       expect(result).toBeDefined();
-      // @ts-ignore
       expect(result!.profile).toBeDefined();
-      // @ts-ignore
-      expect(result!.profile[0].bio).toBe("Developer");
+      expect(result!.profile![0]?.bio).toBe("Developer");
     });
   });
 
@@ -129,12 +127,9 @@ if (runTests) {
       });
 
       expect(result).toBeDefined();
-      // @ts-ignore
       expect(result!.posts).toBeDefined();
-      // @ts-ignore
       expect(result!.posts).toHaveLength(2);
-      // @ts-ignore
-      const titles = result!.posts.map((p: any) => p.title);
+      const titles = result!.posts.map((p) => p.title);
       expect(titles).toContain("Post 1");
       expect(titles).toContain("Post 2");
     });

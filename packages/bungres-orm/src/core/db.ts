@@ -133,19 +133,19 @@ export class BungresDB implements QueryExecutor {
 
   select(): SelectBuilderIntermediate;
   select<TSelection extends SelectedFields>(fields: TSelection): SelectBuilderIntermediate<TSelection>;
-  select<TColumns extends Record<string, ColumnConfig<any, any, any, any>>>(
+  select<TColumns extends Record<string, ColumnConfig>>(
     table: Table<string, TColumns>
   ): SelectBuilder<TColumns>;
-  select<TColumns extends Record<string, ColumnConfig<any, any, any, any>>>(
+  select<TColumns extends Record<string, ColumnConfig>>(
     tableOrFields?: Table<string, TColumns> | SelectedFields
-  ): any {
+  ): SelectBuilder<TColumns> | SelectBuilderIntermediate | SelectBuilderIntermediate<SelectedFields> {
     if (tableOrFields) {
       if (TableConfigSymbol in tableOrFields) {
-        return new SelectBuilder(tableOrFields as any, this);
+        return new SelectBuilder(tableOrFields as Table<string, TColumns>, this);
       }
       return new SelectBuilderIntermediate(this, tableOrFields as SelectedFields);
     }
-    return new SelectBuilderIntermediate(this);
+    return new SelectBuilderIntermediate(this) as unknown as SelectBuilderIntermediate<SelectedFields>;
   }
 
   insert<TColumns extends Record<string, ColumnConfig>>(
@@ -228,19 +228,19 @@ export class BungresTransaction implements QueryExecutor {
 
   select(): SelectBuilderIntermediate;
   select<TSelection extends SelectedFields>(fields: TSelection): SelectBuilderIntermediate<TSelection>;
-  select<TColumns extends Record<string, ColumnConfig<any, any, any, any>>>(
+  select<TColumns extends Record<string, ColumnConfig>>(
     table: Table<string, TColumns>
   ): SelectBuilder<TColumns>;
-  select<TColumns extends Record<string, ColumnConfig<any, any, any, any>>>(
+  select<TColumns extends Record<string, ColumnConfig>>(
     tableOrFields?: Table<string, TColumns> | SelectedFields
-  ): any {
+  ): SelectBuilder<TColumns> | SelectBuilderIntermediate | SelectBuilderIntermediate<SelectedFields> {
     if (tableOrFields) {
       if (TableConfigSymbol in tableOrFields) {
-        return new SelectBuilder(tableOrFields as any, this);
+        return new SelectBuilder(tableOrFields as Table<string, TColumns>, this);
       }
       return new SelectBuilderIntermediate(this, tableOrFields as SelectedFields);
     }
-    return new SelectBuilderIntermediate(this);
+    return new SelectBuilderIntermediate(this) as unknown as SelectBuilderIntermediate<SelectedFields>;
   }
 
   insert<TColumns extends Record<string, ColumnConfig>>(
@@ -318,7 +318,7 @@ export type BungresDBClient<TSchema extends SchemaConfig> = BungresDB & {
  *
  * export const db = bungres({ url: Bun.env.DATABASE_URL!, schema });
  */
-export function bungres<TSchema extends SchemaConfig = any>(config: DBConfig<TSchema> | string): BungresDBClient<TSchema> {
+export function bungres<TSchema extends SchemaConfig = Record<string, never>>(config: DBConfig<TSchema> | string): BungresDBClient<TSchema> {
   const db = new BungresDB(config);
 
   if (typeof config === "object" && config.schema) {
@@ -327,7 +327,7 @@ export function bungres<TSchema extends SchemaConfig = any>(config: DBConfig<TSc
       get(target, prop) {
         if (prop in target) {
           // Bind methods to the target (BungresDB) to avoid 'this' context issues
-          const value = (target as any)[prop];
+          const value = (target as unknown as Record<string | symbol, unknown>)[prop];
           if (typeof value === 'function') {
             return value.bind(target);
           }
@@ -338,10 +338,10 @@ export function bungres<TSchema extends SchemaConfig = any>(config: DBConfig<TSc
         }
         return undefined;
       }
-    }) as any;
+    }) as unknown as BungresDBClient<TSchema>;
   }
 
-  return db as any;
+  return db as unknown as BungresDBClient<TSchema>;
 }
 
 /** @internal kept for internal package use only */

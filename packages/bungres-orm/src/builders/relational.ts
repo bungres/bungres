@@ -69,7 +69,7 @@ export class RelationalQueryBuilder<
   }
 
   select<K extends (TTableName extends any ? keyof TSchema[TTableName]["$inferSelect"] : never)>(...fields: K[]): RelationalQueryBuilder<TSchema, TTableName, TArgs & { columns: { [P in K]: true } }> {
-    const columnsConfig = Object.fromEntries(fields.map(f => [f, true])) as any;
+    const columnsConfig = Object.fromEntries(fields.map(f => [f, true])) as { [P in K]: true };
     return new RelationalQueryBuilder(this._executor, this._schema, this._tableName, {
       ...this._args,
       columns: {
@@ -79,44 +79,46 @@ export class RelationalQueryBuilder<
     });
   }
 
+  with<K extends keyof ExtractTableRelations<TSchema, TTableName>>(
+    relation: K
+  ): RelationalQueryBuilder<TSchema, TTableName, MergeWith<TArgs, K, never>>;
   with<
     K extends keyof ExtractTableRelations<TSchema, TTableName>,
-    TSubArgs extends FindManyArgs<any, any> = any
+    TSubArgs extends FindManyArgs<TSchema, TargetTable<TSchema, TTableName, K>> = any
   >(
     relation: K,
-    callback: (qb: RelationalQueryBuilder<TSchema, TargetTable<TSchema, TTableName, K>, {}>) => RelationalQueryBuilder<any, any, TSubArgs>
+    callback: (qb: RelationalQueryBuilder<TSchema, TargetTable<TSchema, TTableName, K>, {}>) => RelationalQueryBuilder<TSchema, TargetTable<TSchema, TTableName, K>, TSubArgs>
   ): RelationalQueryBuilder<TSchema, TTableName, MergeWith<TArgs, K, TSubArgs>>;
-
   with(relation: any, callback?: any): any {
     const relations = this._getRuntimeRelations(this._tableName as string);
     const rel = relations.ones[relation as string] || relations.manys[relation as string] || relations.manyToManys[relation as string];
     if (!rel) throw new Error(`Relation ${String(relation)} not found on table ${String(this._tableName)}`);
 
-    const subQb = new RelationalQueryBuilder(this._executor, this._schema, rel.targetTable as any);
+    const subQb = new RelationalQueryBuilder(this._executor, this._schema, rel.targetTable as keyof TSchema);
     const configuredSubQb = callback ? callback(subQb) : subQb;
 
-    const newArgs: any = { ...this._args };
+    const newArgs = { ...this._args } as Record<string, any>;
     newArgs.with = { ...(newArgs.with || {}), [relation]: callback ? configuredSubQb._args : true };
 
-    return new RelationalQueryBuilder(this._executor, this._schema, this._tableName, newArgs) as any;
+    return new RelationalQueryBuilder(this._executor, this._schema, this._tableName, newArgs);
   }
 
   async findMany<TFallbackArgs extends FindManyArgs<TSchema, TTableName> = TArgs>(
     args?: TFallbackArgs
   ): Promise<FindManyResult<TSchema, TTableName, TFallbackArgs>[]> {
-    const finalArgs = { ...this._args, ...(args ?? {}) } as any;
+    const finalArgs = { ...this._args, ...(args ?? {}) } as Record<string, any>;
     const chunk = this.buildSQL(finalArgs);
     const rows = await this._executor.execute<{ _data: string }>(chunk);
     // The DB returns a JSON string or object depending on driver, parse if string
-    return rows.map((r: any) => (typeof r._data === "string" ? JSON.parse(r._data) : r._data)) as any;
+    return rows.map((r: any) => (typeof r._data === "string" ? JSON.parse(r._data) : r._data)) as FindManyResult<TSchema, TTableName, TFallbackArgs>[];
   }
 
   async findFirst<TFallbackArgs extends FindManyArgs<TSchema, TTableName> = TArgs>(
     args?: TFallbackArgs
   ): Promise<FindManyResult<TSchema, TTableName, TFallbackArgs> | null> {
-    const finalArgs = { ...this._args, ...(args ?? {}), limit: 1 } as any;
+    const finalArgs = { ...this._args, ...(args ?? {}), limit: 1 } as Record<string, any>;
     const res = await this.findMany(finalArgs);
-    return (res[0] as any) ?? null;
+    return (res[0] ?? null) as FindManyResult<TSchema, TTableName, TFallbackArgs> | null;
   }
 
 
@@ -132,7 +134,7 @@ export class RelationalQueryBuilder<
     let cached = schemaCache.get(tableName);
     if (cached) return cached;
     const table = this._schema[tableName];
-    const tConfig = (table as any)[TableConfigSymbol];
+    const tConfig = (table as unknown as Record<symbol, any>)[TableConfigSymbol];
     const ones: Record<string, { targetTable: string; sourceColumn: string }> = {};
     const manys: Record<string, { targetTable: string; targetColumn: string }> = {};
     const manyToManys: Record<string, { junctionTable: string; targetTable: string; joinSourceColumn: string; joinTargetColumn: string }> = {};
@@ -148,7 +150,7 @@ export class RelationalQueryBuilder<
 
     // 2. Find "Many" relations from other tables pointing to this table
     for (const [otherName, otherTable] of Object.entries(this._schema)) {
-      const otherConfig = (otherTable as any)[TableConfigSymbol];
+      const otherConfig = (otherTable as unknown as Record<symbol, any>)[TableConfigSymbol];
       if (!otherConfig) continue;
       for (const [colName, col] of Object.entries(otherConfig.columns as Record<string, any>)) {
         if (col.references && col.references.table === tableName) {
@@ -161,24 +163,24 @@ export class RelationalQueryBuilder<
 
     // 3. Find "ManyToMany" relations through junction tables
     for (const [junctionName, junctionTable] of Object.entries(this._schema)) {
-      const junctionConfig = (junctionTable as any)[TableConfigSymbol];
+      const junctionConfig = (junctionTable as unknown as Record<symbol, any>)[TableConfigSymbol];
       if (!junctionConfig) continue;
-      const refs = Object.entries(junctionConfig.columns).filter(([_, c]) => (c as any).references);
+      const refs = Object.entries(junctionConfig.columns).filter(([_, c]) => (c as unknown as { references?: any }).references);
 
-      const toThis = refs.find(([_, c]) => (c as any).references.table === tableName);
+      const toThis = refs.find(([_, c]) => (c as unknown as { references?: { table: string } }).references?.table === tableName);
       if (toThis) {
         for (const [otherColName, otherCol] of refs) {
           if (otherCol === toThis[1]) continue;
 
-          const ref = (otherCol as any).references;
+          const ref = (otherCol as unknown as { references: any }).references;
           const targetTableName = ref.table;
-          const relName = (toThis[1] as any).references.backRelationName || targetTableName;
+          const relName = (toThis[1] as unknown as { references: { backRelationName?: string } }).references.backRelationName || targetTableName;
 
           manyToManys[relName] = {
             junctionTable: junctionName,
             targetTable: targetTableName,
-            joinSourceColumn: (toThis[1] as any).name,
-            joinTargetColumn: (otherCol as any).name,
+            joinSourceColumn: (toThis[1] as unknown as { name: string }).name,
+            joinTargetColumn: (otherCol as unknown as { name: string }).name,
           };
         }
       }
@@ -199,7 +201,7 @@ export class RelationalQueryBuilder<
     joinCondition?: string,
     extraJoin?: string
   ): { sql: string; from: string } {
-    const tableConfig = (this._schema[tableName] as any)[TableConfigSymbol];
+    const tableConfig = (this._schema[tableName] as unknown as Record<symbol, any>)[TableConfigSymbol];
     const relations = this._getRuntimeRelations(tableName);
     const withArgs = args.with || {};
 
@@ -224,13 +226,13 @@ export class RelationalQueryBuilder<
     // Process 'with' relations
     for (const [relKey, relArgs] of Object.entries(withArgs)) {
       const isTrue = relArgs === true;
-      const rArgs = isTrue ? {} : (relArgs as any);
+      const rArgs = isTrue ? {} : (relArgs as Record<string, any>);
 
       if (relations.ones[relKey]) {
         const rel = relations.ones[relKey];
         const subAlias = `${alias}_${relKey}`;
         // One-to-one or Many-to-one
-        const targetConfig = (this._schema[rel.targetTable] as any)[TableConfigSymbol];
+        const targetConfig = (this._schema[rel.targetTable] as unknown as Record<symbol, any>)[TableConfigSymbol];
         const targetPk = getPkColumn(targetConfig);
         const joinCond = `"${subAlias}"."${targetPk}" = "${alias}"."${rel.sourceColumn}"`;
 
@@ -262,8 +264,8 @@ export class RelationalQueryBuilder<
         const subAlias = `${alias}_${relKey}`;
         const junctionAlias = `${alias}_j_${relKey}`;
 
-        const targetTableConfig = (this._schema[rel.targetTable] as any)[TableConfigSymbol];
-        const junctionTableConfig = (this._schema[rel.junctionTable] as any)[TableConfigSymbol];
+        const targetTableConfig = (this._schema[rel.targetTable] as unknown as Record<symbol, any>)[TableConfigSymbol];
+        const junctionTableConfig = (this._schema[rel.junctionTable] as unknown as Record<symbol, any>)[TableConfigSymbol];
 
         const fromExtra = `
           INNER JOIN ${junctionTableConfig.qualifiedName} AS "${junctionAlias}"

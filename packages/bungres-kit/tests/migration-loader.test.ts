@@ -48,7 +48,7 @@ describe("Migration Folder Loader", () => {
     const fixturePath = join(process.cwd(), "tests/fixtures/sample-schema.ts");
     await Bun.$`mkdir -p ${join(process.cwd(), "tests/fixtures")}`.quiet();
     await Bun.write(fixturePath, `
-      import { pgTable, uuid, varchar } from "@bungres/orm";
+      import { pgTable, uuid, varchar } from "../../packages/bungres-orm/src/index.ts";
       export const users = pgTable("users", {
         id: uuid("id"),
         name: varchar("name"),

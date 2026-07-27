@@ -1,4 +1,4 @@
-import type { QueryExecutor, WhereCondition } from "../core/query.js";
+import type { QueryExecutor, WhereCondition, WhereObject } from "../core/query.js";
 import { type SQLChunk, sqlJoin, toPgArray } from "../core/sql.js";
 import { parseWhereObject } from "../core/conditions.js";
 import { type Table, getTableConfig } from "../schema/table.js";
@@ -21,7 +21,7 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
 
   then<TResult1 = InferTable<TColumns>[], TResult2 = never>(
     onfulfilled?: ((value: InferTable<TColumns>[]) => TResult1 | PromiseLike<TResult1>) | undefined,
-    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | undefined
   ): Promise<TResult1 | TResult2> {
     return this._executor.execute<InferTable<TColumns>>(this).then(onfulfilled, onrejected);
   }
@@ -31,13 +31,13 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
   }
 
   set(data: Partial<{ [K in keyof InferTable<TColumns>]: InferTable<TColumns>[K] | SQLChunk }>): this {
-    this._set = { ...this._set, ...data } as any;
+    this._set = { ...this._set, ...data } as Partial<InferTable<TColumns>>;
     return this;
   }
 
   where(condition: WhereCondition<TColumns>): this {
     if (condition && typeof condition === "object" && !("sql" in condition)) {
-      this._where.push(parseWhereObject(getTableConfig(this._table) as any, condition as any));
+      this._where.push(parseWhereObject(getTableConfig(this._table), condition as unknown as WhereObject<Record<string, ColumnConfig>>));
     } else {
       this._where.push(condition as SQLChunk);
     }

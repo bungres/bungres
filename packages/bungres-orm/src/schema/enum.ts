@@ -19,7 +19,7 @@ export function pgEnum<U extends string, TValues extends [U, ...U[]]>(
     opts?: ColumnOptions<N, P, R>
   ) => {
     // We treat the enum name as the Postgres dataType for DDL generation
-    const col = buildColumn(enumName as any, nameOrOpts as any, opts as any);
+    const col = buildColumn(enumName as unknown as "text", nameOrOpts as unknown as ColumnOptions<N, P, R>, opts as unknown as ColumnOptions<N, P, R>);
     col.enumConfig = { enumName, enumValues };
     
     return col as ColBuilder<"text", N, P, R> & { _enumType: TValues[number]; enumConfig: PgEnumConfig<U, TValues> };

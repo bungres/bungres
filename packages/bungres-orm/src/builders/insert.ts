@@ -24,7 +24,7 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
 
   then<TResult1 = InferTable<TColumns>[], TResult2 = never>(
     onfulfilled?: ((value: InferTable<TColumns>[]) => TResult1 | PromiseLike<TResult1>) | undefined,
-    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | undefined
   ): Promise<TResult1 | TResult2> {
     return this._executor.execute<InferTable<TColumns>>(this).then(onfulfilled, onrejected);
   }
@@ -35,9 +35,9 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
 
   values(data: InferInsert<TColumns> | InferInsert<TColumns>[]): this {
     if (Array.isArray(data)) {
-      this._values.push(...(data as any));
+      this._values.push(...(data as unknown as Partial<InferTable<TColumns>>[]));
     } else {
-      this._values.push(data as any);
+      this._values.push(data as unknown as Partial<InferTable<TColumns>>);
     }
     return this;
   }
@@ -110,7 +110,7 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
 
     const valuesStrs = this._values.map((v) => {
       const vals = keys.map((k) => {
-        const val = (v as any)[k];
+        const val = (v as Record<string, unknown>)[k];
         if (val && typeof val === "object" && "sql" in val && "params" in val) {
           const chunk = val as SQLChunk;
           const offset = params.length;

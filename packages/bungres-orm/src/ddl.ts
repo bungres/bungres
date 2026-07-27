@@ -225,7 +225,7 @@ export function inlineParams(chunk: { sql: string; params: unknown[] }): string 
 }
 
 /** Generate CREATE VIEW statement */
-export function generateCreateView(view: any): string {
+export function generateCreateView(view: ViewConfig & { sql?: string }): string {
   const kind = view.materialized ? "MATERIALIZED VIEW" : "VIEW";
   let inlineSql = "";
   if (view.sql) {

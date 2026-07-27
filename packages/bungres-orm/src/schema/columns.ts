@@ -29,7 +29,7 @@ export function buildColumn<
   dataType: T,
   nameOrOpts?: string | ColumnOptions<TNotNull, TPrimary, TRef>,
   opts?: ColumnOptions<TNotNull, TPrimary, TRef>
-): ColumnConfig<T, ActualNotNull<TNotNull, TPrimary>, TPrimary, TRef> & { as: (alias: string) => any } {
+): ColBuilder<T, ActualNotNull<TNotNull, TPrimary>, TPrimary, TRef> {
   let name = "";
   let options = opts;
   if (typeof nameOrOpts === "string") {
@@ -60,17 +60,17 @@ export function buildColumn<
   } as ColumnConfig<T, ActualNotNull<TNotNull, TPrimary>, TPrimary, TRef>;
 
   return Object.assign(config, {
-    as(this: any, alias: string) {
-      return Object.assign({}, this, { alias });
+    as<TAlias extends string>(this: ColBuilder<T, ActualNotNull<TNotNull, TPrimary>, TPrimary, TRef>, alias: TAlias) {
+      return Object.assign({}, this, { alias }) as ColBuilder<T, ActualNotNull<TNotNull, TPrimary>, TPrimary, TRef> & { alias: TAlias };
     },
-    array(this: any) {
-      return Object.assign({}, this, { dataType: `${this.dataType}[]` });
+    array(this: ColBuilder<T, ActualNotNull<TNotNull, TPrimary>, TPrimary, TRef>) {
+      return Object.assign({}, this, { dataType: `${this.dataType}[]` }) as unknown as ColBuilder<`${T}[]`, ActualNotNull<TNotNull, TPrimary>, TPrimary, TRef>;
     },
-    generatedAlwaysAs(this: any, expr: string | { sql: string }) {
+    generatedAlwaysAs(this: ColBuilder<T, ActualNotNull<TNotNull, TPrimary>, TPrimary, TRef>, expr: string | { sql: string }) {
       const sqlStr = typeof expr === "string" ? expr : expr.sql;
-      return Object.assign({}, this, { generatedAs: sqlStr });
+      return Object.assign({}, this, { generatedAs: sqlStr }) as ColBuilder<T, ActualNotNull<TNotNull, TPrimary>, TPrimary, TRef>;
     }
-  }) as any;
+  }) as unknown as ColBuilder<T, ActualNotNull<TNotNull, TPrimary>, TPrimary, TRef>;
 }
 
 export type ColBuilder<
@@ -79,7 +79,7 @@ export type ColBuilder<
   P extends boolean,
   R extends ForeignKeyRef | undefined
 > = ColumnConfig<T, ActualNotNull<N, P>, P, R> & { 
-  as: (alias: string) => any;
+  as: <TAlias extends string>(alias: TAlias) => ColBuilder<T, N, P, R> & { alias: TAlias };
   array: () => ColBuilder<`${T}[]`, N, P, R>;
   generatedAlwaysAs: (expr: string | { sql: string }) => ColBuilder<T, N, P, R>;
 };
@@ -88,24 +88,24 @@ export type ColBuilder<
 // Typed Column Helpers
 // ---------------------------------------------------------------------------
 
-export const text = <const N extends boolean = false, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<"text", N, P, R> => buildColumn("text", nameOrOpts, opts) as any;
+export const text = <const N extends boolean = false, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<"text", N, P, R> => buildColumn("text", nameOrOpts, opts) as unknown as ColBuilder<"text", N, P, R>;
 
 export const varchar = <const N extends boolean = false, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | (ColumnOptions<N, P, R> & { length?: number }), opts?: ColumnOptions<N, P, R> & { length?: number }): ColBuilder<"varchar", N, P, R> => {
-  const c = buildColumn("varchar", nameOrOpts as any, opts as any);
+  const c = buildColumn("varchar", nameOrOpts as unknown as ColumnOptions<N, P, R>, opts as unknown as ColumnOptions<N, P, R>) as unknown as ColBuilder<"varchar", N, P, R>;
   let options = typeof nameOrOpts === "string" ? opts : nameOrOpts;
-  if (options?.length !== undefined) (c as any).length = options.length;
-  return c as any;
+  if (options?.length !== undefined) (c as unknown as { length?: number }).length = options.length;
+  return c;
 };
 
 export const char = <const N extends boolean = false, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | (ColumnOptions<N, P, R> & { length?: number }), opts?: ColumnOptions<N, P, R> & { length?: number }): ColBuilder<"char", N, P, R> => {
-  const c = buildColumn("char", nameOrOpts as any, opts as any);
+  const c = buildColumn("char", nameOrOpts as unknown as ColumnOptions<N, P, R>, opts as unknown as ColumnOptions<N, P, R>) as unknown as ColBuilder<"char", N, P, R>;
   let options = typeof nameOrOpts === "string" ? opts : nameOrOpts;
-  if (options?.length !== undefined) (c as any).length = options.length;
-  return c as any;
+  if (options?.length !== undefined) (c as unknown as { length?: number }).length = options.length;
+  return c;
 };
 
 const col = <T extends ColumnDataType>(dataType: T) =>
-  <const N extends boolean = false, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<T, N, P, R> => buildColumn(dataType, nameOrOpts, opts) as any;
+  <const N extends boolean = false, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<T, N, P, R> => buildColumn(dataType, nameOrOpts, opts) as unknown as ColBuilder<T, N, P, R>;
 
 export const integer = col("integer");
 export const bigint = col("bigint");
@@ -113,17 +113,17 @@ export const smallint = col("smallint");
 
 export const serial = <const N extends boolean = true, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<"serial", true, P, R> => {
   let options = typeof nameOrOpts === "string" ? opts : nameOrOpts;
-  return buildColumn("serial", typeof nameOrOpts === "string" ? nameOrOpts : { ...options, notNull: true as any }, { ...options, notNull: true as any }) as any;
+  return buildColumn("serial", typeof nameOrOpts === "string" ? nameOrOpts : { ...options, notNull: true } as unknown as ColumnOptions<N, P, R>, { ...options, notNull: true } as unknown as ColumnOptions<N, P, R>) as unknown as ColBuilder<"serial", true, P, R>;
 };
 
 export const bigserial = <const N extends boolean = true, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<"bigserial", true, P, R> => {
   let options = typeof nameOrOpts === "string" ? opts : nameOrOpts;
-  return buildColumn("bigserial", typeof nameOrOpts === "string" ? nameOrOpts : { ...options, notNull: true as any }, { ...options, notNull: true as any }) as any;
+  return buildColumn("bigserial", typeof nameOrOpts === "string" ? nameOrOpts : { ...options, notNull: true } as unknown as ColumnOptions<N, P, R>, { ...options, notNull: true } as unknown as ColumnOptions<N, P, R>) as unknown as ColBuilder<"bigserial", true, P, R>;
 };
 
 export const smallserial = <const N extends boolean = true, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>): ColBuilder<"smallserial", true, P, R> => {
   let options = typeof nameOrOpts === "string" ? opts : nameOrOpts;
-  return buildColumn("smallserial", typeof nameOrOpts === "string" ? nameOrOpts : { ...options, notNull: true as any }, { ...options, notNull: true as any }) as any;
+  return buildColumn("smallserial", typeof nameOrOpts === "string" ? nameOrOpts : { ...options, notNull: true } as unknown as ColumnOptions<N, P, R>, { ...options, notNull: true } as unknown as ColumnOptions<N, P, R>) as unknown as ColBuilder<"smallserial", true, P, R>;
 };
 
 export const boolean = col("boolean");
@@ -153,5 +153,5 @@ export function customType<TData>(dataType: string) {
   return <const N extends boolean = false, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(
     nameOrOpts?: string | ColumnOptions<N, P, R>,
     opts?: ColumnOptions<N, P, R>
-  ): ColBuilder<any, N, P, R> => buildColumn(dataType as any, nameOrOpts, opts) as any;
+  ): ColBuilder<any, N, P, R> => buildColumn(dataType as ColumnDataType, nameOrOpts, opts) as unknown as ColBuilder<any, N, P, R>;
 }
