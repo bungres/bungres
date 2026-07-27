@@ -1,5 +1,12 @@
 # @bungres/orm
 
+## 1.2.2
+
+### Patch Changes
+
+- a366d68: - Improve type safety for Column definitions and operations by removing unsafe type assertions.
+  - Refactor SQL building for `DeleteBuilder` by caching parameter count, fixing WHERE clause combinations, and implementing strict parameter indexing.
+
 ## 1.2.1
 
 ### Patch Changes
