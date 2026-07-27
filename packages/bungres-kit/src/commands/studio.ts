@@ -10,46 +10,35 @@ import { renderIndexHtml } from "./template.js";
 // studio — Start a local web interface to browse database data
 // ---------------------------------------------------------------------------
 
-function formatValueCell(val: any): string {
-  if (val === null || val === undefined) return '<span class="italic text-muted/50">NULL</span>';
+function formatValueCell(val: any, colName: string = "", typeStr: string = "", pkCol: string = "", pkValue: string = "", tableName: string = "", schema: string = ""): string {
+  let displayVal = "";
+  let isNull = false;
   
-  let jsonObj: any = null;
-  let isJson = false;
-
-  if (typeof val === 'object' && !(val instanceof Date)) {
-    jsonObj = val;
-    isJson = true;
-  } else if (typeof val === 'string') {
-    const trimmed = val.trim();
-    if (
-      (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-      (trimmed.startsWith('[') && trimmed.endsWith(']'))
-    ) {
-      try {
-        jsonObj = JSON.parse(trimmed);
-        if (typeof jsonObj === 'object' && jsonObj !== null) {
-          isJson = true;
-        }
-      } catch (e) {
-        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-          try {
-            const arr = trimmed.slice(1, -1).split(',').map(s => s.trim().replace(/^"|"$/g, ''));
-            jsonObj = arr;
-            isJson = true;
-          } catch (e2) {}
-        }
-      }
-    }
+  if (val === null || val === undefined) {
+    displayVal = '<span class="italic text-muted/50">NULL</span>';
+    isNull = true;
+  } else if (typeof val === 'object' && !(val instanceof Date)) {
+    displayVal = JSON.stringify(val);
+  } else {
+    displayVal = String(val);
   }
 
-  if (isJson && jsonObj !== null) {
-    const rawJson = JSON.stringify(jsonObj);
-    const b64 = Buffer.from(rawJson).toString('base64');
-    const safeJson = rawJson.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-    return `<button onclick="window.dispatchEvent(new CustomEvent('open-json-modal', { detail: '${b64}' }))" class="text-text font-mono text-xs hover:underline text-left truncate w-full max-w-[250px] block cursor-pointer" title="Click to view formatted data">${safeJson}</button>`;
-  }
+  const safeDisplay = isNull ? displayVal : displayVal.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  
+  const readonly = !tableName;
+  const isPk = colName && pkCol && (colName === pkCol);
 
-  return `<span class="text-text">${String(val).replace(/&/g, "&amp;").replace(/</g, "&lt;")}</span>`;
+  const payload = { val, colName, type: typeStr, pkCol, pkValue, tableName, schema, readonly };
+  const b64 = Buffer.from(JSON.stringify(payload)).toString('base64');
+  
+  let html = `<span class="text-text font-mono text-xs truncate max-w-[250px] inline-block align-middle">${safeDisplay}</span>`;
+
+  if (!readonly && !isPk) {
+     html += `<button onclick="window.dispatchEvent(new CustomEvent('open-cell-modal', { detail: '${b64}' }))" class="absolute right-7 top-1/2 -translate-y-1/2 p-1 bg-panel border border-border shadow-sm rounded text-muted hover:text-text opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center justify-center cursor-pointer" title="Expand Cell"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>`;
+  } else if (readonly && !isPk) {
+     html += `<button onclick="window.dispatchEvent(new CustomEvent('open-cell-modal', { detail: '${b64}' }))" class="absolute right-7 top-1/2 -translate-y-1/2 p-1 bg-panel border border-border shadow-sm rounded text-muted hover:text-text opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center justify-center cursor-pointer" title="View cell"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>`;
+  }
+  return html;
 }
 
 export async function runStudio(config: ResolvedConfig): Promise<void> {
@@ -99,9 +88,18 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
           const res = await db.execute({ sql: query, params: [currentSchema] });
           if (Array.isArray(res)) {
             items = res as any[];
-            for (const item of items) {
-              item.count = Math.max(0, Math.floor(Number(item.count || 0)));
-            }
+            await Promise.all(items.map(async (item) => {
+              try {
+                const countRes = await db.execute({ sql: `SELECT count(*) as exact_count FROM "${currentSchema}"."${item.name}"`, params: [] }) as any[];
+                if (countRes && countRes.length > 0 && countRes[0]) {
+                  item.count = parseInt(String(countRes[0].exact_count), 10);
+                } else {
+                  item.count = Math.max(0, Math.floor(Number(item.count || 0)));
+                }
+              } catch (e) {
+                item.count = Math.max(0, Math.floor(Number(item.count || 0)));
+              }
+            }));
           }
         } catch(e) {
            items = schemas.map(s => ({ name: s.config.name, count: 0, type: 'r' }));
@@ -334,11 +332,20 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
             data.forEach((row: any) => {
               const pkValue = getCellValue(row, pkCol, colConfigs[pkCol]) || row.id || row.uuid || "";
               html += '<tr class="hover:bg-hover transition-colors">';
-              html += `<td class="px-3 py-1.5 text-center bg-bg border-b border-r border-border"><input type="checkbox" value="${pkValue}" @change="tab.selectedIds = Array.from(document.querySelectorAll('#data-${tabId} .row-checkbox:checked')).map(cb => cb.value)" class="row-checkbox w-3.5 h-3.5 rounded border-muted bg-transparent cursor-pointer accent-accent"></td>`;
+              html += `<td class="px-2 py-1.5 bg-bg border-b border-r border-border relative group/cb w-[50px] shrink-0">
+                <div class="flex items-center justify-center gap-2 w-full h-full relative pl-1">
+                  <input type="checkbox" value="${pkValue}" @change="tab.selectedIds = Array.from(document.querySelectorAll('#data-${tabId} .row-checkbox:checked')).map(cb => cb.value)" class="row-checkbox w-3.5 h-3.5 rounded border-muted bg-transparent cursor-pointer accent-accent shrink-0">
+                  <button onclick="window.dispatchEvent(new CustomEvent('open-edit-row-sheet', { detail: '${pkValue}' }))" class="opacity-0 group-hover/cb:opacity-100 transition-opacity cursor-pointer text-muted hover:text-text flex items-center justify-center shrink-0 w-3.5 h-3.5" title="Expand row">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                  </button>
+                </div>
+              </td>`;
               columns.forEach((col: string) => {
                 const colCfgKey = Object.keys(colConfigs).find(k => (colConfigs[k].name || k) === col) || col;
-                const val = getCellValue(row, col, colConfigs[colCfgKey]);
-                html += `<td class="px-4 py-1.5 max-w-[300px] overflow-hidden text-ellipsis font-mono border-b border-r border-border bg-bg group relative">${formatValue(val)}${getCopyBtn(val)}</td>`;
+                const colConfig = colConfigs[colCfgKey];
+                const typeStr = colConfig ? (colConfig.dataType || colConfig.type || "text") : "text";
+                const val = getCellValue(row, col, colConfig);
+                html += `<td class="px-4 py-1.5 max-w-[300px] overflow-hidden text-ellipsis font-mono border-b border-r border-border bg-bg group relative">${formatValue(val, col, typeStr, pkCol, pkValue, tableName, reqSchema)}${getCopyBtn(val)}</td>`;
               });
               html += '</tr>';
             });

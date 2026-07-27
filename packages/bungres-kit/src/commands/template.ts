@@ -129,12 +129,57 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
         </div>
       </div>
     </div>
+
+    <!-- Cell Edit Modal -->
+    <div x-show="cellModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" style="display: none;">
+      <div class="bg-[#1C1C1E] border border-border shadow-2xl rounded-xl w-full max-w-2xl flex flex-col transform transition-all scale-100" @click.outside="cellModalOpen = false">
+        
+        <div class="flex items-center justify-between p-4 border-b border-border">
+          <div class="flex items-center gap-3">
+            <h3 class="font-semibold text-text text-sm font-mono" x-text="cellModalData.colName"></h3>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-panel border border-border text-muted" x-text="cellModalData.type"></span>
+            </div>
+          </div>
+          <button @click="cellModalOpen = false" class="text-muted hover:text-text p-1 rounded hover:bg-hover transition-colors">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        
+        <div class="p-4 bg-bg">
+          <textarea 
+            x-model="cellModalValue"
+            :readonly="cellModalData.readonly"
+            class="w-full bg-bg text-text font-mono text-sm focus:outline-none resize-none min-h-[300px]"
+            :class="cellModalData.readonly ? 'opacity-70 cursor-not-allowed' : ''"
+            placeholder="Enter value..."
+          ></textarea>
+        </div>
+        
+        <div class="flex items-center justify-between p-4 border-t border-border bg-[#1C1C1E] rounded-b-xl">
+          <button x-show="!cellModalData.readonly" @click="cellModalValue = null" class="px-3 py-1.5 rounded border border-border text-xs font-medium text-muted hover:text-text hover:bg-hover transition-colors">Set NULL</button>
+          <div x-show="cellModalData.readonly"></div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-muted font-mono"><span x-text="String(cellModalValue || '').length"></span> chars</span>
+            <button @click="cellModalOpen = false" class="px-3 py-1.5 rounded border border-border text-xs font-medium text-muted hover:text-text hover:bg-hover transition-colors flex items-center gap-1.5">Cancel <span class="opacity-50 font-mono text-[9px] bg-panel px-1 py-0.5 rounded border border-border">Esc</span></button>
+            <button 
+              x-show="!cellModalData.readonly"
+              @click="saveCellModal()" 
+              class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 rounded text-xs font-medium shadow-md transition-colors flex items-center gap-1.5"
+            >
+              Save <span class="bg-blue-400/30 px-1 py-0.5 rounded ml-1 font-mono text-[9px]">⌘ ↵</span>
+            </button>
+          </div>
+        </div>
+        
+      </div>
+    </div>
     
     <!-- Right Slide-over Sheet Modal (Add / Edit Record) -->
     <div x-show="sheetOpen" x-cloak class="fixed inset-0 z-50 overflow-hidden" style="display: none;">
       <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" @click="sheetOpen = false"></div>
       
-      <div class="fixed inset-y-0 right-0 max-w-lg w-full bg-panel border-l border-border shadow-2xl flex flex-col transform transition-transform duration-300">
+      <div class="fixed inset-y-0 right-0 max-w-2xl w-full bg-panel border-l border-border shadow-2xl flex flex-col transform transition-transform duration-300">
         <!-- Sheet Header -->
         <div class="flex items-center justify-between p-4 border-b border-border bg-bg/50">
           <div class="flex items-center gap-2">
@@ -154,17 +199,32 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
           </button>
         </div>
 
-        <!-- Sheet Body: JSON Editor -->
-        <div class="p-4 flex-1 overflow-auto flex flex-col gap-3 bg-bg">
-          <div class="flex items-center justify-between text-xs text-muted">
-            <span>JSON Record Payload</span>
-            <button @click="formatSheetJson()" class="text-accent hover:underline text-[11px] cursor-pointer">Format JSON</button>
-          </div>
-          <textarea 
-            x-model="sheetJson" 
-            class="flex-1 w-full font-mono text-xs text-text bg-panel p-4 rounded border border-border focus:outline-none focus:border-accent resize-none min-h-[300px]"
-            placeholder='{ "column": "value" }'
-          ></textarea>
+        <!-- Sheet Body: Dynamic Form -->
+        <div class="p-4 flex-1 overflow-auto flex flex-col gap-5 bg-bg">
+          <template x-for="col in sheetCols" :key="col.name">
+            <div class="space-y-1.5">
+              <label class="block text-xs font-semibold text-muted uppercase tracking-wider">
+                <span x-text="col.name"></span>
+                <span class="text-[9px] font-mono opacity-50 lowercase ml-2" x-text="col.type"></span>
+              </label>
+              
+              <template x-if="col.type.includes('bool')">
+                 <input type="checkbox" x-model="sheetFormData[col.name]" class="w-4 h-4 rounded border-muted bg-panel accent-accent cursor-pointer">
+              </template>
+
+              <template x-if="col.type.includes('json') || col.type.includes('array') || col.type.includes('[]')">
+                 <textarea x-model="sheetFormData[col.name]" class="w-full bg-panel border border-border rounded px-3 py-2 text-sm font-mono text-text focus:border-accent focus:outline-none min-h-[80px] resize-y" placeholder="{} or []"></textarea>
+              </template>
+
+              <template x-if="col.type.includes('int') || col.type.includes('num') || col.type.includes('float') || col.type.includes('decimal') || col.type.includes('real')">
+                 <input type="number" x-model="sheetFormData[col.name]" class="w-full bg-panel border border-border rounded px-3 py-2 text-sm text-text focus:border-accent focus:outline-none">
+              </template>
+
+              <template x-if="!col.type.includes('bool') && !col.type.includes('json') && !col.type.includes('array') && !col.type.includes('[]') && !col.type.includes('int') && !col.type.includes('num') && !col.type.includes('float') && !col.type.includes('decimal') && !col.type.includes('real')">
+                 <input type="text" x-model="sheetFormData[col.name]" class="w-full bg-panel border border-border rounded px-3 py-2 text-sm text-text focus:border-accent focus:outline-none">
+              </template>
+            </div>
+          </template>
           <p x-show="sheetError" class="text-xs text-red-400 font-mono bg-red-500/10 p-2 rounded border border-red-500/20" x-text="sheetError"></p>
         </div>
 
@@ -507,8 +567,9 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
         tabs: [],
         activeTab: null,
         queryEditorCount: 0,
-        jsonModalOpen: false,
-        jsonModalData: '',
+        cellModalOpen: false,
+        cellModalData: {},
+        cellModalValue: '',
         toastOpen: false,
         toastType: 'info',
         toastTitle: '',
@@ -522,7 +583,8 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
         sheetTableName: '',
         sheetSchema: '',
         sheetTabId: '',
-        sheetJson: '{}',
+        sheetFormData: {},
+        sheetCols: [],
         sheetError: '',
         
         init() {
@@ -566,14 +628,48 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
             this.ensureTabLoaded(tabObj);
           });
 
-          window.addEventListener('open-json-modal', (e) => {
+          window.addEventListener('open-cell-modal', (e) => {
             try {
               const str = atob(e.detail);
-              this.jsonModalData = JSON.stringify(JSON.parse(str), null, 2);
+              const payload = JSON.parse(str);
+              this.cellModalData = payload;
+              let valStr = payload.val;
+              
+              if (typeof valStr === 'string' && (valStr.trim().startsWith('{') || valStr.trim().startsWith('['))) {
+                try { valStr = JSON.parse(valStr); } catch(e) {}
+              }
+
+              if (typeof valStr === 'object' && valStr !== null) {
+                valStr = JSON.stringify(valStr, null, 2);
+              } else if (valStr === null || valStr === undefined) {
+                valStr = '';
+              } else {
+                valStr = String(valStr);
+              }
+              this.cellModalValue = valStr;
+              this.cellModalOpen = true;
             } catch(err) {
-              this.jsonModalData = 'Invalid JSON data';
+              console.error(err);
             }
-            this.jsonModalOpen = true;
+          });
+
+          window.addEventListener('keydown', (e) => {
+             if (this.cellModalOpen) {
+                if (e.key === 'Escape') this.cellModalOpen = false;
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                   e.preventDefault();
+                   this.saveCellModal();
+                }
+             }
+          });
+
+          window.addEventListener('open-edit-row-sheet', (e) => {
+             const pkVal = e.detail;
+             const activeTabObj = this.tabs.find(t => t.id === this.activeTab);
+             if (activeTabObj) {
+                activeTabObj.selectedIds = [pkVal];
+                this.openEditSheet(activeTabObj);
+             }
           });
 
           window.addEventListener('show-toast', (e) => {
@@ -608,6 +704,43 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
             } else {
               tab._loading = false;
             }
+          });
+        },
+
+        saveCellModal() {
+          if (this.cellModalData.readonly) return;
+          const payload = {};
+          let finalVal = this.cellModalValue;
+          const type = (this.cellModalData.type || '').toLowerCase();
+          
+          if (finalVal === null || finalVal === undefined || finalVal === '') {
+             payload[this.cellModalData.colName] = null;
+          } else {
+             if (type.includes('json') || type.includes('array') || type.includes('[]')) {
+               try { payload[this.cellModalData.colName] = JSON.parse(finalVal); } catch(e) { payload[this.cellModalData.colName] = finalVal; }
+             } else if (type.includes('int') || type.includes('num') || type.includes('float') || type.includes('decimal') || type.includes('real')) {
+               payload[this.cellModalData.colName] = Number(finalVal);
+             } else if (type.includes('bool')) {
+               payload[this.cellModalData.colName] = finalVal === 'true' || finalVal === true;
+             } else {
+               payload[this.cellModalData.colName] = finalVal;
+             }
+          }
+
+          const tabId = 'table_' + this.cellModalData.schema + '_' + this.cellModalData.tableName;
+          
+          htmx.ajax('POST', '/htmx/tables/' + this.cellModalData.tableName + '/update', {
+            target: '#data-' + tabId,
+            values: { 
+              schema: this.cellModalData.schema, 
+              tabId: tabId, 
+              payload: JSON.stringify({
+                [this.cellModalData.colName]: payload[this.cellModalData.colName],
+                [this.cellModalData.pkCol]: this.cellModalData.pkValue
+              }) 
+            }
+          }).then(() => {
+            this.cellModalOpen = false;
           });
         },
 
@@ -699,47 +832,28 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
           this.sheetSchema = tab.schema;
           this.sheetTabId = tab.id;
           this.sheetError = '';
-
           let cols = [];
-
           try {
             const res = await fetch('/htmx/tables/' + tab.name + '/columns?schema=' + tab.schema);
             const data = await res.json();
-            if (Array.isArray(data.columns)) {
-              cols = data.columns;
-            }
+            if (Array.isArray(data.columns)) cols = data.columns;
           } catch(e) {}
+          if (cols.length === 0 && tab.columns) cols = tab.columns.map(c => typeof c === 'string' ? { name: c, type: 'text' } : c);
 
-          if (cols.length === 0 && tab.columns) {
-            cols = tab.columns.map(c => typeof c === 'string' ? { name: c, type: 'text' } : c);
-          }
-
-          const getTypeDefault = (typeStr) => {
-            const t = String(typeStr || '').toLowerCase();
-            if (t.includes('bool')) return true;
-            if (t.includes('int') || t.includes('num') || t.includes('decimal') || t.includes('float') || t.includes('double') || t.includes('real')) return 0;
-            if (t.includes('jsonb') || t.includes('json')) return {};
-            if (t.includes('[]') || t.includes('array')) return [];
-            return '';
-          };
-
+          this.sheetCols = cols.map(c => typeof c === 'string' ? { name: c, type: 'text' } : c);
           const templateObj = {};
-          cols.forEach(colObj => {
-            const colName = typeof colObj === 'string' ? colObj : colObj.name;
-            const colType = typeof colObj === 'string' ? '' : colObj.type;
-            if (colName !== 'id' && colName !== 'created_at' && colName !== 'createdAt' && colName !== 'updated_at' && colName !== 'updatedAt') {
-              templateObj[colName] = getTypeDefault(colType);
-            }
+          this.sheetCols.forEach(colObj => {
+             const t = String(colObj.type || '').toLowerCase();
+             let def = '';
+             if (t.includes('bool')) def = false;
+             else if (t.includes('int') || t.includes('num') || t.includes('float') || t.includes('decimal') || t.includes('real')) def = 0;
+             else if (t.includes('json') || t.includes('array') || t.includes('[]')) def = '';
+             
+             if (colObj.name !== 'id' && !colObj.name.includes('created') && !colObj.name.includes('updated')) {
+               templateObj[colObj.name] = def;
+             }
           });
-
-          if (Object.keys(templateObj).length === 0 && cols.length > 0) {
-            cols.forEach(colObj => {
-              const colName = typeof colObj === 'string' ? colObj : colObj.name;
-              templateObj[colName] = '';
-            });
-          }
-
-          this.sheetJson = JSON.stringify(templateObj, null, 2);
+          this.sheetFormData = templateObj;
           this.sheetOpen = true;
         },
 
@@ -755,8 +869,30 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
           fetch('/htmx/tables/' + tab.name + '/row?schema=' + tab.schema + '&pk=' + encodeURIComponent(pkVal))
             .then(res => res.json())
             .then(data => {
-              this.sheetJson = JSON.stringify(data, null, 2);
-              this.sheetOpen = true;
+              fetch('/htmx/tables/' + tab.name + '/columns?schema=' + tab.schema)
+                .then(cRes => cRes.json())
+                .then(cData => {
+                   this.sheetCols = cData.columns || Object.keys(data).map(k => ({ name: k, type: 'text' }));
+                   const formattedData = {};
+                   this.sheetCols.forEach(col => {
+                     let val = data[col.name];
+                     const t = String(col.type || '').toLowerCase();
+                     if (t.includes('json') || t.includes('array') || t.includes('[]')) {
+                       if (typeof val === 'string' && (val.trim().startsWith('{') || val.trim().startsWith('['))) {
+                         try { val = JSON.parse(val); } catch(e) {}
+                       }
+                       formattedData[col.name] = (val !== null && val !== undefined && val !== '') ? JSON.stringify(val, null, 2) : '';
+                     } else {
+                       formattedData[col.name] = val;
+                     }
+                   });
+                   this.sheetFormData = formattedData;
+                   this.sheetOpen = true;
+                }).catch(() => {
+                   this.sheetCols = Object.keys(data).map(k => ({ name: k, type: 'text' }));
+                   this.sheetFormData = data;
+                   this.sheetOpen = true;
+                });
             })
             .catch(err => {
               this.sheetError = 'Failed to load record details';
@@ -764,24 +900,34 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
             });
         },
 
-        formatSheetJson() {
-          try {
-            const parsed = JSON.parse(this.sheetJson);
-            this.sheetJson = JSON.stringify(parsed, null, 2);
-            this.sheetError = '';
-          } catch(e) {
-            this.sheetError = 'Invalid JSON: ' + e.message;
-          }
-        },
-
         submitSheetPayload() {
           try {
-            const parsed = JSON.parse(this.sheetJson);
+            const payload = {};
+            this.sheetCols.forEach(col => {
+              let val = this.sheetFormData[col.name];
+              if (val === undefined) return;
+              const t = String(col.type || '').toLowerCase();
+              
+              if (t.includes('json') || t.includes('array') || t.includes('[]')) {
+                if (val && String(val).trim()) {
+                   try { payload[col.name] = JSON.parse(val); } catch(e) { payload[col.name] = val; }
+                } else {
+                   payload[col.name] = null;
+                }
+              } else if (t.includes('int') || t.includes('num') || t.includes('float') || t.includes('decimal') || t.includes('real')) {
+                payload[col.name] = (val === '' || val === null || val === undefined) ? null : Number(val);
+              } else if (t.includes('bool')) {
+                payload[col.name] = Boolean(val);
+              } else {
+                payload[col.name] = val === '' ? null : val;
+              }
+            });
+            
             this.sheetError = '';
             const endpoint = this.sheetMode === 'add' ? '/htmx/tables/' + this.sheetTableName + '/insert' : '/htmx/tables/' + this.sheetTableName + '/update';
             htmx.ajax('POST', endpoint, {
               target: '#data-' + this.sheetTabId,
-              values: { schema: this.sheetSchema, tabId: this.sheetTabId, payload: JSON.stringify(parsed) }
+              values: { schema: this.sheetSchema, tabId: this.sheetTabId, payload: JSON.stringify(payload) }
             }).then(() => {
               const tab = this.tabs.find(t => t.id === this.sheetTabId);
               if (tab) tab.selectedIds = [];
@@ -789,7 +935,7 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
               this.sheetError = 'Failed: ' + (err.message || 'Server error');
             });
           } catch(e) {
-            this.sheetError = 'Invalid JSON payload: ' + e.message;
+            this.sheetError = 'Invalid form data: ' + e.message;
           }
         },
 

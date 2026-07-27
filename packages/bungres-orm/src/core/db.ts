@@ -79,7 +79,7 @@ async function ensureDatabase(url: string): Promise<void> {
     if ((rows as unknown[]).length === 0) {
       // Identifiers can't be parameterised in Postgres DDL — dbName comes
       // from the user-supplied URL so we validate it first.
-      if (!/^[a-zA-Z_][a-zA-Z0-9_$]*$/.test(dbName)) {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_$-]*$/.test(dbName)) {
         throw new Error(`Invalid database name: "${dbName}"`);
       }
       await maintenance.unsafe(`CREATE DATABASE "${dbName}"`);
