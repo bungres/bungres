@@ -1,9 +1,10 @@
+import { parseWhereObject } from "../core/conditions.js";
 import type { OrderDir, QueryExecutor, WhereCondition, WhereObject } from "../core/query.js";
 import type { SQLChunk } from "../core/sql.js";
-import { sqlJoin, sql, rawSql } from "../core/sql.js";
-import { parseWhereObject } from "../core/conditions.js";
+import { rawSql, sql, sqlJoin } from "../core/sql.js";
 import { type Table, type TableConfigImpl, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferColumnType, InferTable } from "../types/index.js";
+import { TableConfigSymbol } from "../utils/constants.js";
 import type { CTEBuilder } from "./cte.js";
 
 export type SelectedFields = {
@@ -152,13 +153,23 @@ export class SelectBuilder<
     }
           
     for (const f of fields) {
-      const key = typeof f === "string" ? f : (f as unknown as { name?: string; alias?: string }).name || (f as unknown as { alias?: string }).alias;
-      const dataType = typeof f !== "string" && (f as unknown as { dataType?: string }).dataType ? (f as unknown as { dataType?: string }).dataType : "any";
-      if (key) columns[key] = { name: key, tableName: aliasName, dataType } as unknown as ColumnConfig<any, any, any, any>;
+      let key: string;
+      let dataType = "any";
+      
+      if (typeof f === "string") {
+        key = f;
+      } else if (f && typeof f === "object") {
+        const obj = f as { name?: string; alias?: string; dataType?: string };
+        key = obj.name || obj.alias || "";
+        dataType = obj.dataType || "any";
+      } else {
+        continue;
+      }
+      
+      if (key) columns[key] = { name: key, tableName: aliasName, dataType, notNull: false, primaryKey: false, unique: false };
     }
 
-    const sqObj = { ...columns } as unknown as Table<TAlias, Record<string, ColumnConfig<any, any, any, any>>>;
-    const TableConfigSymbol = Symbol.for("BungresTableConfig");
+    const sqObj = { ...columns } as Table<TAlias, Record<string, ColumnConfig<any, any, any, any>>>;
     (sqObj as Record<symbol, unknown>)[TableConfigSymbol] = {
       name: aliasName,
       qualifiedName: `"${aliasName}"`,

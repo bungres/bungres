@@ -1,5 +1,5 @@
-import type { ColumnConfig } from "../types/index.js";
 import type { SQLChunk } from "../core/sql.js";
+import type { ColumnConfig } from "../types/index.js";
 import type { Table, TableConfigImpl } from "./table.js";
 
 export abstract class ConstraintBuilder {

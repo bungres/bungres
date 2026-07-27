@@ -1,8 +1,9 @@
-import type { QueryExecutor, WhereCondition, OrderByObject } from "../core/query.js";
+import { parseOrderByObject, parseWhereObject } from "../core/conditions.js";
+import type { OrderByObject, QueryExecutor, WhereCondition } from "../core/query.js";
 import type { SQLChunk } from "../core/sql.js";
-import { parseWhereObject, parseOrderByObject } from "../core/conditions.js";
-import { TableConfigSymbol } from "../schema/table.js";
-import type { ExtractTableRelations, FindManyArgs, FindManyResult, MergeWith, SchemaConfig, TargetTable, GetColumns } from "../types/relations.js";
+import type { ExtractTableRelations, FindManyArgs, FindManyResult, GetColumns, MergeWith, SchemaConfig, TargetTable } from "../types/relations.js";
+import { TableConfigSymbol } from "../utils/constants.js";
+import { getTableConfigSafe, hasTableSymbol } from "../utils/type-guards.js";
 // ---------------------------------------------------------------------------
 
 /** Find the primary key column's DB name from a table config */
@@ -134,7 +135,12 @@ export class RelationalQueryBuilder<
     let cached = schemaCache.get(tableName);
     if (cached) return cached;
     const table = this._schema[tableName];
-    const tConfig = (table as unknown as Record<symbol, any>)[TableConfigSymbol];
+    
+    if (!hasTableSymbol(table)) {
+      throw new Error(`Invalid table object for table: ${tableName}`);
+    }
+    const tConfig = getTableConfigSafe(table);
+    
     const ones: Record<string, { targetTable: string; sourceColumn: string }> = {};
     const manys: Record<string, { targetTable: string; targetColumn: string }> = {};
     const manyToManys: Record<string, { junctionTable: string; targetTable: string; joinSourceColumn: string; joinTargetColumn: string }> = {};

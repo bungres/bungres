@@ -1,6 +1,6 @@
 import type { SQLChunk } from "../core/sql.js";
-import { TableConfigSymbol } from "../schema/table.js";
 import type { ColumnConfig, TableConfig } from "../types/index.js";
+import { TableConfigSymbol } from "../utils/constants.js";
 
 export class CTEBuilder<TColumns extends Record<string, ColumnConfig> = Record<string, ColumnConfig>> {
   public readonly alias: string;

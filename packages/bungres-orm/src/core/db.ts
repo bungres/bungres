@@ -3,9 +3,10 @@ import { InsertBuilder } from "../builders/insert.js";
 import { RelationalQueryBuilder } from "../builders/relational.js";
 import { SelectBuilder, SelectBuilderIntermediate, type SelectedFields } from "../builders/select.js";
 import { UpdateBuilder } from "../builders/update.js";
-import { type Table, TableConfigSymbol } from "../schema/table.js";
+import { type Table } from "../schema/table.js";
 import type { ColumnConfig } from "../types/index.js";
 import type { SchemaConfig } from "../types/relations.js";
+import { TableConfigSymbol } from "../utils/constants.js";
 import type { QueryExecutor } from "./query.js";
 import type { SQLChunk } from "./sql.js";
 

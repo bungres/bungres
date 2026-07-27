@@ -1,7 +1,7 @@
+import { parseWhereObject } from "../core/conditions.js";
 import type { QueryExecutor, WhereCondition, WhereObject } from "../core/query.js";
 import type { SQLChunk } from "../core/sql.js";
 import { sqlJoin } from "../core/sql.js";
-import { parseWhereObject } from "../core/conditions.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferTable } from "../types/index.js";
 import type { CTEBuilder } from "./cte.js";
@@ -74,7 +74,8 @@ export class DeleteBuilder<TColumns extends Record<string, ColumnConfig>> implem
 
     if (this._where.length > 0) {
       const combined = sqlJoin(this._where, " AND ");
-      query += " WHERE " + combined.sql;
+      const offset = params.length;
+      query += " WHERE " + combined.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
       params.push(...combined.params);
     }
 

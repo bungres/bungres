@@ -1,12 +1,13 @@
-import type { ColumnConfig, IndexConfig, InferInsert, InferTable, ForeignKeyConfig } from "../types/index.js";
+import type { ColumnConfig, ForeignKeyConfig, IndexConfig, InferInsert, InferTable } from "../types/index.js";
+import { TableConfigSymbol } from "../utils/constants.js";
+import { getTableConfigSafe, hasTableSymbol } from "../utils/type-guards.js";
 import type { ConstraintBuilder } from "./indexes.js";
-import type { SQLChunk } from "../core/sql.js";
 
 // ---------------------------------------------------------------------------
 // TableBuilder — defines a table schema, returns a typed Table object
 // ---------------------------------------------------------------------------
 
-export const TableConfigSymbol = Symbol.for("BungresTableConfig");
+// TableConfigSymbol is now imported from ../utils/constants.js
 
 export interface TableConfigImpl<TName extends string, TColumns> {
   name: TName;
@@ -27,12 +28,18 @@ export function alias<TTable extends Table<any, any>, TAlias extends string>(
   table: TTable,
   aliasName: TAlias
 ): TTable {
-  const cfg = getTableConfig(table as any);
-  const aliasedTable = Object.assign({}, table) as unknown as Record<string | symbol, unknown>;
+  if (!hasTableSymbol(table)) {
+    throw new Error("Invalid table object passed to alias()");
+  }
+  const cfg = getTableConfigSafe(table);
+  const aliasedTable = Object.assign({}, table) as Record<string | symbol, unknown>;
 
   const newColumns: Record<string, ColumnConfig<any, any, any, any>> = {};
   for (const [key, col] of Object.entries(cfg.columns)) {
-    const newCol = { ...(col as ColumnConfig<any, any, any, any>), tableName: aliasName };
+    if (!col || typeof col !== "object") {
+      throw new Error(`Invalid column config for key: ${key}`);
+    }
+    const newCol = { ...col, tableName: aliasName };
     newColumns[key] = newCol;
     aliasedTable[key] = newCol;
   }
