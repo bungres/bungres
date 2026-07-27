@@ -50,12 +50,12 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@bungres/orm": "^1.2.1",
+    "@bungres/orm": "workspace:*",
     "@clack/prompts": "^1.7.0",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
-    "bun-types": "^1.3.14",
-    "typescript": "^7.0.2"
+    "bun-types": "catalog:",
+    "typescript": "catalog:"
   }
 }
