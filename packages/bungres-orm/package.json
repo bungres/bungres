@@ -42,7 +42,7 @@
   ],
   "scripts": {
     "build:types": "tsc --emitDeclarationOnly",
-    "build": "bun build ./src/index.ts --outdir ./dist --target bun --format esm && npm run build:types",
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun --format esm --minify --sourcemap=external && npm run build:types",
     "dev": "bun --watch src/index.ts",
     "test": "bun test tests"
   },
