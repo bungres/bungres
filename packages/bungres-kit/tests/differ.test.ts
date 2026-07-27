@@ -127,4 +127,42 @@ describe("Schema Differ & TopoSort", () => {
     const sorted = topoSortConfigs([postsTable, usersTable]);
     expect(sorted.map((t) => t.name)).toEqual(["users", "posts"]);
   });
+  test("diffSchemas handles index definition changes", () => {
+    const prev: SchemaSnapshot = {
+      enums: {},
+      tables: {
+        users: {
+          name: "users",
+          columns: { id: { name: "id", dataType: "uuid" } } as any,
+          indexes: [{ name: "idx_users_id", columns: ["id"], unique: false }],
+          primaryKeys: [],
+          foreignKeys: [],
+          checks: []
+        }
+      },
+      views: {}
+    };
+
+    const next: SchemaSnapshot = {
+      enums: {},
+      tables: {
+        users: {
+          name: "users",
+          columns: { id: { name: "id", dataType: "uuid" } } as any,
+          indexes: [{ name: "idx_users_id", columns: ["id"], unique: true }],
+          primaryKeys: [],
+          foreignKeys: [],
+          checks: []
+        }
+      },
+      views: {}
+    };
+
+    const result = diffSchemas(prev, next);
+    // Should drop the old index and create the new unique index
+    expect(result.summary).toContain("DROP INDEX idx_users_id");
+    expect(result.summary).toContain("CREATE INDEX idx_users_id ON users");
+    expect(result.statements.some(s => s.includes("DROP INDEX"))).toBe(true);
+    expect(result.statements.some(s => s.includes("CREATE UNIQUE INDEX"))).toBe(true);
+  });
 });

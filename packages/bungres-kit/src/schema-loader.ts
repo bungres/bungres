@@ -30,6 +30,8 @@ export interface ViewSchemaEntry {
 
 export type SchemaEntry = TableSchemaEntry | EnumSchemaEntry | ViewSchemaEntry;
 
+import { pathToFileURL } from "node:url";
+
 export async function loadSchemas(
   patterns: string | string[],
   cwd = process.cwd()
@@ -41,7 +43,8 @@ export async function loadSchemas(
     const glob = new Bun.Glob(pattern);
     for await (const file of glob.scan({ cwd, absolute: false })) {
       const absPath = resolve(join(cwd, file));
-      const mod = await import(absPath);
+      const fileUrl = pathToFileURL(absPath).href + "?t=" + Date.now();
+      const mod = await import(fileUrl);
 
       for (const [exportName, value] of Object.entries(mod)) {
         if (isTable(value)) {

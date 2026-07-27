@@ -206,7 +206,13 @@ export function parseFlags(args: string[]): Record<string, boolean | string> {
 
 if (import.meta.main) {
   main().catch((err) => {
-    console.error("@bungres/kit error:", err instanceof Error ? err.message : err);
+    const isVerbose = process.argv.includes("--verbose") || process.argv.includes("-v") || !!Bun.env.DEBUG;
+    if (isVerbose && err instanceof Error) {
+      console.error("@bungres/kit fatal error:");
+      console.error(err.stack);
+    } else {
+      console.error("@bungres/kit error:", err instanceof Error ? err.message : err);
+    }
     process.exit(1);
   });
 }

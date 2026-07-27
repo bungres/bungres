@@ -180,40 +180,35 @@ export function diffSchemas(
       }
     }
 
-    // New indexes
-    const prevIdxNames = new Set(
-      (prevConfig.indexes ?? []).map(
-        (i) => i.name ?? `idx_${tableName}_${i.columns.join("_")}`
-      )
-    );
-    for (const idx of nextConfig.indexes ?? []) {
-      const idxName = idx.name ?? `idx_${tableName}_${idx.columns.join("_")}`;
-      if (!prevIdxNames.has(idxName)) {
+    const prevIndexes = new Map((prevConfig.indexes ?? []).map(i => [i.name ?? `idx_${tableName}_${i.columns.join("_")}`, i]));
+    const nextIndexes = new Map((nextConfig.indexes ?? []).map(i => [i.name ?? `idx_${tableName}_${i.columns.join("_")}`, i]));
+
+    const hashIdx = (idx: any) => `${idx.name ?? `idx_${tableName}_${idx.columns.join("_")}`}|${!!idx.unique}|${idx.using || ''}|${idx.columns.join(',')}|${idx.where || ''}`;
+
+    // Dropped or changed indexes
+    for (const [idxName, prevIdx] of prevIndexes) {
+      const nextIdx = nextIndexes.get(idxName);
+      if (!nextIdx || hashIdx(prevIdx) !== hashIdx(nextIdx)) {
+        statements.push(`DROP INDEX IF EXISTS "${idxName}";`);
+        summary.push(`DROP INDEX ${idxName}`);
+      }
+    }
+
+    // New or changed indexes
+    for (const [idxName, nextIdx] of nextIndexes) {
+      const prevIdx = prevIndexes.get(idxName);
+      if (!prevIdx || hashIdx(prevIdx) !== hashIdx(nextIdx)) {
         const tbl = nextConfig.schema
           ? `"${nextConfig.schema}"."${tableName}"`
           : `"${tableName}"`;
-        const unique = idx.unique ? "UNIQUE " : "";
-        const using = idx.using ? ` USING ${idx.using.toUpperCase()}` : "";
-        const cols = idx.columns.map((c) => `"${c}"`).join(", ");
-        const where = idx.where ? ` WHERE ${idx.where}` : "";
+        const unique = nextIdx.unique ? "UNIQUE " : "";
+        const using = nextIdx.using ? ` USING ${nextIdx.using.toUpperCase()}` : "";
+        const cols = nextIdx.columns.map((c: string) => `"${c}"`).join(", ");
+        const where = nextIdx.where ? ` WHERE ${nextIdx.where}` : "";
         statements.push(
           `CREATE ${unique}INDEX IF NOT EXISTS "${idxName}" ON ${tbl}${using} (${cols})${where};`
         );
         summary.push(`CREATE INDEX ${idxName} ON ${tableName}`);
-      }
-    }
-
-    // Dropped indexes
-    const nextIdxNames = new Set(
-      (nextConfig.indexes ?? []).map(
-        (i) => i.name ?? `idx_${tableName}_${i.columns.join("_")}`
-      )
-    );
-    for (const idx of prevConfig.indexes ?? []) {
-      const idxName = idx.name ?? `idx_${tableName}_${idx.columns.join("_")}`;
-      if (!nextIdxNames.has(idxName)) {
-        statements.push(`DROP INDEX IF EXISTS "${idxName}";`);
-        summary.push(`DROP INDEX ${idxName}`);
       }
     }
   }
