@@ -92,22 +92,15 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
             SELECT c.relname as name, c.reltuples as count, c.relkind as type 
             FROM pg_class c
             JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-            WHERE n.nspname = '${currentSchema}' 
+            WHERE n.nspname = $1 
             AND c.relkind IN ('r', 'v', 'm')
             ORDER BY c.relname
           `;
-          const res = await db.execute(rawSql(query));
+          const res = await db.execute({ sql: query, params: [currentSchema] });
           if (Array.isArray(res)) {
             items = res as any[];
             for (const item of items) {
-              try {
-                const countRes = await db.execute(rawSql(`SELECT count(*) as exact_count FROM "${currentSchema}"."${item.name}"`)) as any[];
-                if (countRes && countRes.length > 0 && countRes[0]) {
-                  item.count = parseInt(String(countRes[0].exact_count), 10);
-                }
-              } catch (e) {
-                // Fallback to estimated count if exact count fails
-              }
+              item.count = Math.max(0, Math.floor(Number(item.count || 0)));
             }
           }
         } catch(e) {
@@ -198,22 +191,28 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
           }
 
           const conditions: string[] = [];
+          const params: unknown[] = [];
 
           if (search) {
-            conditions.push(`row_to_json(t)::text ILIKE '%${search.replace(/'/g, "''").replace(/%/g, "\\%").replace(/_/g, "\\_")}%'`);
+            params.push(`%${search}%`);
+            conditions.push(`row_to_json(t)::text ILIKE $${params.length}`);
           }
 
           if (filterCol && (filterVal || filterOp === "null" || filterOp === "notnull")) {
             const safeCol = filterCol.replace(/"/g, '""');
-            const safeVal = (filterVal || "").replace(/'/g, "''");
-            
-            if (filterOp === "eq") conditions.push(`t."${safeCol}"::text = '${safeVal}'`);
-            else if (filterOp === "neq") conditions.push(`t."${safeCol}"::text != '${safeVal}'`);
-            else if (filterOp === "gt") conditions.push(`t."${safeCol}"::text > '${safeVal}'`);
-            else if (filterOp === "lt") conditions.push(`t."${safeCol}"::text < '${safeVal}'`);
-            else if (filterOp === "null") conditions.push(`t."${safeCol}" IS NULL`);
+            if (filterOp === "null") conditions.push(`t."${safeCol}" IS NULL`);
             else if (filterOp === "notnull") conditions.push(`t."${safeCol}" IS NOT NULL`);
-            else conditions.push(`t."${safeCol}"::text ILIKE '%${safeVal}%'`);
+            else {
+              if (filterOp === "like" || !filterOp) {
+                params.push(`%${filterVal || ""}%`);
+                conditions.push(`t."${safeCol}"::text ILIKE $${params.length}`);
+              } else {
+                params.push(filterVal || "");
+                const opMap: Record<string, string> = { eq: '=', neq: '!=', gt: '>', lt: '<' };
+                const op = opMap[filterOp] || '=';
+                conditions.push(`t."${safeCol}"::text ${op} $${params.length}`);
+              }
+            }
           }
 
           const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -224,8 +223,8 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
             orderClause = `ORDER BY t."${sortBy.replace(/"/g, '""')}" ${dir}`;
           }
 
-          countResult = await db.execute(rawSql(`SELECT COUNT(*) as count FROM "${reqSchema}"."${tableName}" t ${whereClause}`));
-          data = await db.execute(rawSql(`SELECT * FROM "${reqSchema}"."${tableName}" t ${whereClause} ${orderClause} LIMIT ${limit} OFFSET ${offset}`));
+          countResult = await db.execute({ sql: `SELECT COUNT(*) as count FROM "${reqSchema}"."${tableName}" t ${whereClause}`, params });
+          data = await db.execute({ sql: `SELECT * FROM "${reqSchema}"."${tableName}" t ${whereClause} ${orderClause} LIMIT ${limit} OFFSET ${offset}`, params });
 
           if (!tsSchema) {
             const colQuery = `
@@ -233,9 +232,9 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
               FROM pg_attribute a
               JOIN pg_class c ON a.attrelid = c.oid
               JOIN pg_namespace n ON c.relnamespace = n.oid
-              WHERE n.nspname = '${reqSchema}' AND c.relname = '${tableName}' AND a.attnum > 0 AND NOT a.attisdropped
+              WHERE n.nspname = $1 AND c.relname = $2 AND a.attnum > 0 AND NOT a.attisdropped
             `;
-            const colsRes = await db.execute(rawSql(colQuery));
+            const colsRes = await db.execute({ sql: colQuery, params: [reqSchema, tableName] });
             if (Array.isArray(colsRes)) {
               colsRes.forEach((c: any) => {
                 colConfigs[c.column_name] = { dataType: c.data_type };
@@ -285,14 +284,14 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
           }
         } else {
           try {
-            const pkRes = await db.execute(rawSql(`
+            const pkRes = await db.execute({ sql: `
               SELECT a.attname
               FROM pg_index i
               JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
               JOIN pg_class c ON c.oid = i.indrelid
               JOIN pg_namespace n ON c.relnamespace = n.oid
-              WHERE i.indisprimary AND n.nspname = '${reqSchema}' AND c.relname = '${tableName}'
-            `)) as any[];
+              WHERE i.indisprimary AND n.nspname = $1 AND c.relname = $2
+            `, params: [reqSchema, tableName] }) as any[];
             if (Array.isArray(pkRes) && pkRes.length > 0 && pkRes[0].attname) {
               pkCol = pkRes[0].attname;
             }
@@ -430,22 +429,23 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
               }
             } else {
               try {
-                const pkRes = await db.execute(rawSql(`
+                const pkRes = await db.execute({ sql: `
                   SELECT a.attname
                   FROM pg_index i
                   JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
                   JOIN pg_class c ON c.oid = i.indrelid
                   JOIN pg_namespace n ON c.relnamespace = n.oid
-                  WHERE i.indisprimary AND n.nspname = '${reqSchema}' AND c.relname = '${tableName}'
-                `)) as any[];
+                  WHERE i.indisprimary AND n.nspname = $1 AND c.relname = $2
+                `, params: [reqSchema, tableName] }) as any[];
                 if (Array.isArray(pkRes) && pkRes.length > 0 && pkRes[0].attname) {
                   pkCol = pkRes[0].attname;
                 }
               } catch (e) {}
             }
 
-            const escapedIds = ids.map(id => `'${String(id).replace(/'/g, "''")}'`).join(", ");
-            await db.execute(rawSql(`DELETE FROM "${reqSchema}"."${tableName}" WHERE "${pkCol}" IN (${escapedIds})`));
+            const params: unknown[] = [...ids];
+            const placeholders = ids.map((_, i) => `$${i + 1}`).join(", ");
+            await db.execute({ sql: `DELETE FROM "${reqSchema}"."${tableName}" WHERE "${pkCol}" IN (${placeholders})`, params });
           }
 
           const tableRes = await getTableDataHtml(tableName, reqSchema, tabId, 1, 25, "");
@@ -488,21 +488,21 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
             }
           } else {
             try {
-              const pkRes = await db.execute(rawSql(`
+              const pkRes = await db.execute({ sql: `
                 SELECT a.attname
                 FROM pg_index i
                 JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
                 JOIN pg_class c ON c.oid = i.indrelid
                 JOIN pg_namespace n ON c.relnamespace = n.oid
-                WHERE i.indisprimary AND n.nspname = '${reqSchema}' AND c.relname = '${tableName}'
-              `)) as any[];
+                WHERE i.indisprimary AND n.nspname = $1 AND c.relname = $2
+              `, params: [reqSchema, tableName] }) as any[];
               if (Array.isArray(pkRes) && pkRes.length > 0 && pkRes[0].attname) {
                 pkCol = pkRes[0].attname;
               }
             } catch (e) {}
           }
 
-          const res = await db.execute(rawSql(`SELECT * FROM "${reqSchema}"."${tableName}" WHERE "${pkCol}"::text = '${pkVal.replace(/'/g, "''")}' LIMIT 1`)) as any[];
+          const res = await db.execute({ sql: `SELECT * FROM "${reqSchema}"."${tableName}" WHERE "${pkCol}"::text = $1 LIMIT 1`, params: [pkVal] }) as any[];
           const rowData = Array.isArray(res) && res.length > 0 ? res[0] : {};
           return new Response(JSON.stringify(rowData), { headers: { "Content-Type": "application/json" } });
         } catch (e: any) {
@@ -546,16 +546,19 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
             const dbCol = resolveDbColumnName(tableName, k);
             return `"${dbCol.replace(/"/g, '""')}"`;
           }).join(", ");
-          const vals = keys.map(k => {
+          
+          const params: unknown[] = [];
+          const placeholders = keys.map((k, idx) => {
             const v = payload[k];
-            if (v === null || v === undefined) return "NULL";
-            if (typeof v === "boolean") return v ? "true" : "false";
-            if (typeof v === "number") return String(v);
-            if (typeof v === "object") return `'${JSON.stringify(v).replace(/'/g, "''")}'`;
-            return `'${String(v).replace(/'/g, "''")}'`;
+            if (typeof v === "object" && v !== null && !(v instanceof Date)) {
+              params.push(JSON.stringify(v));
+            } else {
+              params.push(v);
+            }
+            return `$${idx + 1}`;
           }).join(", ");
 
-          await db.execute(rawSql(`INSERT INTO "${reqSchema}"."${tableName}" (${cols}) VALUES (${vals})`));
+          await db.execute({ sql: `INSERT INTO "${reqSchema}"."${tableName}" (${cols}) VALUES (${placeholders})`, params });
 
           const tableRes = await getTableDataHtml(tableName, reqSchema, tabId, 1, 25, "");
           const toastDetail = { type: "success", title: "Record Created", message: `Successfully inserted new record into ${tableName}.` };
@@ -602,14 +605,14 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
             }
           } else {
             try {
-              const pkRes = await db.execute(rawSql(`
+              const pkRes = await db.execute({ sql: `
                 SELECT a.attname
                 FROM pg_index i
                 JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
                 JOIN pg_class c ON c.oid = i.indrelid
                 JOIN pg_namespace n ON c.relnamespace = n.oid
-                WHERE i.indisprimary AND n.nspname = '${reqSchema}' AND c.relname = '${tableName}'
-              `)) as any[];
+                WHERE i.indisprimary AND n.nspname = $1 AND c.relname = $2
+              `, params: [reqSchema, tableName] }) as any[];
               if (Array.isArray(pkRes) && pkRes.length > 0 && pkRes[0].attname) {
                 pkCol = pkRes[0].attname;
               }
@@ -621,6 +624,7 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
             throw new Error(`Primary key '${pkCol}' not found in JSON payload`);
           }
 
+          const params: unknown[] = [];
           const setClauses = Object.keys(payload)
             .filter(k => {
               const dbCol = resolveDbColumnName(tableName, k);
@@ -630,18 +634,20 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
               const dbCol = resolveDbColumnName(tableName, k);
               const v = payload[k];
               const safeCol = `"${dbCol.replace(/"/g, '""')}"`;
-              if (v === null || v === undefined) return `${safeCol} = NULL`;
-              if (typeof v === "boolean") return `${safeCol} = ${v ? "true" : "false"}`;
-              if (typeof v === "number") return `${safeCol} = ${v}`;
-              if (typeof v === "object") return `${safeCol} = '${JSON.stringify(v).replace(/'/g, "''")}'`;
-              return `${safeCol} = '${String(v).replace(/'/g, "''")}'`;
+              if (typeof v === "object" && v !== null && !(v instanceof Date)) {
+                params.push(JSON.stringify(v));
+              } else {
+                params.push(v);
+              }
+              return `${safeCol} = $${params.length}`;
             });
 
           if (setClauses.length === 0) {
             throw new Error("No fields to update in JSON payload");
           }
 
-          await db.execute(rawSql(`UPDATE "${reqSchema}"."${tableName}" SET ${setClauses.join(", ")} WHERE "${pkCol}"::text = '${String(pkValue).replace(/'/g, "''")}'`));
+          params.push(String(pkValue));
+          await db.execute({ sql: `UPDATE "${reqSchema}"."${tableName}" SET ${setClauses.join(", ")} WHERE "${pkCol}"::text = $${params.length}`, params });
 
           const tableRes = await getTableDataHtml(tableName, reqSchema, tabId, 1, 25, "");
           const toastDetail = { type: "success", title: "Record Updated", message: `Successfully updated record in ${tableName}.` };
@@ -687,10 +693,10 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
               FROM pg_attribute a
               JOIN pg_class c ON a.attrelid = c.oid
               JOIN pg_namespace n ON c.relnamespace = n.oid
-              WHERE n.nspname = '${reqSchema}' AND c.relname = '${tableName}' AND a.attnum > 0 AND NOT a.attisdropped
+              WHERE n.nspname = $1 AND c.relname = $2 AND a.attnum > 0 AND NOT a.attisdropped
               ORDER BY a.attnum ASC
             `;
-            const colsRes = await db.execute(rawSql(colQuery));
+            const colsRes = await db.execute({ sql: colQuery, params: [reqSchema, tableName] });
             if (Array.isArray(colsRes)) {
               columns = colsRes.map((c: any) => ({
                 name: c.column_name,
