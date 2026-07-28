@@ -1,12 +1,12 @@
 ---
 title: Delete Queries
-description: Delete records conditionally from database tables with optional returning values.
+description: Delete records conditionally from database tables with returning values, bulk delete, and soft delete support.
 icon: Trash2
 ---
 
 # Delete Query Builder
 
-The `DeleteBuilder` lets you remove records from database tables.
+The `DeleteBuilder` lets you remove records from database tables or perform soft deletion.
 
 ---
 
@@ -36,4 +36,40 @@ const deletedUser = await db
   .single();
 
 console.log("Deleted record:", deletedUser);
+```
+
+---
+
+## Soft Delete (`softDelete`)
+
+Transform a DELETE query into an `UPDATE` that sets a `deletedAt` timestamp (default: `"deletedAt"`):
+
+```ts
+import { eq } from "@bungres/orm";
+import { users } from "./db/schema";
+
+// Updates "deleted_at" column to current timestamp instead of hard deletion
+await db
+  .delete(users)
+  .where(eq(users.id, userId))
+  .softDelete("deletedAt");
+```
+
+---
+
+## Bulk Batch Delete (`bulkDelete`)
+
+Execute deletions across multiple condition items and return total deleted count:
+
+```ts
+import { eq } from "@bungres/orm";
+import { users } from "./db/schema";
+
+const deletedCount = await db.delete(users).bulkDelete([
+  eq(users.id, 101),
+  eq(users.id, 102),
+  eq(users.id, 103),
+]);
+
+console.log(`Deleted ${deletedCount} records.`);
 ```

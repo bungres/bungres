@@ -1,6 +1,6 @@
 ---
 title: Database Client
-description: Initialize BungresDB connection client using Bun.SQL native connection pool.
+description: Initialize BungresDB connection client using Bun.SQL native connection pool with error handling, pool monitoring, and logging.
 icon: Server
 ---
 
@@ -35,7 +35,7 @@ Bungres is built **exclusively for Bun**. When you call `bungres(connectionStrin
 
 ---
 
-## Connection Configuration Options
+## Extended Configuration Options
 
 You can pass configuration options directly when initializing `bungres`:
 
@@ -44,9 +44,67 @@ import { bungres } from "@bungres/orm";
 
 export const db = bungres({
   url: process.env.DATABASE_URL!,
-  max: 20,              // Maximum number of connections in pool
-  idleTimeout: 30,      // Seconds before closing idle connections
+  max: 20,                  // Maximum number of connections in pool (default: 10)
+  idleTimeout: 10000,       // Connection idle timeout in ms (default: 10000)
+  queryTimeout: 5000,       // Query execution timeout in ms
+  logQueries: true,         // Enable SQL query logging (or pass a callback)
+  logQueryTiming: true,     // Include execution duration in log outputs
 });
+```
+
+---
+
+## Connection Pool Monitoring
+
+Track pool capacity and active/idle connection metrics using `db.getPoolStatus()`:
+
+```ts
+const status = db.getPoolStatus();
+console.log(status);
+// { total: 20, active: 2, idle: 18, waiting: 0 }
+```
+
+---
+
+## Query Debugging (`getLastQuery`)
+
+Inspect the last executed SQL query, its parameter array, and execution duration:
+
+```ts
+const last = db.getLastQuery();
+if (last) {
+  console.log("SQL:", last.sql);
+  console.log("Params:", last.params);
+  console.log("Duration (ms):", last.duration);
+}
+```
+
+---
+
+## Error Handling & Error Hierarchy
+
+`@bungres/orm` exports a structured error hierarchy for handling database exceptions:
+
+| Error Class | Trigger Scenario | Extra Properties |
+| :--- | :--- | :--- |
+| `BungresError` | Base class for all ORM errors | Standard `Error` fields |
+| `ConnectionError` | Invalid URL, maintenance DB unreachable | `cause` |
+| `QueryError` | SQL execution failure or query timeout | `sql`, `params`, `cause` |
+| `ValidationError` | Table or schema validation error | Standard `Error` fields |
+| `TransactionError` | Transaction failures or rollback errors | `cause` |
+
+```ts
+import { QueryError, ConnectionError } from "@bungres/orm";
+
+try {
+  await db.select().from(users);
+} catch (err) {
+  if (err instanceof ConnectionError) {
+    console.error("Database connection failure:", err.message);
+  } else if (err instanceof QueryError) {
+    console.error("Query failed:", err.sql, err.params);
+  }
+}
 ```
 
 ---

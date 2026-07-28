@@ -1,6 +1,6 @@
 ---
 title: Update Queries
-description: Update existing records conditionally with returning clauses and type checking.
+description: Update existing records conditionally with returning clauses, type checking, and bulk updates.
 icon: Pencil
 ---
 
@@ -31,14 +31,31 @@ const updatedUser = await db
 
 ## Updating Multiple Records
 
-Omit or modify the `.where()` clause to update multiple rows simultaneously:
+Modify the `.where()` clause to update multiple rows matching a condition:
 
 ```ts
 import { eq } from "@bungres/orm";
 import { users } from "./db/schema";
 
-const updatedCount = await db
+await db
   .update(users)
   .set({ active: false })
   .where(eq(users.verified, false));
+```
+
+---
+
+## Bulk Batch Update (`bulkUpdate`)
+
+Execute multiple update items sequentially in a single helper method:
+
+```ts
+import { eq } from "@bungres/orm";
+import { users } from "./db/schema";
+
+await db.update(users).bulkUpdate([
+  { where: eq(users.id, 1), set: { fullName: "Alice" } },
+  { where: eq(users.id, 2), set: { fullName: "Bob" } },
+  { where: eq(users.id, 3), set: { fullName: "Charlie" } },
+]);
 ```

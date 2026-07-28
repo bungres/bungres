@@ -64,13 +64,14 @@ active: boolean({ default: true, notNull: true })
 
 ---
 
-## Dates & Timestamps
+## Dates & Timestamps (including `deletedAt`)
 
 ```ts
-import { timestamptz, timestamp, date, time, timetz, interval } from "@bungres/orm";
+import { timestamptz, timestamp, date, time, timetz, interval, deletedAt } from "@bungres/orm";
 
 createdAt: timestamptz({ defaultRaw: "NOW()", notNull: true }) // Timestamp with time zone
 updatedAt: timestamp()                                         // Timestamp without time zone
+deletedAt: deletedAt("deleted_at")                             // Soft delete timestamptz column helper
 dob: date()                                                   // Date (YYYY-MM-DD)
 shiftStart: time()                                            // Time of day
 shiftEnd: timetz()                                            // Time of day with time zone

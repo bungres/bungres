@@ -1,6 +1,6 @@
 ---
 title: Tables & Schema
-description: Define PostgreSQL tables, schemas, constraints, and relationships in type-safe TypeScript.
+description: Define PostgreSQL tables, schemas, constraints, and runtime schema validation in type-safe TypeScript.
 icon: LayoutGrid
 ---
 
@@ -66,6 +66,29 @@ export const projectMembers = pgTable(
     index("idx_members_role").on(t.role),
   ]
 );
+```
+
+---
+
+## Runtime Schema Validation (`validateTable` & `validateSchema`)
+
+Validate table configurations or entire schema definitions at application startup:
+
+```ts
+import { validateTable, validateSchema } from "@bungres/orm";
+import * as schema from "./schema";
+
+// Validate a single table
+const tableResult = validateTable(schema.users);
+if (!tableResult.valid) {
+  console.error("Table validation errors:", tableResult.issues);
+}
+
+// Validate entire schema
+const schemaResult = validateSchema(schema);
+if (!schemaResult.valid) {
+  console.error("Schema validation errors:", schemaResult.issues);
+}
 ```
 
 ---

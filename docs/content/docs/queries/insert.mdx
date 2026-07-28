@@ -1,12 +1,12 @@
 ---
 title: Insert Queries
-description: Insert single or multiple records with type safety, returning values, and upsert handling.
+description: Insert single or multiple records with type safety, returning values, chunked bulk batching, and upsert handling.
 icon: Plus
 ---
 
 # Insert Query Builder
 
-The `InsertBuilder` manages single and batch record insertions, returning clauses, and conflict resolution (upserts).
+The `InsertBuilder` manages single and batch record insertions, returning clauses, chunked bulk operations, and conflict resolution (upserts).
 
 ---
 
@@ -28,7 +28,7 @@ const newUser = await db
 
 ---
 
-## Bulk Batch Insertion
+## Bulk Batch Insertion (`.values()`)
 
 Pass an array of objects to insert multiple rows in a single batch query:
 
@@ -41,6 +41,25 @@ const createdUsers = await db
     { email: "dev3@bungres.io", username: "dev3" },
   ])
   .returning();
+```
+
+---
+
+## Chunked Bulk Insertion (`bulkInsert`)
+
+For inserting large datasets (thousands of rows) without exceeding PostgreSQL query parameter limits, use `bulkInsert(data, batchSize?)`:
+
+```ts
+const largeDataset = Array.from({ length: 5000 }, (_, i) => ({
+  email: `user${i}@example.com`,
+  username: `user_${i}`,
+}));
+
+// Inserts in chunks of 1000 (default batchSize)
+const insertedUsers = await db
+  .insert(users)
+  .returning()
+  .bulkInsert(largeDataset, 1000);
 ```
 
 ---

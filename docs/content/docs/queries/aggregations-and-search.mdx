@@ -1,6 +1,6 @@
 ---
 title: Aggregations & Full-Text Search
-description: Perform count, sum, average, window functions, and full-text search vector matching.
+description: Perform count, sum, average, stddev, variance, window ranking functions, and full-text search vector matching.
 icon: TrendingUp
 ---
 
@@ -10,10 +10,20 @@ icon: TrendingUp
 
 ## Aggregate Functions
 
-Bungres provides aggregate functions for SQL summary calculations:
+Bungres provides aggregate functions for SQL summary and statistical calculations:
+
+| Function | Description | SQL Output |
+| :--- | :--- | :--- |
+| `count(col?)` | Count non-null items or `COUNT(*)` | `COUNT(col)` |
+| `sum(col)` | Sum of column values | `SUM(col)` |
+| `avg(col)` | Average of column values | `AVG(col)` |
+| `min(col)` | Minimum value | `MIN(col)` |
+| `max(col)` | Maximum value | `MAX(col)` |
+| `stddev(col)` | Standard deviation | `STDDEV(col)` |
+| `variance(col)` | Variance | `VARIANCE(col)` |
 
 ```ts
-import { count, sum, avg, min, max, over } from "@bungres/orm";
+import { count, sum, avg, min, max, stddev, variance } from "@bungres/orm";
 import { orders } from "./db/schema";
 
 const summary = await db
@@ -21,29 +31,30 @@ const summary = await db
     count(orders.id).as("totalOrders"),
     sum(orders.totalAmount).as("revenue"),
     avg(orders.totalAmount).as("averageOrderValue"),
-    min(orders.totalAmount).as("minOrder"),
-    max(orders.totalAmount).as("maxOrder")
+    stddev(orders.totalAmount).as("stdDevValue"),
+    variance(orders.totalAmount).as("varianceValue")
   )
   .from(orders);
 ```
 
 ---
 
-## Window Functions (`over()`)
+## Window Functions & Ranking (`over()`, `rowNumber()`, `rank()`, `denseRank()`)
 
-Add window partitions and ordering using `over()`:
+Add window partitions and ordering using `over()` or dedicated window helpers:
 
 ```ts
-import { count, over } from "@bungres/orm";
+import { count, over, rowNumber, rank, denseRank } from "@bungres/orm";
 import { employees } from "./db/schema";
 
 const results = await db
   .select(
     employees.name,
     employees.departmentId,
-    over(count(employees.id), {
-      partitionBy: employees.departmentId,
-    }).as("deptCount")
+    employees.salary,
+    rowNumber({ partitionBy: employees.departmentId, orderBy: { column: employees.salary, dir: "desc" } }).as("rowNum"),
+    rank({ partitionBy: employees.departmentId, orderBy: { column: employees.salary, dir: "desc" } }).as("rankNum"),
+    denseRank({ partitionBy: employees.departmentId, orderBy: { column: employees.salary, dir: "desc" } }).as("denseRankNum")
   )
   .from(employees);
 ```

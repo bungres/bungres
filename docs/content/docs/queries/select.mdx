@@ -1,6 +1,6 @@
 ---
 title: Select Queries
-description: Query data with type safety using select, joins, filtering, pagination, CTEs, and single result execution.
+description: Query data with type safety using select, joins, filtering, pagination helpers, CTEs, and single result execution.
 icon: Search
 ---
 
@@ -67,10 +67,12 @@ const user = await db
 
 ---
 
-## Ordering, Pagination & Limits
+## Ordering, Limits & Pagination Helpers
+
+### 1. Manual Limit & Offset
 
 ```ts
-import { desc, asc } from "@bungres/orm";
+import { desc } from "@bungres/orm";
 
 const recentUsers = await db
   .select()
@@ -78,6 +80,30 @@ const recentUsers = await db
   .orderBy(desc(users.createdAt))
   .limit(10)
   .offset(20);
+```
+
+### 2. Page-Based Pagination (`.paginate()`)
+
+Automatically calculates `LIMIT` and `OFFSET` from page number (1-indexed) and page size:
+
+```ts
+// Page 3, 10 items per page (LIMIT 10 OFFSET 20)
+const page3Users = await db
+  .select()
+  .from(users)
+  .paginate(3, 10);
+```
+
+### 3. Cursor-Based Pagination (`.cursorPaginate()`)
+
+Ideal for infinite scrolling feeds to prevent duplicate items when new rows are added:
+
+```ts
+// Fetch 15 items after cursor ID 42
+const nextBatch = await db
+  .select()
+  .from(users)
+  .cursorPaginate(42, 15, "id");
 ```
 
 ---
@@ -122,7 +148,7 @@ const postsWithAuthors = await db
 Construct modular subqueries using Common Table Expressions:
 
 ```ts
-import { withCte, gte } from "@bungres/orm";
+import { withCte, gte, eq } from "@bungres/orm";
 import { users } from "./db/schema";
 
 const activeUserCte = withCte("active_users", (db) => 

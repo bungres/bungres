@@ -1,6 +1,6 @@
 ---
 title: Conditions & Expression Operators
-description: Comprehensive reference for comparison, logic, string, set, and null condition helpers.
+description: Comprehensive reference for comparison, logic, string pattern matching, set inclusion, and date range helpers.
 icon: ListFilter
 ---
 
@@ -50,13 +50,27 @@ db.select().from(users).where(
 
 ---
 
-## String Matching (`like` & `ilike`)
+## String Matching (`like`, `ilike`, `startsWith`, `endsWith`, `contains`)
+
+| Helper | Description | Equivalent SQL |
+| :--- | :--- | :--- |
+| `like(col, pattern)` | Standard SQL LIKE pattern | `col LIKE pattern` |
+| `ilike(col, pattern)` | Case-insensitive ILIKE pattern | `col ILIKE pattern` |
+| `startsWith(col, prefix)` | Checks if string starts with prefix | `col LIKE 'prefix%'` |
+| `endsWith(col, suffix)` | Checks if string ends with suffix | `col LIKE '%suffix'` |
+| `contains(col, substring)` | Checks if string contains substring | `col LIKE '%substring%'` |
 
 ```ts
-import { like, ilike } from "@bungres/orm";
+import { startsWith, endsWith, contains, ilike } from "@bungres/orm";
 
-// Case-sensitive LIKE pattern
-db.select().from(users).where(like(users.email, "%@gmail.com"));
+// Prefix check
+db.select().from(users).where(startsWith(users.email, "admin@"));
+
+// Suffix check
+db.select().from(users).where(endsWith(users.email, ".org"));
+
+// Substring check
+db.select().from(users).where(contains(users.fullName, "Smith"));
 
 // Case-insensitive ILIKE pattern
 db.select().from(users).where(ilike(users.fullName, "%alice%"));
@@ -78,10 +92,10 @@ db.select().from(users).where(notInArray(users.id, [1, 2, 3]));
 
 ---
 
-## Null Checks & Ranges
+## Null Checks & Date Ranges (`between` & `betweenDate`)
 
 ```ts
-import { isNull, isNotNull, between } from "@bungres/orm";
+import { isNull, isNotNull, between, betweenDate } from "@bungres/orm";
 
 // Null / Not Null checks
 db.select().from(users).where(isNull(users.deletedAt));
@@ -89,4 +103,9 @@ db.select().from(users).where(isNotNull(users.emailVerified));
 
 // Range validation
 db.select().from(users).where(between(users.age, 18, 65));
+
+// Date range validation
+const start = new Date("2026-01-01");
+const end = new Date("2026-12-31");
+db.select().from(users).where(betweenDate(users.createdAt, start, end));
 ```
