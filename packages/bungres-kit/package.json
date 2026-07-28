@@ -1,6 +1,6 @@
 {
   "name": "@bungres/kit",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "CLI toolkit for @bungres/orm — migrate, push, generate, pull",
   "license": "MIT",
   "engines": {
