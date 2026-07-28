@@ -1,3 +1,4 @@
+import { sql } from "@bungres/orm";
 import { defineSeed } from "@bungres/kit";
 import { db } from "./client";
 import * as schema from "./schema";
@@ -197,7 +198,11 @@ const seedDef = defineSeed(db, schema, (seed) => {
 export default seedDef;
 
 if (import.meta.main) {
-  seedDef.execute().then(() => {
+  seedDef.execute().then(async () => {
+    try {
+      await db.execute(sql`REFRESH MATERIALIZED VIEW daily_sales_mv;`);
+      await db.execute(sql`REFRESH MATERIALIZED VIEW top_selling_products_mv;`);
+    } catch (e) {}
     process.exit(0);
   }).catch((err: any) => {
     console.error("Seeding error:", err);

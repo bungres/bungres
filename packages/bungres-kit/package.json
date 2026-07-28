@@ -21,6 +21,7 @@
   },
   "files": [
     "dist",
+    "src/static",
     "README.md",
     "LICENSE"
   ],
@@ -44,7 +45,7 @@
   ],
   "scripts": {
     "build:types": "tsc --emitDeclarationOnly",
-    "build": "rm -rf ./dist && bun build ./src/cli.ts ./src/index.ts --outdir ./dist --target bun --format esm --minify --packages=external && bun run build:types",
+    "build": "rm -rf ./dist && bun build ./src/cli.ts ./src/index.ts --outdir ./dist --target bun --format esm --minify --packages=external && cp -r ./src/static ./dist/static && bun run build:types",
     "dev": "bun --watch src/cli.ts",
     "test": "bun test"
   },
@@ -55,6 +56,7 @@
   },
   "devDependencies": {
     "bun-types": "catalog:",
+    "tailwindcss": "^4.3.3",
     "typescript": "catalog:"
   }
 }

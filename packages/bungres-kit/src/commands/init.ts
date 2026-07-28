@@ -127,7 +127,7 @@ export const db = bungres({ url, schema });
     p.log.error(`Failed to create client file: ${e}`);
   }
 
-  s.stop("Project initialized.");
+  s.stop("ORM initialized.");
 
   const nextSteps = `1. Set DATABASE_URL in your .env file
 2. Edit ${dbDirRel}/schema.ts to define your tables
@@ -135,5 +135,5 @@ export const db = bungres({ url, schema });
 4. Run ${pc.green("bungres migrate")} to apply migrations`;
 
   p.note(nextSteps, "Next steps");
-  p.outro(pc.cyan("✨ Bungres project initialized!"));
+  p.outro(pc.cyan("✨ Bungres ORM initialized!"));
 }

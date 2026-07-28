@@ -1,4 +1,7 @@
-export function renderIndexHtml(opts: { schemas: string[], currentSchema: string }) {
+export function renderIndexHtml(opts: {
+  schemas: string[];
+  currentSchema: string;
+}) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,13 +9,9 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bungres Studio</title>
   
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-  <script src="https://unpkg.com/htmx.org@2.0.0" defer></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/htmx.min.js" defer></script>
+  <script defer src="/static/alpine.min.js"></script>
+  <script src="/static/tailwind.js"></script>
   
   <script>
     tailwind.config = {
@@ -20,8 +19,8 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            mono: ['"JetBrains Mono"', 'monospace'],
+            sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['"Fira Code"', 'Consolas', '"Courier New"', 'monospace'],
           },
           colors: {
             bg: '#161618',
@@ -121,7 +120,7 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
           <p class="text-muted">This action cannot be undone. Any dependent foreign key relationships may cause the deletion to fail.</p>
         </div>
         <div class="flex items-center justify-end gap-3 p-4 border-t border-border bg-bg/30">
-          <button @click="confirmModalOpen = false" class="px-4 py-2 rounded text-xs font-medium text-muted hover:text-text hover:bg-hover transition-colors">Cancel</button>
+          <button @click="confirmModalOpen = false" class="px-4 py-2 rounded-lg text-xs font-medium text-muted hover:text-text hover:bg-hover transition-colors">Cancel</button>
           <button @click="confirmModalOpen = false; if (confirmCallback) confirmCallback()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-xs font-semibold shadow-md transition-colors flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             Delete Permanently
@@ -161,13 +160,13 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
           <div x-show="cellModalData.readonly"></div>
           <div class="flex items-center gap-3">
             <span class="text-xs text-muted font-mono"><span x-text="String(cellModalValue || '').length"></span> chars</span>
-            <button @click="cellModalOpen = false" class="px-3 py-1.5 rounded border border-border text-xs font-medium text-muted hover:text-text hover:bg-hover transition-colors flex items-center gap-1.5">Cancel <span class="opacity-50 font-mono text-[9px] bg-panel px-1 py-0.5 rounded border border-border">Esc</span></button>
+            <button @click="cellModalOpen = false" class="px-3 py-1.5 rounded border border-border text-xs font-medium text-muted hover:text-text hover:bg-hover transition-colors flex items-center gap-1.5">Cancel</button>
             <button 
               x-show="!cellModalData.readonly"
               @click="saveCellModal()" 
-              class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 rounded text-xs font-medium shadow-md transition-colors flex items-center gap-1.5"
+              class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-1.5 rounded-md text-xs font-semibold shadow-md transition-colors flex items-center gap-1.5 cursor-pointer"
             >
-              Save <span class="bg-blue-400/30 px-1 py-0.5 rounded ml-1 font-mono text-[9px]">⌘ ↵</span>
+              Save
             </button>
           </div>
         </div>
@@ -230,10 +229,10 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
 
         <!-- Sheet Footer -->
         <div class="flex items-center justify-end gap-3 p-4 border-t border-border bg-bg/50">
-          <button @click="sheetOpen = false" class="px-4 py-2 rounded text-xs font-medium text-muted hover:text-text hover:bg-hover transition-colors">Cancel</button>
+          <button @click="sheetOpen = false" class="px-4 py-2 rounded-lg text-xs font-medium border border-border text-muted hover:text-text hover:bg-hover transition-colors">Cancel</button>
           <button 
             @click="submitSheetPayload()" 
-            class="bg-accent hover:bg-accent/90 text-white px-5 py-2 rounded text-xs font-semibold shadow-md transition-colors flex items-center gap-1.5 cursor-pointer"
+            class="bg-emerald-700 hover:bg-emerald-800 text-white px-5 py-2 rounded-lg text-xs font-semibold shadow-md hover:shadow-accent/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
           >
             <span x-text="sheetMode === 'add' ? 'Create Record' : 'Save Changes'"></span>
           </button>
@@ -387,7 +386,9 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
                                 <option value="eq">Equals (=)</option>
                                 <option value="neq">Not Equals (!=)</option>
                                 <option value="gt">Greater Than (&gt;)</option>
+                                <option value="gte">Greater Than or Equal (&gt;=)</option>
                                 <option value="lt">Less Than (&lt;)</option>
+                                <option value="lte">Less Than or Equal (&lt;=)</option>
                                 <option value="null">Is Null</option>
                                 <option value="notnull">Is Not Null</option>
                               </select>
@@ -396,7 +397,21 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
                               <label class="text-[10px] text-muted block mb-1">Value</label>
                               <input type="text" x-model="tab.filterVal" placeholder="Enter value..." class="w-full bg-bg border border-border text-xs rounded px-2 py-1 text-text focus:outline-none">
                             </div>
-                            <button @click="applyTableQuery(tab); open = false;" class="w-full bg-accent hover:bg-accent/90 text-white py-1 rounded text-xs font-medium transition-colors cursor-pointer">Apply Filter</button>
+                            <div class="flex items-center gap-2">
+                              <button 
+                                x-show="tab.filterCol" 
+                                @click="tab.filterCol = ''; tab.filterOp = 'like'; tab.filterVal = ''; applyTableQuery(tab); open = false;" 
+                                class="px-3 py-1.5 rounded border border-border text-xs font-medium text-muted hover:text-text hover:bg-hover transition-colors cursor-pointer"
+                              >
+                                Clear
+                              </button>
+                              <button 
+                                @click="applyTableQuery(tab); open = false;" 
+                                class="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer"
+                              >
+                                Apply Filter
+                              </button>
+                            </div>
                           </div>
                         </div>
 
@@ -432,7 +447,62 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
                                 <option value="DESC">Descending (Z-A, 9-0)</option>
                               </select>
                             </div>
-                            <button @click="applyTableQuery(tab); open = false;" class="w-full bg-accent hover:bg-accent/90 text-white py-1 rounded text-xs font-medium transition-colors cursor-pointer">Apply Sort</button>
+                            <div class="flex items-center gap-2">
+                              <button 
+                                x-show="tab.sortBy" 
+                                @click="tab.sortBy = ''; tab.sortDir = 'ASC'; applyTableQuery(tab); open = false;" 
+                                class="px-3 py-1.5 rounded border border-border text-xs font-medium text-muted hover:text-text hover:bg-hover transition-colors cursor-pointer"
+                              >
+                                Clear
+                              </button>
+                              <button 
+                                @click="applyTableQuery(tab); open = false;" 
+                                class="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer"
+                              >
+                                Apply Sort
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Reset Filter & Sort Button -->
+                        <button 
+                          x-show="tab.filterCol || tab.sortBy" 
+                          @click="clearTableFilterAndSort(tab)"
+                          class="px-2.5 py-1 rounded border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                          title="Reset active filter and sort"
+                        >
+                          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                          Reset
+                        </button>
+
+                        <!-- Export Button & Dropdown -->
+                        <div class="relative" x-data="{ open: false }">
+                          <button 
+                            @click="open = !open" 
+                            class="px-2.5 py-1 rounded border border-border text-muted hover:text-text bg-panel text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Export
+                          </button>
+                          
+                          <div x-show="open" @click.away="open = false" x-cloak class="absolute left-0 top-full mt-2 z-40 w-36 bg-panel border border-border rounded-lg shadow-2xl p-1 flex flex-col gap-0.5">
+                            <a 
+                              :href="getExportUrl(tab, 'csv')" 
+                              download
+                              @click="open = false"
+                              class="px-3 py-1.5 text-xs text-text hover:bg-hover rounded flex items-center gap-2 transition-colors"
+                            >
+                              <span class="font-mono text-[10px] text-accent font-bold">.CSV</span> Export CSV
+                            </a>
+                            <a 
+                              :href="getExportUrl(tab, 'json')" 
+                              download
+                              @click="open = false"
+                              class="px-3 py-1.5 text-xs text-text hover:bg-hover rounded flex items-center gap-2 transition-colors"
+                            >
+                              <span class="font-mono text-[10px] text-blue-400 font-bold">.JSON</span> Export JSON
+                            </a>
                           </div>
                         </div>
 
@@ -460,6 +530,36 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
                           Edit
                         </button>
 
+                        <!-- Export Selected Button & Dropdown -->
+                        <div class="relative" x-data="{ open: false }">
+                          <button 
+                            @click="open = !open" 
+                            class="px-2.5 py-1 rounded border border-border text-muted hover:text-text bg-panel text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Export (<span x-text="tab.selectedIds.length"></span>)
+                          </button>
+                          
+                          <div x-show="open" @click.away="open = false" x-cloak class="absolute left-0 top-full mt-2 z-40 w-36 bg-panel border border-border rounded-lg shadow-2xl p-1 flex flex-col gap-0.5">
+                            <a 
+                              :href="getExportUrl(tab, 'csv')" 
+                              download
+                              @click="open = false"
+                              class="px-3 py-1.5 text-xs text-text hover:bg-hover rounded flex items-center gap-2 transition-colors"
+                            >
+                              <span class="font-mono text-[10px] text-accent font-bold">.CSV</span> Export CSV
+                            </a>
+                            <a 
+                              :href="getExportUrl(tab, 'json')" 
+                              download
+                              @click="open = false"
+                              class="px-3 py-1.5 text-xs text-text hover:bg-hover rounded flex items-center gap-2 transition-colors"
+                            >
+                              <span class="font-mono text-[10px] text-blue-400 font-bold">.JSON</span> Export JSON
+                            </a>
+                          </div>
+                        </div>
+
                         <!-- Delete Selected Button -->
                         <button 
                           @click="window.dispatchEvent(new CustomEvent('open-confirm-delete', { detail: { count: tab.selectedIds.length, callback: () => performDelete(tab) } }))"
@@ -476,7 +576,7 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
                     <div :id="'pagination-' + tab.id" class="flex items-center gap-2 shrink-0"></div>
                     <button 
                       @click="refreshTable(tab)"
-                      class="p-1.5 bg-panel border border-border rounded text-muted hover:text-text hover:bg-hover transition-colors flex items-center justify-center cursor-pointer shrink-0"
+                      class="h-7 w-7 bg-panel border border-border rounded text-muted hover:text-text hover:bg-hover transition-colors flex items-center justify-center cursor-pointer shrink-0"
                       title="Refresh Table Data"
                     >
                       <svg class="w-3.5 h-3.5 transition-transform duration-500" :class="tab.isRefreshing ? 'animate-spin text-accent' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -824,6 +924,26 @@ export function renderIndexHtml(opts: { schemas: string[], currentSchema: string
           if (tab.filterCol) url += '&filterCol=' + encodeURIComponent(tab.filterCol) + '&filterOp=' + encodeURIComponent(tab.filterOp || 'like') + '&filterVal=' + encodeURIComponent(tab.filterVal || '');
           if (tab.sortBy) url += '&sortBy=' + encodeURIComponent(tab.sortBy) + '&sortDir=' + encodeURIComponent(tab.sortDir || 'ASC');
           htmx.ajax('GET', url, { target: '#data-' + tab.id });
+        },
+
+        clearTableFilterAndSort(tab) {
+          if (!tab || tab.type !== 'table') return;
+          tab.filterCol = '';
+          tab.filterOp = 'like';
+          tab.filterVal = '';
+          tab.sortBy = '';
+          tab.sortDir = 'ASC';
+          this.applyTableQuery(tab);
+        },
+
+        getExportUrl(tab, format) {
+          if (!tab) return '#';
+          let url = '/htmx/tables/' + tab.name + '/export?format=' + format + '&schema=' + tab.schema;
+          if (tab.searchQuery) url += '&q=' + encodeURIComponent(tab.searchQuery);
+          if (tab.filterCol) url += '&filterCol=' + encodeURIComponent(tab.filterCol) + '&filterOp=' + encodeURIComponent(tab.filterOp || 'like') + '&filterVal=' + encodeURIComponent(tab.filterVal || '');
+          if (tab.sortBy) url += '&sortBy=' + encodeURIComponent(tab.sortBy) + '&sortDir=' + encodeURIComponent(tab.sortDir || 'ASC');
+          if (tab.selectedIds && tab.selectedIds.length > 0) url += '&ids=' + encodeURIComponent(JSON.stringify(tab.selectedIds));
+          return url;
         },
 
         async openAddSheet(tab) {
