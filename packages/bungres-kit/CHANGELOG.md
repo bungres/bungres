@@ -1,5 +1,12 @@
 # @bungres/kit
 
+## 2.1.2
+
+### Patch Changes
+
+- Updated dependencies [d8b1855]
+  - @bungres/orm@1.3.0
+
 ## 2.1.1
 
 ### Patch Changes
