@@ -19,6 +19,12 @@ export const min = (column: string | ColumnConfig): SQLChunk<any> =>
 export const max = (column: string | ColumnConfig): SQLChunk<any> =>
   sql<any>`MAX(${rawSql(colName(column))})`;
 
+export const stddev = (column: string | ColumnConfig): SQLChunk<number> =>
+  sql<number>`STDDEV(${rawSql(colName(column))})`;
+
+export const variance = (column: string | ColumnConfig): SQLChunk<number> =>
+  sql<number>`VARIANCE(${rawSql(colName(column))})`;
+
 export interface WindowOptions {
   partitionBy?: string | ColumnConfig | SQLChunk | Array<string | ColumnConfig | SQLChunk>;
   orderBy?: { column: string | ColumnConfig | SQLChunk; dir?: "asc" | "desc" } | Array<{ column: string | ColumnConfig | SQLChunk; dir?: "asc" | "desc" }>;
@@ -75,3 +81,13 @@ export const over = <T>(agg: SQLChunk<T>, options?: WindowOptions): SQLChunk<T> 
     params
   } as SQLChunk<T>;
 };
+
+export const rowNumber = (options?: WindowOptions): SQLChunk<number> =>
+  over(rawSql<number>("ROW_NUMBER()"), options);
+
+export const rank = (options?: WindowOptions): SQLChunk<number> =>
+  over(rawSql<number>("RANK()"), options);
+
+export const denseRank = (options?: WindowOptions): SQLChunk<number> =>
+  over(rawSql<number>("DENSE_RANK()"), options);
+

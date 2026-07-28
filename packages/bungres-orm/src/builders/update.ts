@@ -3,6 +3,7 @@ import { type SQLChunk, sqlJoin, toPgArray } from "../core/sql.js";
 import { parseWhereObject } from "../core/conditions.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferTable } from "../types/index.js";
+import { applyComment, buildCtePrefix, buildReturningClause } from "../utils/sql-builder.js";
 import type { CTEBuilder } from "./cte.js";
 
 export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implements PromiseLike<InferTable<TColumns>[]> {
@@ -35,6 +36,20 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
     return this;
   }
 
+  async bulkUpdate(
+    updates: Array<{
+      where: WhereCondition<TColumns>;
+      set: Partial<{ [K in keyof InferTable<TColumns>]: InferTable<TColumns>[K] | SQLChunk }>;
+    }>
+  ): Promise<void> {
+    for (const updateItem of updates) {
+      const builder = new UpdateBuilder(this._table, this._executor)
+        .set(updateItem.set)
+        .where(updateItem.where);
+      await this._executor.execute(builder);
+    }
+  }
+
   where(condition: WhereCondition<TColumns>): this {
     if (condition && typeof condition === "object" && !("sql" in condition)) {
       this._where.push(parseWhereObject(getTableConfig(this._table), condition as unknown as WhereObject<Record<string, ColumnConfig>>));
@@ -65,22 +80,12 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
       throw new Error("UpdateBuilder: no fields to set");
     }
 
+    const tConfig = getTableConfig(this._table);
     const params: unknown[] = [];
-
-    let prefix = "";
-    if (this._with.length > 0) {
-      const cteStrs: string[] = [];
-      for (const cte of this._with) {
-        const chunk = cte.query.toSQL();
-        const offset = params.length;
-        params.push(...chunk.params);
-        cteStrs.push(`"${cte.alias}" AS (${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)})`);
-      }
-      prefix = `WITH ${cteStrs.join(", ")} `;
-    }
+    const prefix = buildCtePrefix(this._with, params);
 
     const setClauses = entries.map(([key, value]) => {
-      const dbCol = getTableConfig(this._table).columns[key]?.name ?? key;
+      const dbCol = tConfig.columns[key]?.name ?? key;
       if (value && typeof value === "object" && "sql" in value && "params" in value) {
         const chunk = value as SQLChunk;
         const offset = params.length;
@@ -88,7 +93,7 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
         return `"${dbCol}" = ${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)}`;
       }
       if (value && typeof value === "object" && !(value instanceof Date)) {
-        const colType = getTableConfig(this._table).columns[key]?.dataType;
+        const colType = tConfig.columns[key]?.dataType;
         if (colType === "json" || colType === "jsonb") {
           params.push(value);
         } else if (Array.isArray(value)) {
@@ -102,7 +107,7 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
       return `"${dbCol}" = $${params.length}`;
     });
 
-    let query = `UPDATE ${getTableConfig(this._table).qualifiedName} SET ${setClauses.join(", ")}`;
+    let query = `UPDATE ${tConfig.qualifiedName} SET ${setClauses.join(", ")}`;
 
     if (this._where.length > 0) {
       const combined = sqlJoin(this._where, " AND ");
@@ -113,22 +118,9 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
       params.push(...combined.params);
     }
 
-    if (this._returning) {
-      query +=
-        " RETURNING " +
-        (this._returning[0] === "*"
-          ? Object.keys(getTableConfig(this._table).columns)
-            .map((c) => `"${getTableConfig(this._table).columns[c]!.name}" AS "${c}"`)
-            .join(", ")
-          : this._returning
-            .map((c) => `"${getTableConfig(this._table).columns[c]?.name ?? c}" AS "${c}"`)
-            .join(", "));
-    }
+    query += buildReturningClause(this._returning, tConfig);
+    query = applyComment(prefix + query, this._comment);
 
-    if (this._comment) {
-      query += ` /* ${this._comment.replace(/\*\//g, "")} */`;
-    }
-
-    return { sql: prefix + query, params };
+    return { sql: query, params };
   }
 }

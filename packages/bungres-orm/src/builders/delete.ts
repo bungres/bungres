@@ -4,7 +4,9 @@ import type { SQLChunk } from "../core/sql.js";
 import { sqlJoin } from "../core/sql.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferTable } from "../types/index.js";
+import { applyComment, buildCtePrefix, buildReturningClause } from "../utils/sql-builder.js";
 import type { CTEBuilder } from "./cte.js";
+import { UpdateBuilder } from "./update.js";
 
 export class DeleteBuilder<TColumns extends Record<string, ColumnConfig>> implements PromiseLike<InferTable<TColumns>[]> {
   private _table: Table<string, TColumns>;
@@ -39,6 +41,25 @@ export class DeleteBuilder<TColumns extends Record<string, ColumnConfig>> implem
     return this;
   }
 
+  async bulkDelete(conditions: WhereCondition<TColumns>[]): Promise<number> {
+    let deletedCount = 0;
+    for (const cond of conditions) {
+      const builder = new DeleteBuilder(this._table, this._executor).where(cond);
+      const res = await this._executor.execute(builder);
+      deletedCount += res.length;
+    }
+    return deletedCount;
+  }
+
+  softDelete(deletedAtColumn = "deletedAt"): UpdateBuilder<TColumns> {
+    const updateBuilder = new UpdateBuilder(this._table, this._executor);
+    updateBuilder.set({ [deletedAtColumn]: new Date() } as any);
+    for (const cond of this._where) {
+      updateBuilder.where(cond);
+    }
+    return updateBuilder;
+  }
+
   with(...ctes: CTEBuilder[]): this {
     this._with.push(...ctes);
     return this;
@@ -57,18 +78,7 @@ export class DeleteBuilder<TColumns extends Record<string, ColumnConfig>> implem
   toSQL(): SQLChunk {
     const tConfig = getTableConfig(this._table);
     const params: unknown[] = [];
-
-    let prefix = "";
-    if (this._with.length > 0) {
-      const cteStrs: string[] = [];
-      for (const cte of this._with) {
-        const chunk = cte.query.toSQL();
-        const offset = params.length;
-        params.push(...chunk.params);
-        cteStrs.push(`"${cte.alias}" AS (${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)})`);
-      }
-      prefix = `WITH ${cteStrs.join(", ")} `;
-    }
+    const prefix = buildCtePrefix(this._with, params);
 
     let query = `DELETE FROM ${tConfig.qualifiedName}`;
 
@@ -79,22 +89,9 @@ export class DeleteBuilder<TColumns extends Record<string, ColumnConfig>> implem
       params.push(...combined.params);
     }
 
-    if (this._returning) {
-      query +=
-        " RETURNING " +
-        (this._returning[0] === "*"
-          ? Object.keys(getTableConfig(this._table).columns)
-            .map((c) => `"${getTableConfig(this._table).columns[c]!.name}" AS "${c}"`)
-            .join(", ")
-          : this._returning
-            .map((c) => `"${getTableConfig(this._table).columns[c]?.name ?? c}" AS "${c}"`)
-            .join(", "));
-    }
+    query += buildReturningClause(this._returning, tConfig);
+    query = applyComment(prefix + query, this._comment);
 
-    if (this._comment) {
-      query += ` /* ${this._comment.replace(/\*\//g, "")} */`;
-    }
-
-    return { sql: prefix + query, params };
+    return { sql: query, params };
   }
 }

@@ -5,6 +5,7 @@ import { rawSql, sql, sqlJoin } from "../core/sql.js";
 import { type Table, type TableConfigImpl, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferColumnType, InferTable } from "../types/index.js";
 import { TableConfigSymbol } from "../utils/constants.js";
+import { applyComment, buildCtePrefix } from "../utils/sql-builder.js";
 import type { CTEBuilder } from "./cte.js";
 
 export type SelectedFields = {
@@ -139,6 +140,28 @@ export class SelectBuilder<
     this._offset = n;
     return this;
   }
+
+  paginate(page: number, pageSize: number): this {
+    const validPage = Math.max(1, page);
+    const validPageSize = Math.max(1, pageSize);
+    this._limit = validPageSize;
+    this._offset = (validPage - 1) * validPageSize;
+    return this;
+  }
+
+  cursorPaginate(
+    cursor: string | number | Date | null | undefined,
+    limit: number,
+    cursorColumn: (keyof TColumns & string) | ColumnConfig = "id" as any
+  ): this {
+    this.limit(limit);
+    if (cursor !== null && cursor !== undefined) {
+      const col = typeof cursorColumn === "string" ? cursorColumn : cursorColumn.name;
+      this.where({ [col]: { gt: cursor } } as any);
+    }
+    return this;
+  }
+
 
   as<TAlias extends string>(aliasName: TAlias): Table<TAlias, Record<string, ColumnConfig<any, any, any, any>>> {
     const columns: Record<string, ColumnConfig<any, any, any, any>> = {};
@@ -311,17 +334,7 @@ export class SelectBuilder<
       }
     }
 
-    let prefix = "";
-    if (this._with.length > 0) {
-      const cteStrs: string[] = [];
-      for (const cte of this._with) {
-        const chunk = cte.query.toSQL();
-        const offset = params.length;
-        params.push(...chunk.params);
-        cteStrs.push(`"${cte.alias}" AS (${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)})`);
-      }
-      prefix = `WITH ${cteStrs.join(", ")} `;
-    }
+    const prefix = buildCtePrefix(this._with, params);
 
     let query = `SELECT ${cols} FROM ${qName}`;
 
@@ -406,11 +419,9 @@ export class SelectBuilder<
       }
     }
 
-    if (this._comment) {
-      query += ` /* ${this._comment.replace(/\*\//g, "")} */`;
-    }
+    query = applyComment(prefix + query, this._comment);
 
-    return { sql: prefix + query, params };
+    return { sql: query, params };
   }
 }
 

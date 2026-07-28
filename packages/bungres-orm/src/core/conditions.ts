@@ -83,6 +83,18 @@ export const notInArray = (column: string | ColumnConfig, values: unknown[] | { 
 export const between = (column: string | ColumnConfig | SQLChunk, min: unknown, max: unknown): SQLChunk =>
   sql`${rawSql(colName(column))} BETWEEN ${min} AND ${max}`;
 
+export const startsWith = (column: string | ColumnConfig | SQLChunk, prefix: string): SQLChunk =>
+  sql`${rawSql(colName(column))} LIKE ${prefix + "%"}`;
+
+export const endsWith = (column: string | ColumnConfig | SQLChunk, suffix: string): SQLChunk =>
+  sql`${rawSql(colName(column))} LIKE ${"%" + suffix}`;
+
+export const contains = (column: string | ColumnConfig | SQLChunk, substring: string): SQLChunk =>
+  sql`${rawSql(colName(column))} LIKE ${"%" + substring + "%"}`;
+
+export const betweenDate = (column: string | ColumnConfig | SQLChunk, start: Date, end: Date): SQLChunk =>
+  sql`${rawSql(colName(column))} BETWEEN ${start} AND ${end}`;
+
 export const and = (...conditions: SQLChunk[]): SQLChunk =>
   sqlJoin(conditions, " AND ");
 

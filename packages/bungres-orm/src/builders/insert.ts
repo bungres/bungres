@@ -2,6 +2,7 @@ import type { QueryExecutor } from "../core/query.js";
 import { type SQLChunk, toPgArray } from "../core/sql.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferInsert, InferTable } from "../types/index.js";
+import { applyComment, buildCtePrefix, buildReturningClause } from "../utils/sql-builder.js";
 import type { CTEBuilder } from "./cte.js";
 
 export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implements PromiseLike<InferTable<TColumns>[]> {
@@ -40,6 +41,28 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
       this._values.push(data as unknown as Partial<InferTable<TColumns>>);
     }
     return this;
+  }
+
+  async bulkInsert(data: InferInsert<TColumns>[], batchSize = 1000): Promise<InferTable<TColumns>[]> {
+    if (data.length === 0) return [];
+    const results: InferTable<TColumns>[] = [];
+    for (let i = 0; i < data.length; i += batchSize) {
+      const chunkData = data.slice(i, i + batchSize);
+      const builder = new InsertBuilder(this._table, this._executor).values(chunkData);
+      if (this._returning) {
+        builder.returning(...(this._returning as (keyof TColumns & string)[]));
+      }
+      if (this._onConflict === "do nothing") {
+        builder.onConflictDoNothing();
+      } else if (this._onConflict) {
+        builder.onConflict(this._onConflict);
+      } else if (this._onConflictUpdateConfig) {
+        builder.onConflictDoUpdate(this._onConflictUpdateConfig);
+      }
+      const res = await this._executor.execute<InferTable<TColumns>>(builder);
+      results.push(...res);
+    }
+    return results;
   }
 
   onConflictDoNothing(): this {
@@ -95,18 +118,7 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
     const columnsStr = keys.map((k) => `"${tConfig.columns[k]?.name ?? k}"`).join(", ");
 
     const params: unknown[] = [];
-
-    let prefix = "";
-    if (this._with.length > 0) {
-      const cteStrs: string[] = [];
-      for (const cte of this._with) {
-        const chunk = cte.query.toSQL();
-        const offset = params.length;
-        params.push(...chunk.params);
-        cteStrs.push(`"${cte.alias}" AS (${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)})`);
-      }
-      prefix = `WITH ${cteStrs.join(", ")} `;
-    }
+    const prefix = buildCtePrefix(this._with, params);
 
     const valuesStrs = this._values.map((v) => {
       const vals = keys.map((k) => {
@@ -188,22 +200,9 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
       query += ` ON CONFLICT (${targetStrs.join(", ")}) DO UPDATE SET ${setClauses.join(", ")}`;
     }
 
-    if (this._returning) {
-      query +=
-        " RETURNING " +
-        (this._returning[0] === "*"
-          ? Object.keys(tConfig.columns)
-            .map((c) => `"${tConfig.columns[c]!.name}" AS "${c}"`)
-            .join(", ")
-          : this._returning
-            .map((c) => `"${tConfig.columns[c]?.name ?? c}" AS "${c}"`)
-            .join(", "));
-    }
+    query += buildReturningClause(this._returning, tConfig);
+    query = applyComment(prefix + query, this._comment);
 
-    if (this._comment) {
-      query += ` /* ${this._comment.replace(/\*\//g, "")} */`;
-    }
-
-    return { sql: prefix + query, params };
+    return { sql: query, params };
   }
 }

@@ -32,18 +32,26 @@ export { SelectBuilder, SelectBuilderIntermediate, type InferSelection, type Sel
 export { UpdateBuilder } from "./builders/update.js";
 
 export {
-    and, arrayContained, arrayContains, arrayOverlaps, asc, between, containedInJson, containsJson, desc, eq, gt,
-    gte, hasAllKeys, hasAnyKeys, hasKey, ilike, inArray, isNotNull, isNull, jsonExtract, jsonExtractText, like, lt,
-    lte, ne, not, notInArray, or, plainToTsquery, toTsquery, toTsvector, tsMatch
+    and, arrayContained, arrayContains, arrayOverlaps, asc, between, betweenDate, containedInJson, contains,
+    containsJson, desc, endsWith, eq, gt, gte, hasAllKeys, hasAnyKeys, hasKey, ilike, inArray, isNotNull,
+    isNull, jsonExtract, jsonExtractText, like, lt, lte, ne, not, notInArray, or, plainToTsquery, startsWith,
+    toTsquery, toTsvector, tsMatch
 } from "./core/conditions.js";
 
-export { avg, count, max, min, over, sum } from "./core/aggregations.js";
+export { avg, count, denseRank, max, min, over, rank, rowNumber, stddev, sum, variance } from "./core/aggregations.js";
 
 export type { OrderDir, QueryExecutor, WhereCondition } from "./core/query.js";
 
+// Errors
+export { BungresError, ConnectionError, QueryError, TransactionError, ValidationError } from "./utils/errors.js";
+
+// Validation
+export { validateSchema, validateTable } from "./core/validation.js";
+export type { ValidationIssue, ValidationResult } from "./core/validation.js";
+
 // DB client
 export { BungresDB, BungresTransaction, bungres } from "./core/db.js";
-export type { BungresDBClient, DBConfig } from "./core/db.js";
+export type { BungresDBClient, DBConfig, TransactionOptions } from "./core/db.js";
 
 // Relational Query Builder
 export type { RelationalQueryBuilder } from "./builders/relational.js";
@@ -59,4 +67,3 @@ export type {
     ColumnConfig, ColumnDataType, ForeignKeyRef,
     IndexConfig, InferInsert, InferTable, TableConfig
 } from "./types/index.js";
-

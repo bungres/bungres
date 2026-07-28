@@ -135,6 +135,7 @@ export const json = col("json");
 export const jsonb = col("jsonb");
 export const timestamp = col("timestamp");
 export const timestamptz = col("timestamptz");
+export const deletedAt = <const N extends boolean = false, const P extends boolean = false, const R extends ForeignKeyRef | undefined = undefined>(nameOrOpts?: string | ColumnOptions<N, P, R>, opts?: ColumnOptions<N, P, R>) => timestamptz(nameOrOpts as any, opts as any);
 export const date = col("date");
 export const time = col("time");
 export const timetz = col("timetz");
