@@ -33,8 +33,10 @@ export default defineConfig({
 | Command | Syntax | Description |
 | :--- | :--- | :--- |
 | **`init`** | `bungres init` | Initialize new project with default `bungres.config.ts` |
+| **`check`** | `bungres check` | Check for ungenerated schema changes or pending DB migrations (CI drift tool) |
 | **`generate`** | `bungres generate` | Generate timestamped SQL migration file from schema diff |
 | **`migrate`** | `bungres migrate` | Apply pending migration `.sql` files to database |
+| **`rollback`** | `bungres rollback` | Automatically revert the last applied migration using its DOWN section |
 | **`push`** | `bungres push` | Push schema directly to database without creating files (dev mode) |
 | **`pull`** | `bungres pull` | Introspect existing database and generate TypeScript schema |
 | **`status`** | `bungres status` | Compare database migration state vs local migration files |

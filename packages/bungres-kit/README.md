@@ -1,5 +1,8 @@
 # @bungres/kit
 
+[![npm version](https://img.shields.io/npm/v/@bungres/kit.svg)](https://www.npmjs.com/package/@bungres/kit)
+[![license](https://img.shields.io/npm/l/@bungres/kit.svg)](https://github.com/aniket/bungres/blob/main/LICENSE)
+
 CLI toolkit for [`@bungres/orm`](https://www.npmjs.com/package/@bungres/orm) — initialize, check, generate, migrate, push, pull, status, seed, studio, and drop your database schema with ease. 🐘✨
 
 ## Requirements
@@ -108,6 +111,24 @@ if (!isClean) {
 - **Advanced Types & Views**: Full native Postgres support for `pgEnum`, Arrays, `pgView`, and `pgMaterializedView`. The differ natively tracks view signature changes and emits safe `DROP` / `CREATE` generation.
 - **Intelligent Casting**: Alters column data types seamlessly by automatically managing and restoring `DEFAULT` constraints across incompatible type casts.
 - **Auto-Seeder**: Run `bungres seed` without a custom script to automatically generate mock data for your database with auto FK resolution.
+
+## Security Considerations
+
+### ⚠️ REPL Tool (tusky) Security Warning
+
+The `bungres tusky` command provides an interactive REPL (Read-Eval-Print Loop) for development and debugging purposes. Since `@bungres/kit` is installed as a dev dependency, this tool is intended for development use only.
+
+**Security Risks:**
+- Uses `eval()` to execute arbitrary JavaScript/TypeScript code
+- Has direct access to your database connection
+- Can execute any SQL query through the database connection
+- Runs with the same permissions as your database user
+
+**Safe Usage Guidelines:**
+- Only run `tusky` in local development environments
+- Never expose the REPL to external networks or public access
+- Use database users with limited permissions for development
+- Avoid running in production or staging environments
 
 ## License
 

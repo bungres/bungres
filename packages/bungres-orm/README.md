@@ -1,5 +1,8 @@
 # @bungres/orm
 
+[![npm version](https://img.shields.io/npm/v/@bungres/orm.svg)](https://www.npmjs.com/package/@bungres/orm)
+[![license](https://img.shields.io/npm/l/@bungres/orm.svg)](https://github.com/aniket/bungres/blob/main/LICENSE)
+
 Type-safe Postgres ORM for [Bun](https://bun.sh), using Bun's native `Bun.SQL` — no external database driver needed! 🐘
 
 Part of the **Bungres** ecosystem. For migrations and CLI tools, see [`@bungres/kit`](https://www.npmjs.com/package/@bungres/kit).
@@ -88,6 +91,8 @@ const updated = await db
 // DELETE
 await db.delete(users).where(eq(users.id, userId));
 ```
+
+## Key Features
 
 ### 1. Casing API
 

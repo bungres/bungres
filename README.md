@@ -1,11 +1,14 @@
 # Bungres
 
+[![npm version](https://img.shields.io/npm/v/@bungres/orm.svg)](https://www.npmjs.com/package/@bungres/orm)
+[![license](https://img.shields.io/npm/l/@bungres/orm.svg)](https://github.com/aniket/bungres/blob/main/LICENSE)
+
 Type-safe Postgres ORM + CLI toolkit for [Bun](https://bun.sh), using Bun's native `Bun.SQL` — no external database driver needed.
 
-| Package        | Description                                               |
-| -------------- | --------------------------------------------------------- |
-| `@bungres/orm` | Core ORM — schema definition, query builder, DB client    |
-| `@bungres/kit` | CLI toolkit — generate, migrate, push, pull, status, drop |
+| Package | Description |
+| ------- | ----------- |
+| [`@bungres/orm`](https://www.npmjs.com/package/@bungres/orm) | Core ORM — schema definition, query builder, DB client |
+| [`@bungres/kit`](https://www.npmjs.com/package/@bungres/kit) | CLI toolkit — generate, migrate, push, pull, status, drop |
 
 ---
 
@@ -19,7 +22,11 @@ Type-safe Postgres ORM + CLI toolkit for [Bun](https://bun.sh), using Bun's nati
 ## Quick start
 
 ```bash
-# Install from the monorepo root
+# Install packages in your application
+bun add @bungres/orm
+bun add -d @bungres/kit
+
+# Or install from the monorepo root if developing bungres itself
 bun install
 
 # Set your database URL
@@ -242,8 +249,10 @@ export default defineConfig({
 | Command            | Description                                                         |
 | ------------------ | ------------------------------------------------------------------- |
 | `bungres init`     | Initialize bungres project with config file and db folder structure |
+| `bungres check`    | Check for ungenerated schema changes or pending DB migrations (CI drift tool) |
 | `bungres generate` | Write a timestamped `.sql` migration file from your schema          |
 | `bungres migrate`  | Run pending `.sql` files, track applied in `__bungres_migrations`   |
+| `bungres rollback` | Automatically revert the last applied migration using its DOWN section |
 | `bungres push`     | Apply schema directly to DB — no files (dev/prototyping)            |
 | `bungres pull`     | Introspect the DB and generate TypeScript schema                    |
 | `bungres status`   | Show applied vs pending migrations                                  |
@@ -255,54 +264,21 @@ export default defineConfig({
 | `bungres drop`     | Drop all tables defined in the schema (prompts for confirmation)    |
 
 ```bash
-bungres init
-bungres generate
-bungres migrate
-bungres push
-bungres pull
-bungres status
-bungres fresh
-bungres refresh
-bungres seed
-bungres studio
-bungres tusky
-bungres drop --force   # skip confirmation
+bun run bungres init
+bun run bungres check
+bun run bungres generate
+bun run bungres migrate
+bun run bungres rollback
+bun run bungres push
+bun run bungres pull
+bun run bungres status
+bun run bungres fresh
+bun run bungres refresh
+bun run bungres seed
+bun run bungres studio
+bun run bungres tusky
+bun run bungres drop --force   # skip confirmation
 bungres --help
-```
-
----
-
-## Project structure
-
-```
-bungres/
-├── packages/
-│   ├── @bungres/orm/          # Core ORM
-│   │   └── src/
-│   │       ├── core/       # Database client, query execution
-│   │       ├── builders/   # Select/Insert/Update/Delete builders
-│   │       ├── schema/     # Column/Table definitions & factory functions
-│   │       ├── types/      # Inference types
-│   │       ├── ddl.ts      # CREATE/DROP/ALTER DDL generation
-│   │       └── index.ts    # Public API
-│   └── @bungres/kit/          # CLI
-│       └── src/
-│           ├── cli.ts      # CLI entrypoint (`bungres` binary)
-│           ├── config.ts   # Config loader
-│           ├── schema-loader.ts
-│           └── commands/
-│               ├── push.ts
-│               ├── generate.ts
-│               ├── migrate.ts
-│               ├── pull.ts
-│               ├── status.ts
-│               ├── drop.ts
-│               ├── studio.ts
-│               └── tusky.ts
-├── examples/
-│   └── ecom/               # Full e-commerce example
-├── bungres.config.ts         # Root-level config template
-└── package.json            # Bun workspaces monorepo root
 ```
 
 ## Security Considerations

@@ -141,3 +141,40 @@ binaryData: bytea()          // Binary data buffer
 const pointType = customType<[number, number]>("point");
 location: pointType("location")
 ```
+
+---
+
+## Generated Columns & PostgreSQL Views
+
+### Generated Columns (`generatedAlwaysAs`)
+
+Define PostgreSQL 12+ stored generated columns:
+
+```ts
+import { pgTable, text } from "@bungres/orm";
+
+export const users = pgTable("users", {
+  firstName: text(),
+  lastName: text(),
+  fullName: text().generatedAlwaysAs("first_name || ' ' || last_name"),
+});
+```
+
+### Views & Materialized Views (`pgView` & `pgMaterializedView`)
+
+Define PostgreSQL views and materialized views directly in your schema:
+
+```ts
+import { pgView, pgMaterializedView, eq } from "@bungres/orm";
+import { users } from "./users";
+
+export const activeUsers = pgView(
+  "active_users",
+  db.select().from(users).where(eq(users.active, true))
+);
+
+export const monthlyStats = pgMaterializedView(
+  "monthly_stats",
+  db.select().from(orders)
+);
+```

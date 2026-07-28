@@ -126,8 +126,8 @@ export const products = pgTable(
     discount: integer({ default: 0 }),
   },
   (t) => [
-    check("check_positive_price", "price > 0"),
-    check("check_valid_discount", "discount >= 0 AND discount <= price"),
+    check("price > 0", "check_positive_price"),
+    check("discount >= 0 AND discount <= price", "check_valid_discount"),
   ]
 );
 ```
