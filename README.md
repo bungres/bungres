@@ -260,7 +260,7 @@ export default defineConfig({
 | `bungres refresh`  | Truncate all tables to quickly reset data without dropping schema   |
 | `bungres seed`     | Execute the seed script to populate the database                    |
 | `bungres studio`   | Start a local web interface to browse database data                 |
-| `bungres tusky`    | Boot up a Node REPL connected to the database with schema loaded    |
+| `bungres tusky`    | Boot up an interactive REPL connected to the database with schema loaded    |
 | `bungres drop`     | Drop all tables defined in the schema (prompts for confirmation)    |
 
 ```bash

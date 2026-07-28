@@ -35,9 +35,10 @@ describe("Migration Folder Loader", () => {
   });
 
   test("runGenerate creates migration folder containing up.sql, down.sql, and snapshot.json", async () => {
-    const tmpDir = join(process.cwd(), `tmp_gen_test_${Date.now()}`);
+    const tmpDir = join(import.meta.dir, `tmp_gen_test_${Date.now()}`);
+    const fixturePath = join(import.meta.dir, "fixtures/sample-schema.ts");
     const config: any = {
-      schema: "tests/fixtures/sample-schema.ts",
+      schema: fixturePath,
       out: tmpDir,
       dbUrl: "postgres://localhost:5432/mock_db",
       migrationsTable: "__bungres_migrations",
@@ -45,10 +46,9 @@ describe("Migration Folder Loader", () => {
     };
 
     // Create fixture schema file
-    const fixturePath = join(process.cwd(), "tests/fixtures/sample-schema.ts");
-    await Bun.$`mkdir -p ${join(process.cwd(), "tests/fixtures")}`.quiet();
+    await Bun.$`mkdir -p ${join(import.meta.dir, "fixtures")}`.quiet();
     await Bun.write(fixturePath, `
-      import { pgTable, uuid, varchar } from "../../packages/bungres-orm/src/index.ts";
+      import { pgTable, uuid, varchar } from "@bungres/orm";
       export const users = pgTable("users", {
         id: uuid("id"),
         name: varchar("name"),
@@ -65,6 +65,6 @@ describe("Migration Folder Loader", () => {
     expect(folders[0]!.downContent).toContain('DROP TABLE IF EXISTS "users"');
     expect(folders[0]!.snapshot?.tables.users).toBeDefined();
 
-    await Bun.$`rm -rf ${tmpDir} ${join(process.cwd(), "tests/fixtures")}`.quiet();
+    await Bun.$`rm -rf ${tmpDir} ${join(import.meta.dir, "fixtures")}`.quiet();
   });
 });

@@ -32,6 +32,8 @@ export type SchemaEntry = TableSchemaEntry | EnumSchemaEntry | ViewSchemaEntry;
 
 import { pathToFileURL } from "node:url";
 
+import { existsSync, statSync } from "node:fs";
+
 export async function loadSchemas(
   patterns: string | string[],
   cwd = process.cwd()
@@ -40,9 +42,21 @@ export async function loadSchemas(
   const entries: SchemaEntry[] = [];
 
   for (const pattern of globs) {
-    const glob = new Bun.Glob(pattern);
-    for await (const file of glob.scan({ cwd, absolute: false })) {
-      const absPath = resolve(join(cwd, file));
+    const filesToLoad: string[] = [];
+    const directPath = resolve(cwd, pattern);
+
+    if (existsSync(directPath) && statSync(directPath).isFile()) {
+      filesToLoad.push(directPath);
+    } else if (existsSync(pattern) && statSync(pattern).isFile()) {
+      filesToLoad.push(resolve(pattern));
+    } else {
+      const glob = new Bun.Glob(pattern);
+      for await (const file of glob.scan({ cwd, absolute: true })) {
+        filesToLoad.push(file);
+      }
+    }
+
+    for (const absPath of filesToLoad) {
       const fileUrl = pathToFileURL(absPath).href + "?t=" + Date.now();
       const mod = await import(fileUrl);
 

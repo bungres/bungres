@@ -175,6 +175,7 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
         const offset = (page - 1) * limit;
         let countResult: any;
         let data: any = [];
+        let pkCol = "id";
         
         const tsSchema = schemas.find(s => s.config.name === tableName);
         let colConfigs: Record<string, any> = {};
@@ -213,12 +214,35 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
             }
           }
 
+          if (tsSchema) {
+            const pkEntry = Object.entries(colConfigs).find(([_, cfg]: [string, any]) => cfg.primaryKey);
+            if (pkEntry) {
+              pkCol = pkEntry[1]?.name || pkEntry[0];
+            }
+          } else {
+            try {
+              const pkRes = await db.execute({ sql: `
+                SELECT a.attname
+                FROM pg_index i
+                JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+                JOIN pg_class c ON c.oid = i.indrelid
+                JOIN pg_namespace n ON c.relnamespace = n.oid
+                WHERE i.indisprimary AND n.nspname = $1 AND c.relname = $2
+              `, params: [reqSchema, tableName] }) as any[];
+              if (Array.isArray(pkRes) && pkRes.length > 0 && pkRes[0].attname) {
+                pkCol = pkRes[0].attname;
+              }
+            } catch (e) {}
+          }
+
           const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
           let orderClause = "";
           if (sortBy) {
             const dir = (sortDir || "ASC").toUpperCase() === "DESC" ? "DESC" : "ASC";
             orderClause = `ORDER BY t."${sortBy.replace(/"/g, '""')}" ${dir}`;
+          } else if (pkCol) {
+            orderClause = `ORDER BY t."${pkCol.replace(/"/g, '""')}" ASC`;
           }
 
           countResult = await db.execute({ sql: `SELECT COUNT(*) as count FROM "${reqSchema}"."${tableName}" t ${whereClause}`, params });
@@ -273,28 +297,6 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
 
           return undefined;
         };
-
-        let pkCol = "id";
-        if (tsSchema) {
-          const pkEntry = Object.entries(colConfigs).find(([_, cfg]: [string, any]) => cfg.primaryKey);
-          if (pkEntry) {
-            pkCol = pkEntry[1].name || pkEntry[0];
-          }
-        } else {
-          try {
-            const pkRes = await db.execute({ sql: `
-              SELECT a.attname
-              FROM pg_index i
-              JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-              JOIN pg_class c ON c.oid = i.indrelid
-              JOIN pg_namespace n ON c.relnamespace = n.oid
-              WHERE i.indisprimary AND n.nspname = $1 AND c.relname = $2
-            `, params: [reqSchema, tableName] }) as any[];
-            if (Array.isArray(pkRes) && pkRes.length > 0 && pkRes[0].attname) {
-              pkCol = pkRes[0].attname;
-            }
-          } catch (e) {}
-        }
 
         const columns = tsSchema ? Object.entries(colConfigs).map(([k, cfg]: [string, any]) => cfg.name || k) : Object.keys(data[0] || {});
 
@@ -656,7 +658,13 @@ export async function runStudio(config: ResolvedConfig): Promise<void> {
           params.push(String(pkValue));
           await db.execute({ sql: `UPDATE "${reqSchema}"."${tableName}" SET ${setClauses.join(", ")} WHERE "${pkCol}"::text = $${params.length}`, params });
 
-          const tableRes = await getTableDataHtml(tableName, reqSchema, tabId, 1, 25, "");
+          const page = parseInt(body.get("page") || url.searchParams.get("page") || "1", 10);
+          const limit = parseInt(body.get("limit") || url.searchParams.get("limit") || "25", 10);
+          const search = (body.get("q") || url.searchParams.get("q") || "").trim();
+          const sortBy = body.get("sortBy") || url.searchParams.get("sortBy") || undefined;
+          const sortDir = body.get("sortDir") || url.searchParams.get("sortDir") || undefined;
+
+          const tableRes = await getTableDataHtml(tableName, reqSchema, tabId, page, limit, search, undefined, undefined, undefined, sortBy, sortDir);
           const toastDetail = { type: "success", title: "Record Updated", message: `Successfully updated record in ${tableName}.` };
           return new Response(tableRes.html + tableRes.paginationHtml, {
             headers: {

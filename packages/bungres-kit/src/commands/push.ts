@@ -94,9 +94,9 @@ export async function runPush(
 
     p.log.message(pc.bold("Changes to apply:"));
     for (const change of diff.summary) {
-      if (change.startsWith("CREATE") || change.startsWith("ALTER TABLE") && change.includes("ADD")) {
+      if (change.startsWith("CREATE") || (change.startsWith("ALTER TABLE") && change.includes("ADD"))) {
         p.log.success(pc.green(`  + ${change}`));
-      } else if (change.startsWith("DROP") || change.startsWith("ALTER TABLE") && change.includes("DROP")) {
+      } else if (change.startsWith("DROP") || (change.startsWith("ALTER TABLE") && change.includes("DROP"))) {
         p.log.error(pc.red(`  - ${change}`));
       } else {
         p.log.info(pc.blue(`  ~ ${change}`));

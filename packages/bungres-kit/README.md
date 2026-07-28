@@ -55,7 +55,7 @@ bun run bungres --help
 | `bungres refresh`  | Truncate all tables to quickly reset data without dropping schema                  |
 | `bungres seed`     | Execute the seed script, or run the Auto-Seeder using built-in mock fallback       |
 | `bungres studio`   | Start a local web interface to browse database data                                |
-| `bungres tusky`    | Boot up a Node REPL connected to the database with schema loaded                   |
+| `bungres tusky`    | Boot up an interactive REPL connected to the database with schema loaded           |
 | `bungres drop`     | Drop all tables, enums, and views defined in the schema (prompts for confirmation) |
 
 ### Command Line Flags

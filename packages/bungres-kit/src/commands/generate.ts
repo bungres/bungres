@@ -79,7 +79,8 @@ export async function runGenerate(
   const SS = String(now.getUTCSeconds()).padStart(2, "0");
   
   const prefix = `${yyyy}_${mm}_${dd}_${HH}${MM}${SS}`;
-  const folderName = name ? `${prefix}_${name}` : `${prefix}`;
+  const sanitizedName = name ? name.toLowerCase().trim().replace(/[^a-zA-Z0-9_]/g, "_").replace(/_+/g, "_") : "";
+  const folderName = sanitizedName ? `${prefix}_${sanitizedName}` : `${prefix}`;
   const migrationFolder = join(migrationsDir, folderName);
 
   // ── Diff ──────────────────────────────────────────────────────────────────
@@ -144,9 +145,9 @@ export async function runGenerate(
   // ── Prompt for confirmation ───────────────────────────────────────────────
   p.log.message(pc.bold("Schema changes detected:"));
   for (const s of summary) {
-    if (s.startsWith("CREATE") || s.startsWith("ALTER TABLE") && s.includes("ADD")) {
+    if (s.startsWith("CREATE") || (s.startsWith("ALTER TABLE") && s.includes("ADD"))) {
       p.log.success(pc.green(`  + ${s}`));
-    } else if (s.startsWith("DROP") || s.startsWith("ALTER TABLE") && s.includes("DROP")) {
+    } else if (s.startsWith("DROP") || (s.startsWith("ALTER TABLE") && s.includes("DROP"))) {
       p.log.error(pc.red(`  - ${s}`));
     } else {
       p.log.info(pc.blue(`  ~ ${s}`));

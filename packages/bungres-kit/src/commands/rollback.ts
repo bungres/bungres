@@ -40,7 +40,7 @@ export async function runRollback(config: ResolvedConfig): Promise<void> {
 
   try {
     // Fetch last applied migration
-    const applied = await sql.unsafe(`SELECT name FROM ${qualifiedTable} ORDER BY name DESC LIMIT 1`);
+    const applied = await sql.unsafe(`SELECT name FROM ${qualifiedTable} ORDER BY id DESC LIMIT 1`);
     
     if (applied.length === 0) {
       activeSpinner.stop("No migrations to rollback.");

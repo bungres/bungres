@@ -45,7 +45,7 @@ ${pc.yellow("Commands:")}
   refresh       Truncate all tables to quickly reset data without dropping schema
   seed          Execute the seed script to populate the database
   studio        Start a local web interface to browse database data
-  tusky         Boot up a Node REPL connected to the database with schema loaded
+  tusky         Boot up an interactive REPL connected to the database with schema loaded
   drop          Drop all tables defined in the schema (dev only)
 
 ${pc.yellow("Options:")}

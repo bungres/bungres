@@ -4,7 +4,6 @@
   "description": "Type-safe ORM for Postgres using Bun native SQL",
   "license": "MIT",
   "engines": {
-    "node": ">=24.0.0",
     "bun": ">=1.3.0"
   },
   "type": "module",
@@ -42,9 +41,9 @@
   ],
   "scripts": {
     "build:types": "tsc --emitDeclarationOnly",
-    "build": "bun build ./src/index.ts --outdir ./dist --target bun --format esm --minify --sourcemap=external --packages=external && bun run build:types",
+    "build": "rm -rf ./dist && bun build ./src/index.ts --outdir ./dist --target bun --format esm --minify --packages=external && bun run build:types",
     "dev": "bun --watch src/index.ts",
-    "test": "bun test tests"
+    "test": "bun test"
   },
   "devDependencies": {
     "bun-types": "catalog:",
