@@ -4,8 +4,7 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "examples/*",
-    "docs"
+    "examples/*"
   ],
   "scripts": {
     "build": "bun run --filter '*' build",
@@ -13,9 +12,6 @@
     "lint": "bun run --filter '*' lint",
     "test": "bun test",
     "bungres": "bun run packages/bungres-kit/src/cli.ts",
-    "docs:dev": "bun run --cwd docs dev",
-    "docs:build": "bun run --cwd docs build",
-    "docs:check": "bun run --cwd docs types:check",
     "changeset": "changeset",
     "release": "bun run build && bun changeset publish"
   },
