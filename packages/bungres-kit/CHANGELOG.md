@@ -1,5 +1,12 @@
 # @bungres/kit
 
+## 2.2.1
+
+### Patch Changes
+
+- Updated dependencies [ecd4193]
+  - @bungres/orm@1.3.2
+
 ## 2.2.0
 
 ### Minor Changes
