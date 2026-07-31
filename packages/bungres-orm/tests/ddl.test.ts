@@ -204,6 +204,7 @@ describe("Enum DDL", () => {
 const dummyExecutor: QueryExecutor = {
   execute: async () => [],
   executeSingle: async () => null,
+  raw: async () => [],
 };
 
 const usersTable = pgTable("users", {

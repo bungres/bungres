@@ -1,5 +1,5 @@
 import type { SQLChunk } from "./sql.js";
-import { sql, rawSql, colName } from "./sql.js";
+import { sql, rawSql, colName, shiftParams } from "./sql.js";
 import type { ColumnConfig } from "../types/index.js";
 
 export const count = (column?: string | ColumnConfig): SQLChunk<number> => {
@@ -45,7 +45,7 @@ export const over = <T>(agg: SQLChunk<T>, options?: WindowOptions): SQLChunk<T> 
         const currentOffset = offset;
         offset += chunk.params.length;
         params.push(...chunk.params);
-        return chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + currentOffset}`);
+        return shiftParams(chunk.sql, chunk.params.length, currentOffset);
       }
       return colName(p);
     });
@@ -63,7 +63,7 @@ export const over = <T>(agg: SQLChunk<T>, options?: WindowOptions): SQLChunk<T> 
         const currentOffset = offset;
         offset += chunk.params.length;
         params.push(...chunk.params);
-        colSql = chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + currentOffset}`);
+        colSql = shiftParams(chunk.sql, chunk.params.length, currentOffset);
       } else {
         colSql = colName(o.column);
       }

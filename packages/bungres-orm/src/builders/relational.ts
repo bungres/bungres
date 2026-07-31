@@ -1,6 +1,7 @@
 import { parseOrderByObject, parseWhereObject } from "../core/conditions.js";
 import type { OrderByObject, QueryExecutor, WhereCondition } from "../core/query.js";
 import type { SQLChunk } from "../core/sql.js";
+import { shiftParams } from "../core/sql.js";
 import type { ExtractTableRelations, FindManyArgs, FindManyResult, GetColumns, MergeWith, SchemaConfig, TargetTable } from "../types/relations.js";
 import { TableConfigSymbol } from "../utils/constants.js";
 import { getTableConfigSafe, hasTableSymbol } from "../utils/type-guards.js";
@@ -149,7 +150,7 @@ export class RelationalQueryBuilder<
     for (const [colName, col] of Object.entries(tConfig.columns as Record<string, any>)) {
       if (col.references) {
         const ref = col.references;
-        const relName = ref.relationName || ref.table;
+        const relName = ref.relationName || (ones[ref.table] ? colName : ref.table);
         ones[relName] = { targetTable: ref.table, sourceColumn: col.name };
       }
     }
@@ -161,7 +162,7 @@ export class RelationalQueryBuilder<
       for (const [colName, col] of Object.entries(otherConfig.columns as Record<string, any>)) {
         if (col.references && col.references.table === tableName) {
           const ref = col.references;
-          const backRelName = ref.backRelationName || otherName;
+          const backRelName = ref.backRelationName || (manys[otherName] ? `${otherName}_by_${col.name}` : otherName);
           manys[backRelName] = { targetTable: otherName, targetColumn: col.name };
         }
       }
@@ -318,7 +319,7 @@ export class RelationalQueryBuilder<
       }
       
       if (whereChunk && whereChunk.sql) {
-        fromSql += (joinCondition ? " AND " : " WHERE ") + whereChunk.sql.replace(/\$(\d+)/g, (_: string, n: string) => `$${parseInt(n) + offset}`);
+        fromSql += (joinCondition ? " AND " : " WHERE ") + shiftParams(whereChunk.sql, whereChunk.params.length, offset);
         params.push(...whereChunk.params);
       }
     }
@@ -328,7 +329,7 @@ export class RelationalQueryBuilder<
         fromSql += ` ORDER BY ${args.orderBy}`;
       } else if (args.orderBy.sql) {
         const offset = params.length;
-        fromSql += ` ORDER BY ` + args.orderBy.sql.replace(/\$(\d+)/g, (_: string, n: string) => `$${parseInt(n) + offset}`);
+        fromSql += ` ORDER BY ` + shiftParams(args.orderBy.sql, args.orderBy.params.length, offset);
         params.push(...args.orderBy.params);
       } else {
         const chunks = parseOrderByObject(tableConfig, args.orderBy, alias);
@@ -336,7 +337,7 @@ export class RelationalQueryBuilder<
             fromSql += ` ORDER BY ` + chunks.map(c => {
                 const offset = params.length;
                 params.push(...c.params);
-                return c.sql.replace(/\$(\d+)/g, (_: string, n: string) => `$${parseInt(n) + offset}`);
+                return shiftParams(c.sql, c.params.length, offset);
             }).join(", ");
         }
       }

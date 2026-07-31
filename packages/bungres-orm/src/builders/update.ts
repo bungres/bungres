@@ -1,5 +1,5 @@
 import type { QueryExecutor, WhereCondition, WhereObject } from "../core/query.js";
-import { type SQLChunk, sqlJoin, toPgArray } from "../core/sql.js";
+import { type SQLChunk, sqlJoin, toPgArray, shiftParams } from "../core/sql.js";
 import { parseWhereObject } from "../core/conditions.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferTable } from "../types/index.js";
@@ -90,7 +90,7 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
         const chunk = value as SQLChunk;
         const offset = params.length;
         params.push(...chunk.params);
-        return `"${dbCol}" = ${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)}`;
+        return `"${dbCol}" = ${shiftParams(chunk.sql, chunk.params.length, offset)}`;
       }
       if (value && typeof value === "object" && !(value instanceof Date)) {
         const colType = tConfig.columns[key]?.dataType;
@@ -114,7 +114,7 @@ export class UpdateBuilder<TColumns extends Record<string, ColumnConfig>> implem
       const offset = params.length;
       query +=
         " WHERE " +
-        combined.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
+        shiftParams(combined.sql, combined.params.length, offset);
       params.push(...combined.params);
     }
 

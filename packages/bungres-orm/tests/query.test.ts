@@ -7,6 +7,7 @@ import {
 const dummyExecutor: QueryExecutor = {
   execute: async () => [],
   executeSingle: async () => null,
+  raw: async () => [],
 };
 
 // ── Shared test table ───────────────────────────────────────────────────────

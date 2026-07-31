@@ -1,7 +1,7 @@
 import { parseWhereObject } from "../core/conditions.js";
 import type { OrderDir, QueryExecutor, WhereCondition, WhereObject } from "../core/query.js";
 import type { SQLChunk } from "../core/sql.js";
-import { rawSql, sql, sqlJoin } from "../core/sql.js";
+import { rawSql, sql, sqlJoin, shiftParams } from "../core/sql.js";
 import { type Table, type TableConfigImpl, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferColumnType, InferTable } from "../types/index.js";
 import { TableConfigSymbol } from "../utils/constants.js";
@@ -253,7 +253,7 @@ export class SelectBuilder<
           const chunk = col as unknown as SQLChunk;
           const offset = params.length;
           params.push(...chunk.params);
-          parts.push(`'${alias}', ${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)}`);
+          parts.push(`'${alias}', ${shiftParams(chunk.sql, chunk.params.length, offset)}`);
         } else if ("name" in col && "dataType" in col) {
           const c = col as ColumnConfig<any, any, any, any>;
           parts.push(`'${alias}', ${c.tableName ? c.tableName + '.' : ''}"${c.name}"`);
@@ -279,7 +279,7 @@ export class SelectBuilder<
             const chunk = col as unknown as SQLChunk;
             const offset = params.length;
             params.push(...chunk.params);
-            return `${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)} AS "${alias}"`;
+            return `${shiftParams(chunk.sql, chunk.params.length, offset)} AS "${alias}"`;
           } else if (typeof col === "object" && col !== null && "name" in col && "dataType" in col) {
             const c = col as ColumnConfig<any, any, any, any>;
             return `${c.tableName ? c.tableName + '.' : ''}"${c.name}" AS "${alias}"`;
@@ -342,7 +342,7 @@ export class SelectBuilder<
       const joinChunks = this._joins.map((j) => j.chunk);
       const combinedJoins = sqlJoin(joinChunks, " ");
       const offset = params.length;
-      query += " " + combinedJoins.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
+      query += " " + shiftParams(combinedJoins.sql, combinedJoins.params.length, offset);
       params.push(...combinedJoins.params);
     }
 
@@ -351,7 +351,7 @@ export class SelectBuilder<
       const offset = params.length;
       query +=
         " WHERE " +
-        combined.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
+        shiftParams(combined.sql, combined.params.length, offset);
       params.push(...combined.params);
     }
 
@@ -366,7 +366,7 @@ export class SelectBuilder<
           } else if ("sql" in c && "params" in c) {
             const offset = params.length;
             params.push(...c.params);
-            return c.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
+            return shiftParams(c.sql, c.params.length, offset);
           } else {
             return `${c.tableName ? c.tableName + '.' : ''}"${c.name}"`;
           }
@@ -378,7 +378,7 @@ export class SelectBuilder<
       const offset = params.length;
       query +=
         " HAVING " +
-        combined.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
+        shiftParams(combined.sql, combined.params.length, offset);
       params.push(...combined.params);
     }
 
@@ -393,7 +393,7 @@ export class SelectBuilder<
           } else if ("sql" in o.column && "params" in o.column) {
             const offset = params.length;
             params.push(...o.column.params);
-            return `${o.column.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)} ${o.dir.toUpperCase()}`;
+            return `${shiftParams(o.column.sql, o.column.params.length, offset)} ${o.dir.toUpperCase()}`;
           } else {
             return `${o.column.tableName ? o.column.tableName + '.' : ''}"${o.column.name}" ${o.dir.toUpperCase()}`;
           }
@@ -415,7 +415,7 @@ export class SelectBuilder<
         const chunk = op.builder.toSQL();
         const offset = params.length;
         params.push(...chunk.params);
-        query += ` ${op.type} ${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)}`;
+        query += ` ${op.type} ${shiftParams(chunk.sql, chunk.params.length, offset)}`;
       }
     }
 

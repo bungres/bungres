@@ -21,10 +21,20 @@ export function shiftParams(sql: string, paramsLength: number, offset: number): 
   let i = 0;
   while (i < sql.length) {
     if (sql[i] === "'" && !inIdent) {
+      if (inString && sql[i + 1] === "'") {
+        result += "''";
+        i += 2;
+        continue;
+      }
       inString = !inString;
       result += sql[i];
       i++;
     } else if (sql[i] === '"' && !inString) {
+      if (inIdent && sql[i + 1] === '"') {
+        result += '""';
+        i += 2;
+        continue;
+      }
       inIdent = !inIdent;
       result += sql[i];
       i++;

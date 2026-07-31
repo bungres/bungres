@@ -1,5 +1,5 @@
 import type { QueryExecutor } from "../core/query.js";
-import { type SQLChunk, toPgArray } from "../core/sql.js";
+import { type SQLChunk, toPgArray, shiftParams } from "../core/sql.js";
 import { type Table, getTableConfig } from "../schema/table.js";
 import type { ColumnConfig, InferInsert, InferTable } from "../types/index.js";
 import { applyComment, buildCtePrefix, buildReturningClause } from "../utils/sql-builder.js";
@@ -127,7 +127,7 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
           const chunk = val as SQLChunk;
           const offset = params.length;
           params.push(...chunk.params);
-          return chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
+          return shiftParams(chunk.sql, chunk.params.length, offset);
         }
         if (val && typeof val === "object" && !(val instanceof Date)) {
           const colType = tConfig.columns[k]?.dataType;
@@ -154,7 +154,7 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
         query += " ON CONFLICT DO NOTHING";
       } else {
         const offset = params.length;
-        query += " " + this._onConflict.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`);
+        query += " " + shiftParams(this._onConflict.sql, this._onConflict.params.length, offset);
         params.push(...this._onConflict.params);
       }
     } else if (this._onConflictUpdateConfig) {
@@ -166,7 +166,7 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
           targetStrs.push(`"${tConfig.columns[t]?.name ?? t}"`);
         } else {
           const offset = params.length;
-          targetStrs.push(t.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`));
+          targetStrs.push(shiftParams(t.sql, t.params.length, offset));
           params.push(...t.params);
         }
       }
@@ -180,7 +180,7 @@ export class InsertBuilder<TColumns extends Record<string, ColumnConfig>> implem
           const chunk = value as SQLChunk;
           const offset = params.length;
           params.push(...chunk.params);
-          return `"${dbCol}" = ${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)}`;
+          return `"${dbCol}" = ${shiftParams(chunk.sql, chunk.params.length, offset)}`;
         }
         if (value && typeof value === "object" && !(value instanceof Date)) {
           const colType = tConfig.columns[key]?.dataType;

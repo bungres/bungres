@@ -4,6 +4,7 @@ import type { InferColumnType, ColumnConfig } from "../types/index.js";
 export interface QueryExecutor {
   execute<T>(builder: { toSQL(): SQLChunk } | SQLChunk): Promise<T[]>;
   executeSingle<T>(builder: { toSQL(): SQLChunk } | SQLChunk): Promise<T | null>;
+  raw<T = Record<string, unknown>>(query: string, params?: unknown[]): Promise<T[]>;
 }
 
 export type WhereObject<TColumns extends Record<string, ColumnConfig<any, any, any, any>>> = {

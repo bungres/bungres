@@ -58,7 +58,10 @@ export const isNull = (column: string | ColumnConfig | SQLChunk): SQLChunk =>
 export const isNotNull = (column: string | ColumnConfig | SQLChunk): SQLChunk =>
   rawSql(`${colName(column)} IS NOT NULL`);
 
-export const inArray = (column: string | ColumnConfig, values: unknown[] | { toSQL(): SQLChunk }): SQLChunk => {
+export const inArray = (column: string | ColumnConfig, values: unknown[] | { toSQL(): SQLChunk } | SQLChunk): SQLChunk => {
+  if (isSQLChunk(values)) {
+    return sql`${rawSql(colName(column))} IN (${values})`;
+  }
   if (typeof values === "object" && values !== null && "toSQL" in values) {
     return sql`${rawSql(colName(column))} IN (${values.toSQL()})`;
   }
@@ -69,7 +72,10 @@ export const inArray = (column: string | ColumnConfig, values: unknown[] | { toS
   return { sql: `${colName(column)} IN (${placeholders})`, params };
 };
 
-export const notInArray = (column: string | ColumnConfig, values: unknown[] | { toSQL(): SQLChunk }): SQLChunk => {
+export const notInArray = (column: string | ColumnConfig, values: unknown[] | { toSQL(): SQLChunk } | SQLChunk): SQLChunk => {
+  if (isSQLChunk(values)) {
+    return sql`${rawSql(colName(column))} NOT IN (${values})`;
+  }
   if (typeof values === "object" && values !== null && "toSQL" in values) {
     return sql`${rawSql(colName(column))} NOT IN (${values.toSQL()})`;
   }
@@ -99,6 +105,7 @@ export const and = (...conditions: SQLChunk[]): SQLChunk =>
   sqlJoin(conditions, " AND ");
 
 export const or = (...conditions: SQLChunk[]): SQLChunk => {
+  if (conditions.length === 0) return rawSql("FALSE");
   const joined = sqlJoin(conditions, " OR ");
   return { sql: `(${joined.sql})`, params: joined.params };
 };
@@ -140,7 +147,9 @@ export function parseWhereObject(tableConfig: TableConfig, whereObj: WhereObject
       ? (alias ? { ...colConfig, tableName: alias } : colConfig) 
       : (alias ? { name: key, tableName: alias } : key)) as unknown as ColumnConfig;
 
-    if (val !== null && typeof val === "object" && !Array.isArray(val) && !(val instanceof Date) && !(val instanceof Uint8Array)) {
+    if (isSQLChunk(val)) {
+      conditions.push(eq(columnArg, val));
+    } else if (val !== null && typeof val === "object" && !Array.isArray(val) && !(val instanceof Date) && !(val instanceof Uint8Array)) {
       const opVal = val as Record<string, unknown>;
       if (opVal.eq !== undefined) conditions.push(eq(columnArg, opVal.eq));
       if (opVal.ne !== undefined) conditions.push(ne(columnArg, opVal.ne));

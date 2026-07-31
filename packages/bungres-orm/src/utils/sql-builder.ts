@@ -1,5 +1,6 @@
 import type { CTEBuilder } from "../builders/cte.js";
 import type { TableConfig } from "../types/index.js";
+import { shiftParams } from "../core/sql.js";
 
 /** Format CTE definitions into a WITH clause and shift parameter placeholders */
 export function buildCtePrefix(ctes: CTEBuilder[], params: unknown[]): string {
@@ -10,7 +11,7 @@ export function buildCtePrefix(ctes: CTEBuilder[], params: unknown[]): string {
     const chunk = cte.query.toSQL();
     const offset = params.length;
     params.push(...chunk.params);
-    cteStrs.push(`"${cte.alias}" AS (${chunk.sql.replace(/\$(\d+)/g, (_, n) => `$${parseInt(n) + offset}`)})`);
+    cteStrs.push(`"${cte.alias}" AS (${shiftParams(chunk.sql, chunk.params.length, offset)})`);
   }
   return `WITH ${cteStrs.join(", ")} `;
 }
