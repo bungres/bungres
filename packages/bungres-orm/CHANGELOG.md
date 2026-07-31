@@ -1,5 +1,11 @@
 # @bungres/orm
 
+## 1.3.2
+
+### Patch Changes
+
+- ecd4193: Add `raw` method definition to `QueryExecutor` interface to align with `BaseQueryExecutor` implementation.
+
 ## 1.3.1
 
 ### Patch Changes
